@@ -1,0 +1,190 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>EduManage Pro</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+      tailwind.config = {
+        darkMode: 'class',
+        theme: {
+          extend: {
+            colors: {
+              indigo: {
+                50: '#f5f7ff',
+                100: '#ebf0fe',
+                200: '#ced9fd',
+                300: '#b1c2fb',
+                400: '#7695f8',
+                500: '#3b67f5',
+                600: '#355ddd',
+                700: '#2c4eb8',
+                800: '#233e93',
+                900: '#1d3378',
+                950: '#111e47',
+              },
+            }
+          }
+        }
+      }
+    </script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
+    <style>
+        body { 
+          font-family: 'Inter', sans-serif; 
+          overflow-x: hidden; 
+          transition: background-color 0.3s ease, color 0.3s ease;
+        }
+        
+        .dark body {
+          background-color: #020617; /* Slate-950 */
+          color: #f1f5f9; /* Slate-100 */
+        }
+
+        @keyframes rainbow-flow {
+            0% { background-position: 0% 50%; }
+            50% { background-position: 100% 50%; }
+            100% { background-position: 0% 50%; }
+        }
+
+        @keyframes mesh-gradient {
+            0% { background-position: 0% 0%; }
+            50% { background-position: 100% 100%; }
+            100% { background-position: 0% 0%; }
+        }
+
+        @keyframes float-particle {
+            0% { transform: translateY(0px) translateX(0px) rotate(0deg); opacity: 0; }
+            10% { opacity: 0.3; }
+            90% { opacity: 0.3; }
+            100% { transform: translateY(-100vh) translateX(50px) rotate(360deg); opacity: 0; }
+        }
+
+        @keyframes heart-beat {
+            0%, 100% { transform: scale(1); }
+            50% { transform: scale(1.05); }
+        }
+
+        @keyframes scan-line {
+            0% { top: 0%; }
+            100% { top: 100%; }
+        }
+
+        .scanner-line {
+            position: absolute;
+            width: 100%;
+            height: 2px;
+            background: rgba(239, 68, 68, 0.5);
+            box-shadow: 0 0 15px 2px rgba(239, 68, 68, 0.8);
+            animation: scan-line 2s linear infinite;
+        }
+
+        .dashboard-rainbow-bg {
+            position: relative;
+            background: linear-gradient(
+                125deg, 
+                rgba(99, 102, 241, 0.2) 0%, 
+                rgba(16, 185, 129, 0.2) 25%, 
+                rgba(245, 158, 11, 0.2) 50%, 
+                rgba(239, 68, 68, 0.2) 75%, 
+                rgba(139, 92, 246, 0.2) 100%
+            );
+            background-size: 400% 400%;
+            animation: mesh-gradient 15s ease infinite;
+            overflow: hidden;
+        }
+
+        .dark .dashboard-rainbow-bg {
+            background: linear-gradient(
+                125deg, 
+                rgba(30, 27, 75, 0.8) 0%, 
+                rgba(6, 78, 59, 0.4) 25%, 
+                rgba(120, 53, 15, 0.4) 50%, 
+                rgba(153, 27, 27, 0.4) 75%, 
+                rgba(76, 29, 149, 0.4) 100%
+            );
+        }
+
+        /* Floating decoration for kids */
+        .floating-icon {
+            position: absolute;
+            pointer-events: none;
+            z-index: 0;
+            color: rgba(99, 102, 241, 0.1);
+            animation: float-particle 15s linear infinite;
+        }
+
+        .rainbow-text {
+            background: linear-gradient(to right, #6366f1, #10b981, #f59e0b, #ef4444, #8b5cf6, #6366f1);
+            background-size: 200% auto;
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            animation: rainbow-flow 4s linear infinite;
+        }
+
+        .rainbow-border {
+            position: relative;
+            background: white;
+            background-clip: padding-box;
+            border: 2px solid transparent;
+        }
+
+        .dark .rainbow-border {
+            background: #0f172a; /* Slate-900 */
+        }
+
+        .rainbow-border::before {
+            content: '';
+            position: absolute;
+            top: 0; right: 0; bottom: 0; left: 0;
+            z-index: -1;
+            margin: -2px;
+            border-radius: inherit;
+            background: linear-gradient(to right, #6366f1, #10b981, #f59e0b, #ef4444, #8b5cf6, #6366f1);
+            background-size: 200% auto;
+            animation: rainbow-flow 4s linear infinite;
+        }
+
+        .rainbow-glow:hover {
+            box-shadow: 0 0 35px rgba(99, 102, 241, 0.3), 0 0 65px rgba(16, 185, 129, 0.2);
+            transform: translateY(-5px) scale(1.02);
+            transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+        }
+
+        .bouncy-hover:hover {
+            animation: heart-beat 0.6s ease-in-out infinite;
+        }
+
+        @media print {
+            .no-print { display: none !important; }
+            .print-only { display: block !important; }
+            body { background: white !important; }
+        }
+
+        .print-only { display: none; }
+        
+        .custom-scrollbar::-webkit-scrollbar { width: 6px; }
+        .custom-scrollbar::-webkit-scrollbar-track { background: transparent; }
+        .custom-scrollbar::-webkit-scrollbar-thumb { background: #e2e8f0; border-radius: 10px; }
+        .dark .custom-scrollbar::-webkit-scrollbar-thumb { background: #1e293b; }
+    </style>
+<script type="importmap">
+{
+  "imports": {
+    "react": "https://esm.sh/react@^19.2.3",
+    "react-dom/": "https://esm.sh/react-dom@^19.2.3/",
+    "react/": "https://esm.sh/react@^19.2.3/",
+    "react-router-dom": "https://esm.sh/react-router-dom@^7.11.0",
+    "recharts": "https://esm.sh/recharts@^3.6.0",
+    "lucide-react": "https://esm.sh/lucide-react@^0.562.0",
+    "jsqr": "https://esm.sh/jsqr@1.4.0"
+  }
+}
+</script>
+</head>
+<body class="bg-slate-50 text-slate-900 dark:bg-slate-950 dark:text-slate-100">
+    <div id="root"></div>
+</body>
+</html>
