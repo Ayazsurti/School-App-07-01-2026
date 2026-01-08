@@ -1,5 +1,5 @@
-
 import { User } from '../types';
+import { supabase } from '../supabase';
 
 export type AuditAction = 'CREATE' | 'UPDATE' | 'DELETE' | 'LOGIN' | 'EXPORT' | 'PAYMENT';
 
@@ -13,15 +13,18 @@ export interface AuditEntry {
   details: string;
 }
 
-export const createAuditLog = (user: User, action: AuditAction, module: string, details: string) => {
-  const logs: AuditEntry[] = JSON.parse(localStorage.getItem('school_audit_logs') || '[]');
+export const createAuditLog = async (user: User, action: AuditAction, module: string, details: string) => {
+  // Local Backup
+  const localLogs: AuditEntry[] = JSON.parse(localStorage.getItem('school_audit_logs') || '[]');
   
+  const timestampStr = new Date().toLocaleString('en-GB', { 
+    day: '2-digit', month: 'short', year: 'numeric', 
+    hour: '2-digit', minute: '2-digit', hour12: true 
+  }).replace(',', ' at');
+
   const newEntry: AuditEntry = {
     id: Math.random().toString(36).substr(2, 9),
-    timestamp: new Date().toLocaleString('en-GB', { 
-      day: '2-digit', month: 'short', year: 'numeric', 
-      hour: '2-digit', minute: '2-digit', hour12: true 
-    }).replace(',', ' at'),
+    timestamp: timestampStr,
     user: user.name,
     role: user.role,
     action,
@@ -29,10 +32,29 @@ export const createAuditLog = (user: User, action: AuditAction, module: string, 
     details
   };
 
-  const updatedLogs = [newEntry, ...logs].slice(0, 1000); // Keep last 1000 entries
+  const updatedLogs = [newEntry, ...localLogs].slice(0, 1000); 
   localStorage.setItem('school_audit_logs', JSON.stringify(updatedLogs));
   
-  // Dispatch event for components listening to storage
+  // Supabase Persistence
+  try {
+    const { error } = await supabase
+      .from('school_audit_logs')
+      .insert([
+        {
+          timestamp: timestampStr,
+          user: user.name,
+          role: user.role,
+          action,
+          module,
+          details
+        }
+      ]);
+      
+    if (error) console.warn("Supabase Log Error:", error.message);
+  } catch (err) {
+    console.error("Audit Sync Failed:", err);
+  }
+  
   window.dispatchEvent(new Event('storage'));
 };
 
