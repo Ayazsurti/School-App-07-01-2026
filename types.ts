@@ -29,6 +29,11 @@ export interface Student extends User {
   class: string;
   section: string;
   rollNo: string;
+
+  // Extended Details
+  dateOfAdmission?: string;
+  dateOfBirth?: string;
+  remarks?: string;
 }
 
 export interface Teacher extends User {

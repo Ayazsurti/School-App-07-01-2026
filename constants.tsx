@@ -36,6 +36,7 @@ export const NAVIGATION = {
     { name: 'ID Card Gen', icon: <Contact size={20} />, path: '/admin/id-cards' },
     { name: 'Teachers', icon: <UserCheck size={20} />, path: '/admin/teachers' },
     { name: 'Homework', icon: <PencilRuler size={20} />, path: '/admin/homework' },
+    { name: 'Curriculum', icon: <BookOpen size={20} />, path: '/admin/curriculum' },
     { name: 'Attendance', icon: <CalendarCheck size={20} />, path: '/admin/attendance' },
     { name: 'Timetable', icon: <CalendarDays size={20} />, path: '/admin/timetable' },
     { name: 'Food Chart', icon: <UtensilsCrossed size={20} />, path: '/admin/food-chart' },
@@ -47,7 +48,6 @@ export const NAVIGATION = {
     { name: 'Fee Ledger', icon: <SearchCode size={20} />, path: '/admin/fees/search' },
     { name: 'Exams', icon: <ClipboardList size={20} />, path: '/admin/exams' },
     { name: 'Marksheets', icon: <FileSpreadsheet size={20} />, path: '/admin/marksheet' },
-    { name: 'Curriculum', icon: <BookOpen size={20} />, path: '/admin/curriculum' },
     { name: 'Gallery', icon: <Images size={20} />, path: '/admin/gallery' },
     { name: 'Notice Board', icon: <Bell size={20} />, path: '/admin/notices' },
     { name: 'Audit Logs', icon: <History size={20} />, path: '/admin/audit' },
@@ -55,21 +55,21 @@ export const NAVIGATION = {
   TEACHER: [
     { name: 'Dashboard', icon: <LayoutDashboard size={20} />, path: '/teacher/dashboard' },
     { name: 'Attendance', icon: <CalendarCheck size={20} />, path: '/teacher/attendance' },
+    { name: 'Curriculum', icon: <BookOpen size={20} />, path: '/teacher/curriculum' },
     { name: 'Homework', icon: <PencilRuler size={20} />, path: '/teacher/homework' },
     { name: 'Timetable', icon: <CalendarDays size={20} />, path: '/teacher/timetable' },
     { name: 'Food Chart', icon: <UtensilsCrossed size={20} />, path: '/teacher/food-chart' },
     { name: 'SMS Panel', icon: <MessageSquareQuote size={20} />, path: '/teacher/sms' },
-    { name: 'Curriculum', icon: <BookOpen size={20} />, path: '/teacher/curriculum' },
     { name: 'Notices', icon: <Bell size={20} />, path: '/teacher/notices' },
   ],
   STUDENT: [
     { name: 'Dashboard', icon: <LayoutDashboard size={20} />, path: '/student/dashboard' },
     { name: 'Attendance', icon: <CalendarCheck size={20} />, path: '/student/attendance' },
+    { name: 'Curriculum', icon: <BookOpen size={20} />, path: '/student/curriculum' },
     { name: 'Homework', icon: <PencilRuler size={20} />, path: '/student/homework' },
     { name: 'Food Chart', icon: <UtensilsCrossed size={20} />, path: '/student/food-chart' },
     { name: 'Fees', icon: <CreditCard size={20} />, path: '/student/fees' },
     { name: 'Timetable', icon: <CalendarDays size={20} />, path: '/student/timetable' },
-    { name: 'Curriculum', icon: <BookOpen size={20} />, path: '/student/curriculum' },
   ]
 };
 

@@ -46,7 +46,6 @@ import MarksEntry from './pages/MarksEntry';
 import MarksSetup from './pages/MarksSetup';
 import MarksheetGenerator from './pages/MarksheetGenerator';
 import FeesManager from './pages/FeesManager';
-import Curriculum from './pages/Curriculum';
 import Homework from './pages/Homework';
 import FoodChart from './pages/FoodChart';
 import SMSPanel from './pages/SMSPanel';
@@ -63,6 +62,7 @@ import GeneralReceipt from './pages/GeneralReceipt';
 import FeeSearch from './pages/FeeSearch';
 import IdCardGenerator from './pages/IdCardGenerator';
 import AuditLog from './pages/AuditLog';
+import Curriculum from './pages/Curriculum';
 import { APP_NAME, NAVIGATION, MOCK_TEACHERS } from './constants';
 
 const App: React.FC = () => {
@@ -194,6 +194,7 @@ const Layout: React.FC<LayoutProps> = ({ user, onLogout, onUpdateUser, schoolLog
 
   const allNavItems = useMemo(() => {
     const baseNav = (NAVIGATION as any)[user.role] || [];
+    // Combine saved order with any missing items (in case navigation was updated)
     const ordered = [...navOrder]
       .map(name => baseNav.find((n: any) => n.name === name))
       .filter(Boolean);
@@ -218,15 +219,13 @@ const Layout: React.FC<LayoutProps> = ({ user, onLogout, onUpdateUser, schoolLog
     });
   };
 
-  const reorderNavItem = (index: number, direction: 'UP' | 'DOWN') => {
+  const handleMoveNavItem = (fromIndex: number, toIndex: number) => {
     const newOrder = [...allNavItems.map(n => n.name)];
-    const targetIndex = direction === 'UP' ? index - 1 : index + 1;
+    const [movedItem] = newOrder.splice(fromIndex, 1);
+    newOrder.splice(toIndex, 0, movedItem);
     
-    if (targetIndex >= 0 && targetIndex < newOrder.length) {
-      [newOrder[index], newOrder[targetIndex]] = [newOrder[targetIndex], newOrder[index]];
-      setNavOrder(newOrder);
-      localStorage.setItem(`nav_order_${user.role}`, JSON.stringify(newOrder));
-    }
+    setNavOrder(newOrder);
+    localStorage.setItem(`nav_order_${user.role}`, JSON.stringify(newOrder));
   };
 
   const triggerLogout = () => {
@@ -272,7 +271,7 @@ const Layout: React.FC<LayoutProps> = ({ user, onLogout, onUpdateUser, schoolLog
           items={allNavItems}
           hiddenItems={hiddenNavItems}
           onToggleVisibility={toggleNavVisibility}
-          onReorder={reorderNavItem}
+          onMove={handleMoveNavItem}
           onClose={() => setShowCustomizeModal(false)}
         />
       )}
@@ -349,6 +348,7 @@ const Layout: React.FC<LayoutProps> = ({ user, onLogout, onUpdateUser, schoolLog
             <Route path="/admin/id-cards" element={<IdCardGenerator user={user} schoolLogo={schoolLogo} />} />
             <Route path="/admin/teachers" element={<RecordsManager type="TEACHER" />} />
             <Route path="/admin/homework" element={<Homework user={user} />} />
+            <Route path="/admin/curriculum" element={<Curriculum user={user} />} />
             <Route path="/admin/attendance" element={<Attendance user={user} />} />
             <Route path="/admin/timetable" element={<Timetable user={user} />} />
             <Route path="/admin/marks-setup" element={<MarksSetup user={user} />} />
@@ -362,28 +362,29 @@ const Layout: React.FC<LayoutProps> = ({ user, onLogout, onUpdateUser, schoolLog
             <Route path="/admin/fees/receipt-config" element={<ReceiptSetup user={user} />} />
             <Route path="/admin/fees/general-receipt" element={<GeneralReceipt user={user} schoolLogo={schoolLogo} />} />
             <Route path="/admin/fees/search" element={<FeeSearch user={user} schoolLogo={schoolLogo} />} />
-            <Route path="/admin/curriculum" element={<Curriculum user={user} />} />
             <Route path="/admin/gallery" element={<MediaGallery user={user} />} />
             <Route path="/admin/notices" element={<NoticeBoard user={user} />} />
             <Route path="/admin/audit" element={<AuditLog user={user} />} />
+            
             <Route path="/teacher/dashboard" element={<Dashboard user={user} schoolLogo={schoolLogo} onUpdateLogo={onUpdateLogo} />} />
             <Route path="/teacher/attendance" element={<Attendance user={user} />} />
+            <Route path="/teacher/curriculum" element={<Curriculum user={user} />} />
             <Route path="/teacher/homework" element={<Homework user={user} />} />
             <Route path="/teacher/timetable" element={<Timetable user={user} />} />
             <Route path="/teacher/food-chart" element={<FoodChart user={user} />} />
             <Route path="/teacher/sms" element={<SMSPanel user={user} />} />
             <Route path="/teacher/marks" element={<MarksEntry user={user} />} />
             <Route path="/teacher/marksheet" element={<MarksheetGenerator user={user} schoolLogo={schoolLogo} />} />
-            <Route path="/teacher/curriculum" element={<Curriculum user={user} />} />
             <Route path="/teacher/notices" element={<NoticeBoard user={user} />} />
+            
             <Route path="/student/dashboard" element={<Dashboard user={user} schoolLogo={schoolLogo} onUpdateLogo={onUpdateLogo} />} />
             <Route path="/student/attendance" element={<Attendance user={user} />} />
+            <Route path="/student/curriculum" element={<Curriculum user={user} />} />
             <Route path="/student/homework" element={<Homework user={user} />} />
             <Route path="/student/food-chart" element={<FoodChart user={user} />} />
             <Route path="/student/timetable" element={<Timetable user={user} />} />
             <Route path="/student/marksheet" element={<MarksheetGenerator user={user} schoolLogo={schoolLogo} />} />
             <Route path="/student/fees" element={<FeesManager user={user} />} />
-            <Route path="/student/curriculum" element={<Curriculum user={user} />} />
           </Routes>
         </main>
       </div>
@@ -447,31 +448,61 @@ interface CustomizeSidebarModalProps {
   items: any[];
   hiddenItems: string[];
   onToggleVisibility: (name: string) => void;
-  onReorder: (index: number, direction: 'UP' | 'DOWN') => void;
+  onMove: (fromIndex: number, toIndex: number) => void;
   onClose: () => void;
 }
 
-const CustomizeSidebarModal: React.FC<CustomizeSidebarModalProps> = ({ items, hiddenItems, onToggleVisibility, onReorder, onClose }) => {
+const CustomizeSidebarModal: React.FC<CustomizeSidebarModalProps> = ({ items, hiddenItems, onToggleVisibility, onMove, onClose }) => {
+  const [draggedIndex, setDraggedIndex] = useState<number | null>(null);
+
+  const handleDragStart = (idx: number) => {
+    setDraggedIndex(idx);
+  };
+
+  const handleDragOver = (e: React.DragEvent, idx: number) => {
+    e.preventDefault();
+  };
+
+  const handleDrop = (toIndex: number) => {
+    if (draggedIndex !== null && draggedIndex !== toIndex) {
+      onMove(draggedIndex, toIndex);
+    }
+    setDraggedIndex(null);
+  };
+
   return (
     <div className="fixed inset-0 z-[150] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-in fade-in">
       <div className="bg-white dark:bg-slate-900 rounded-[2.5rem] p-1 shadow-2xl max-w-lg w-full max-h-[80vh] flex flex-col animate-in zoom-in-95 overflow-hidden">
         <div className="p-8 border-b border-slate-100 dark:border-slate-800 flex justify-between items-center bg-slate-50/50 dark:bg-slate-800/30">
           <div>
             <h3 className="text-xl font-black text-slate-900 dark:text-white uppercase tracking-tight">Customize Menu</h3>
-            <p className="text-xs text-slate-500 dark:text-slate-400 font-medium">Reorder or hide navigation modules.</p>
+            <p className="text-xs text-slate-500 dark:text-slate-400 font-medium">Hold and drag the handles to reorder sidebar entries.</p>
           </div>
           <button onClick={onClose} className="p-2 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-full text-slate-400"><X size={20} /></button>
         </div>
-        <div className="flex-1 overflow-y-auto p-6 space-y-2 custom-scrollbar">
+        <div className="flex-1 overflow-y-auto p-6 space-y-3 custom-scrollbar">
           {items.map((item, idx) => (
-            <div key={item.name} className="flex items-center gap-4 p-4 bg-slate-50 dark:bg-slate-800/50 rounded-2xl border border-slate-100 dark:border-slate-700 group">
-              <div className="flex flex-col gap-1">
-                <button onClick={() => onReorder(idx, 'UP')} disabled={idx === 0} className="text-slate-300 hover:text-indigo-500 disabled:opacity-0"><ChevronUp size={16} /></button>
-                <button onClick={() => onReorder(idx, 'DOWN')} disabled={idx === items.length - 1} className="text-slate-300 hover:text-indigo-500 disabled:opacity-0"><ChevronDown size={16} /></button>
+            <div 
+              key={item.name} 
+              draggable
+              onDragStart={() => handleDragStart(idx)}
+              onDragOver={(e) => handleDragOver(e, idx)}
+              onDrop={() => handleDrop(idx)}
+              className={`flex items-center gap-4 p-4 bg-slate-50 dark:bg-slate-800/50 rounded-2xl border border-slate-100 dark:border-slate-700 transition-all ${draggedIndex === idx ? 'opacity-40 border-indigo-500 scale-95' : 'hover:border-indigo-200 dark:hover:border-indigo-800'}`}
+            >
+              <div className="cursor-grab active:cursor-grabbing p-2 text-slate-300 dark:text-slate-600 hover:text-indigo-500 transition-colors">
+                <GripVertical size={20} />
               </div>
-              <div className="w-10 h-10 bg-white dark:bg-slate-800 rounded-xl flex items-center justify-center text-indigo-600 dark:text-indigo-400 shadow-sm border border-slate-100 dark:border-slate-700">{item.icon}</div>
-              <div className="flex-1 min-w-0"><p className="text-xs font-black text-slate-800 dark:text-white uppercase tracking-widest truncate">{item.name}</p></div>
-              <button onClick={() => onToggleVisibility(item.name)} className={`p-2.5 rounded-xl transition-all ${hiddenItems.includes(item.name) ? 'bg-rose-50 text-rose-500' : 'bg-emerald-50 text-emerald-600'}`}>
+              <div className="w-10 h-10 bg-white dark:bg-slate-800 rounded-xl flex items-center justify-center text-indigo-600 dark:text-indigo-400 shadow-sm border border-slate-100 dark:border-slate-700">
+                {item.icon}
+              </div>
+              <div className="flex-1 min-w-0">
+                <p className="text-xs font-black text-slate-800 dark:text-white uppercase tracking-widest truncate">{item.name}</p>
+              </div>
+              <button 
+                onClick={() => onToggleVisibility(item.name)} 
+                className={`p-2.5 rounded-xl transition-all ${hiddenItems.includes(item.name) ? 'bg-rose-50 text-rose-500' : 'bg-emerald-50 text-emerald-600'}`}
+              >
                 {hiddenItems.includes(item.name) ? <EyeOff size={18} /> : <Eye size={18} />}
               </button>
             </div>
@@ -558,7 +589,7 @@ const RecordsManager: React.FC<{ type: 'TEACHER' }> = ({ type }) => {
 
       {showModal && (
         <div className="fixed inset-0 z-[150] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-in fade-in">
-          <form onSubmit={handleSave} className="bg-white dark:bg-slate-900 rounded-[2.5rem] p-10 max-w-md w-full shadow-2xl space-y-6">
+          <form onSubmit={handleSave} className="bg-white dark:bg-slate-900 rounded-[2.5rem] p-10 max-md w-full shadow-2xl space-y-6">
             <h3 className="text-xl font-black text-slate-900 dark:text-white uppercase">{editingId ? 'Edit Faculty' : 'New Faculty'}</h3>
             <div className="space-y-4">
               <input type="text" placeholder="Full Name" required value={formData.name} onChange={e => setFormData({...formData, name: e.target.value})} className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl px-4 py-3 font-bold dark:text-white" />

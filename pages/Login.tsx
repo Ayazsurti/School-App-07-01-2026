@@ -2,7 +2,6 @@ import React, { useState } from 'react';
 import { User, UserRole } from '../types';
 import { ShieldCheck, User as UserIcon, GraduationCap, Lock, UserCircle, Eye, EyeOff, School, AlertCircle } from 'lucide-react';
 import { APP_NAME } from '../constants';
-import { supabase } from '../supabase';
 import { createAuditLog } from '../utils/auditLogger';
 
 interface LoginProps {
@@ -23,7 +22,7 @@ const Login: React.FC<LoginProps> = ({ onLogin, schoolLogo }) => {
     setLoading(true);
     setError(null);
     
-    // Requested Credentials Fallback
+    // Institutional Registry Credentials
     const VALID_CREDENTIALS = [
       { role: 'ADMIN', user: 'Ayazsurti', pass: 'Ayaz78692', name: 'Ayaz Surti' },
       { role: 'ADMIN', user: 'Zuber', pass: 'Zuber@1993', name: 'Zuber Shaikh' },
@@ -32,29 +31,9 @@ const Login: React.FC<LoginProps> = ({ onLogin, schoolLogo }) => {
     ];
 
     try {
-      // 1. Check Supabase Users First (if users table exists)
-      const { data: remoteUser, error: remoteError } = await supabase
-        .from('users_registry')
-        .select('*')
-        .eq('username', username)
-        .eq('password', password)
-        .eq('role', role)
-        .single();
+      // Simulate network delay
+      await new Promise(resolve => setTimeout(resolve, 800));
 
-      if (remoteUser && !remoteError) {
-        const authenticatedUser: User = {
-          id: remoteUser.id,
-          name: remoteUser.full_name || remoteUser.username,
-          email: remoteUser.email || `${username}@school.com`,
-          role: remoteUser.role as UserRole,
-        };
-        createAuditLog(authenticatedUser, 'LOGIN', 'Auth', 'User logged in via Supabase');
-        onLogin(authenticatedUser);
-        setLoading(false);
-        return;
-      }
-
-      // 2. Check Static Credentials requested by User
       const target = VALID_CREDENTIALS.find(c => 
         c.role === role && 
         c.user === username && 
@@ -62,20 +41,20 @@ const Login: React.FC<LoginProps> = ({ onLogin, schoolLogo }) => {
       );
       
       if (target) {
-        const mockUser: User = {
+        const authenticatedUser: User = {
           id: Math.random().toString(36).substr(2, 9),
           name: target.name,
           email: `${target.user}@${APP_NAME.toLowerCase().replace(/\s+/g, '')}.com`,
           role,
         };
-        createAuditLog(mockUser, 'LOGIN', 'Auth', 'User logged in via Static Bypass');
-        onLogin(mockUser);
+        createAuditLog(authenticatedUser, 'LOGIN', 'Auth', 'Identity verified via Institutional Registry');
+        onLogin(authenticatedUser);
       } else {
         setError(`Access Denied: Incorrect credentials for ${role.toLowerCase()}. Please check your username and password.`);
       }
     } catch (err) {
       console.error("Login Engine Error:", err);
-      setError("Portal Connection Timeout. Please check your network and Supabase configuration.");
+      setError("Portal Connection Timeout. Please try again.");
     } finally {
       setLoading(false); 
     }
@@ -109,7 +88,7 @@ const Login: React.FC<LoginProps> = ({ onLogin, schoolLogo }) => {
         <div className="bg-white dark:bg-slate-900 p-8 rounded-[2.5rem] shadow-2xl shadow-slate-200/50 dark:shadow-none border border-slate-100 dark:border-slate-800 transition-colors">
           <div className="mb-8">
             <h2 className="text-xl font-bold text-slate-800 dark:text-white">Authorized Access</h2>
-            <p className="text-slate-400 dark:text-slate-500 text-sm font-medium">Verify credentials via Supabase Backend.</p>
+            <p className="text-slate-400 dark:text-slate-500 text-sm font-medium">Verify your institutional identity.</p>
           </div>
 
           <div className="grid grid-cols-3 gap-2 mb-8 p-1.5 bg-slate-100/80 dark:bg-slate-800 rounded-2xl border border-slate-200/50 dark:border-slate-700">
@@ -204,7 +183,7 @@ const Login: React.FC<LoginProps> = ({ onLogin, schoolLogo }) => {
         </div>
         
         <p className="text-center mt-8 text-slate-400 dark:text-slate-600 text-xs font-bold uppercase tracking-[0.2em]">
-          &copy; 2026 {APP_NAME} Backend Connected
+          &copy; 2026 {APP_NAME} Local Engine Active
         </p>
       </div>
     </div>
