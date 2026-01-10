@@ -82,15 +82,15 @@ const Curriculum: React.FC<CurriculumProps> = ({ user }) => {
 
   const handleNativeOpen = () => {
     if (blobUrl) {
-      const win = window.open(blobUrl, '_blank');
-      if (!win) {
-        // If popup blocked, use location.href for direct download/view
-        const link = document.createElement('a');
-        link.href = blobUrl;
-        link.target = '_blank';
-        link.download = viewingFile.title + '.pdf';
-        link.click();
-      }
+      // More reliable method for Android Chrome
+      const link = document.createElement('a');
+      link.href = blobUrl;
+      link.target = '_blank';
+      link.rel = 'noopener noreferrer';
+      // For PDF on mobile, it's often better to just let the browser handle it
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
     }
   };
 
@@ -167,7 +167,7 @@ const Curriculum: React.FC<CurriculumProps> = ({ user }) => {
         </div>
       )}
 
-      <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-4 px-2">
+      <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-4 px-4 sm:px-0">
         <div className="flex items-center gap-3 sm:gap-5">
           {activeFolderId && (
             <button onClick={() => setActiveFolderId(null)} className="p-3 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl text-slate-600 hover:text-indigo-600 transition-all"><ArrowLeft size={20} /></button>
@@ -188,7 +188,7 @@ const Curriculum: React.FC<CurriculumProps> = ({ user }) => {
            <p className="mt-8 font-black text-xs text-slate-400 uppercase tracking-[0.3em]">Accessing Cloud...</p>
         </div>
       ) : !activeFolderId ? (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 sm:gap-8 px-2">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 sm:gap-8 px-4 sm:px-0">
            {folders.map(folder => (
               <div key={folder.id} onClick={() => setActiveFolderId(folder.id)} className="bg-white dark:bg-slate-900 p-6 sm:p-8 rounded-[2rem] sm:rounded-[3rem] shadow-sm border border-slate-100 dark:border-slate-800 hover:shadow-2xl transition-all cursor-pointer group flex flex-col">
                  <div className="w-12 h-12 sm:w-16 sm:h-16 bg-indigo-50 dark:bg-indigo-900/30 text-indigo-600 rounded-2xl sm:rounded-[1.8rem] flex items-center justify-center group-hover:bg-indigo-600 group-hover:text-white transition-all shadow-inner mb-4 sm:mb-6">
@@ -201,7 +201,7 @@ const Curriculum: React.FC<CurriculumProps> = ({ user }) => {
            ))}
         </div>
       ) : (
-        <div className="bg-white dark:bg-slate-900 rounded-[2rem] sm:rounded-[3rem] shadow-sm border border-slate-100 dark:border-slate-800 overflow-hidden mx-2">
+        <div className="bg-white dark:bg-slate-900 rounded-[2rem] sm:rounded-[3rem] shadow-sm border border-slate-100 dark:border-slate-800 overflow-hidden mx-4 sm:mx-0">
            <div className="p-6 sm:p-10 border-b border-slate-50 dark:border-slate-800 bg-slate-50/30 flex flex-col sm:flex-row justify-between items-center gap-4">
               <h3 className="text-lg sm:text-2xl font-black uppercase tracking-tight">{activeFolder?.name} Files</h3>
               {canManage && (
@@ -211,16 +211,18 @@ const Curriculum: React.FC<CurriculumProps> = ({ user }) => {
            <div className="p-4 sm:p-10 space-y-3 sm:space-y-4">
               {activeFolder?.curriculum_files?.map((file: any) => (
                 <div key={file.id} className="flex items-center justify-between p-4 sm:p-6 bg-slate-50/50 dark:bg-slate-800/40 rounded-[1.5rem] sm:rounded-[2rem] border border-transparent hover:border-slate-100 hover:bg-white transition-all group">
-                   <div className="flex items-center gap-4 sm:gap-6 min-w-0">
+                   <div className="flex items-center gap-4 sm:gap-6 min-w-0 flex-1">
                       <div className="w-10 h-10 sm:w-14 sm:h-14 bg-indigo-50 text-indigo-600 rounded-xl sm:rounded-2xl flex items-center justify-center shrink-0 shadow-inner"><FileIcon size={20}/></div>
                       <div className="min-w-0">
                          <h4 className="text-sm sm:text-lg font-black text-slate-800 dark:text-white uppercase truncate max-w-[120px] sm:max-w-xs">{file.title}</h4>
                          <p className="text-[8px] sm:text-[10px] font-black text-slate-400 uppercase tracking-widest mt-0.5">{file.timestamp}</p>
                       </div>
                    </div>
-                   <div className="flex gap-2 sm:gap-3 shrink-0 ml-2">
-                      <button onClick={() => openFileViewer(file)} className="px-3 sm:px-5 py-3 sm:py-4 bg-white dark:bg-slate-700 text-indigo-600 rounded-xl shadow-sm hover:bg-indigo-600 hover:text-white transition-all flex items-center gap-2 font-black text-[9px] sm:text-[10px] uppercase tracking-widest border border-indigo-50"><Eye size={16} /> <span className="hidden sm:inline">View</span></button>
-                      {canManage && <button onClick={() => setDeleteFileId(file.id)} className="p-3 sm:p-4 text-rose-500 hover:bg-rose-50 rounded-xl transition-all"><Trash2 size={16}/></button>}
+                   <div className="flex gap-2 sm:gap-3 shrink-0 ml-4 items-center">
+                      <button onClick={() => openFileViewer(file)} className="px-4 py-3 sm:px-6 sm:py-4 bg-indigo-600 text-white rounded-xl shadow-lg hover:bg-indigo-700 transition-all flex items-center gap-2 font-black text-[9px] sm:text-[10px] uppercase tracking-widest border border-indigo-500/50">
+                        <Eye size={16} /> <span>View</span>
+                      </button>
+                      {canManage && <button onClick={() => setDeleteFileId(file.id)} className="p-3 sm:p-4 text-rose-500 hover:bg-rose-50 rounded-xl transition-all border border-transparent hover:border-rose-100"><Trash2 size={16}/></button>}
                    </div>
                 </div>
               ))}
@@ -322,26 +324,27 @@ const Curriculum: React.FC<CurriculumProps> = ({ user }) => {
                     className="w-full h-full border-none sm:block hidden" 
                     title="PDF Viewer"
                   />
-                  {/* Improved Android help view */}
-                  <div className="absolute inset-0 flex flex-col items-center justify-center p-8 text-center bg-slate-900/90 backdrop-blur-md sm:hidden">
-                      <div className="w-20 h-20 bg-indigo-600/20 text-indigo-400 rounded-full flex items-center justify-center mb-6 border border-indigo-500/30">
-                        <Smartphone size={40} className="animate-pulse" />
+                  {/* Improved Android help view - Always visible if iframe might fail on small screens */}
+                  <div className="absolute inset-0 flex flex-col items-center justify-center p-8 text-center bg-slate-900/95 backdrop-blur-md sm:hidden">
+                      <div className="w-24 h-24 bg-indigo-600/20 text-indigo-400 rounded-full flex items-center justify-center mb-8 border border-indigo-500/30">
+                        <Smartphone size={48} className="animate-pulse" />
                       </div>
-                      <h4 className="text-white font-black text-xl mb-3 uppercase tracking-tight">Android Optimization</h4>
-                      <p className="text-slate-400 font-medium text-xs mb-8 leading-relaxed uppercase tracking-widest">For the best experience on mobile, please open this file in your phone's native PDF viewer or download it.</p>
-                      <div className="grid grid-cols-1 gap-3 w-full max-w-xs">
+                      <h4 className="text-white font-black text-2xl mb-4 uppercase tracking-tight">Android Cloud Access</h4>
+                      <p className="text-slate-400 font-medium text-sm mb-10 leading-relaxed uppercase tracking-widest max-w-xs">Mobile Chrome requires external authentication for PDF viewing. Use the buttons below to open in your phone's viewer or save the file.</p>
+                      <div className="grid grid-cols-1 gap-4 w-full max-w-xs">
                         <button 
                           onClick={handleNativeOpen}
-                          className="w-full py-5 bg-indigo-600 text-white rounded-2xl font-black uppercase text-[10px] tracking-[0.2em] shadow-xl flex items-center justify-center gap-3"
+                          className="w-full py-6 bg-indigo-600 text-white rounded-[1.8rem] font-black uppercase text-xs tracking-[0.2em] shadow-2xl flex items-center justify-center gap-3 active:scale-95 transition-transform"
                         >
-                          <ExternalLink size={16} /> Open Fullscreen
+                          <ExternalLink size={20} /> Open Fullscreen
                         </button>
                         <a 
                           href={blobUrl || viewingFile.media_url} 
                           download={viewingFile.title + '.pdf'}
-                          className="w-full py-5 bg-white/10 text-white border border-white/10 rounded-2xl font-black uppercase text-[10px] tracking-[0.2em] flex items-center justify-center gap-3"
+                          className="w-full py-6 bg-white/10 text-white border border-white/10 rounded-[1.8rem] font-black uppercase text-xs tracking-[0.2em] flex items-center justify-center gap-3"
+                          rel="noopener noreferrer"
                         >
-                          <Download size={16} /> Save to Phone
+                          <Download size={20} /> Save to Phone
                         </a>
                       </div>
                   </div>

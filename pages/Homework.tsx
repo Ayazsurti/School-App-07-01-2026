@@ -112,7 +112,13 @@ const Homework: React.FC<HomeworkProps> = ({ user }) => {
 
   const handleNativeOpen = () => {
     if (blobUrl) {
-      window.open(blobUrl, '_blank');
+      const link = document.createElement('a');
+      link.href = blobUrl;
+      link.target = '_blank';
+      link.rel = 'noopener noreferrer';
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
     }
   };
 
@@ -189,7 +195,7 @@ const Homework: React.FC<HomeworkProps> = ({ user }) => {
         </div>
       )}
 
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 px-2">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 px-4 sm:px-0">
         <div>
           <h1 className="text-2xl sm:text-4xl font-black text-slate-900 dark:text-white tracking-tight leading-tight uppercase flex items-center gap-2 sm:gap-3">Homework <PencilRuler className="text-indigo-600" size={24} /></h1>
           <p className="text-slate-500 dark:text-slate-400 font-medium text-xs sm:text-lg">Assignment distribution system.</p>
@@ -199,7 +205,7 @@ const Homework: React.FC<HomeworkProps> = ({ user }) => {
         )}
       </div>
 
-      <div className="px-2">
+      <div className="px-4 sm:px-0">
         <div className="bg-white dark:bg-slate-900 p-4 sm:p-6 rounded-[2rem] sm:rounded-[2.5rem] shadow-sm border border-slate-100 dark:border-slate-800">
           <div className="relative w-full group">
             <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
@@ -214,7 +220,7 @@ const Homework: React.FC<HomeworkProps> = ({ user }) => {
            <p className="mt-8 font-black text-xs text-slate-400 uppercase tracking-[0.3em]">Accessing Cloud...</p>
         </div>
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-8 px-2">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-8 px-4 sm:px-0">
           {filteredHomeworks.map((hw) => (
             <div key={hw.id} className="bg-white dark:bg-slate-900 p-6 sm:p-8 rounded-[2.5rem] sm:rounded-[3rem] shadow-sm border border-slate-100 dark:border-slate-800 hover:shadow-2xl transition-all group relative hover:-translate-y-2 flex flex-col">
                <div className="flex items-center justify-between mb-4 sm:mb-6">
@@ -224,13 +230,17 @@ const Homework: React.FC<HomeworkProps> = ({ user }) => {
                <h3 className="text-lg sm:text-xl font-black text-slate-900 dark:text-white leading-tight mb-1 uppercase truncate">{hw.title}</h3>
                <p className="text-[9px] font-black text-indigo-500 uppercase tracking-widest mb-3 sm:mb-4">Std {hw.className}-{hw.section} • {hw.subject}</p>
                <p className="text-slate-500 dark:text-slate-400 text-xs sm:text-sm line-clamp-3 mb-6 flex-1 leading-relaxed">{hw.description}</p>
-               <div className="flex gap-2 mt-auto pt-4 border-t border-slate-50 dark:border-slate-800">
-                  {hw.attachment && <button onClick={() => openHomeworkViewer(hw)} className="flex-1 py-3 bg-indigo-600 text-white rounded-xl text-[9px] sm:text-[10px] font-black uppercase tracking-widest flex items-center justify-center gap-2 shadow-lg"><Eye size={14} /> View</button>}
+               <div className="flex gap-2 mt-auto pt-4 border-t border-slate-50 dark:border-slate-800 items-center">
+                  {hw.attachment && (
+                    <button onClick={() => openHomeworkViewer(hw)} className="flex-1 py-4 bg-indigo-600 text-white rounded-xl text-[9px] sm:text-[10px] font-black uppercase tracking-widest flex items-center justify-center gap-2 shadow-lg hover:bg-indigo-700 transition-all border border-indigo-500/50">
+                      <Eye size={14} /> <span>View Document</span>
+                    </button>
+                  )}
                   {canManage && (
-                    <>
-                      <button onClick={() => { setEditingHomework(hw); setFormData(hw); setShowModal(true); }} className="p-3 bg-white dark:bg-slate-800 text-emerald-600 rounded-xl border border-emerald-100 hover:bg-emerald-600 hover:text-white transition-all"><Edit2 size={14} /></button>
-                      <button onClick={() => setDeleteConfirmationId(hw.id)} className="p-3 bg-white dark:bg-slate-800 text-rose-500 rounded-xl border border-rose-100 hover:bg-rose-500 hover:text-white transition-all"><Trash2 size={14} /></button>
-                    </>
+                    <div className="flex gap-2">
+                      <button onClick={() => { setEditingHomework(hw); setFormData(hw); setShowModal(true); }} className="p-3 bg-white dark:bg-slate-800 text-emerald-600 rounded-xl border border-emerald-100 dark:border-emerald-900 hover:bg-emerald-600 hover:text-white transition-all"><Edit2 size={14} /></button>
+                      <button onClick={() => setDeleteConfirmationId(hw.id)} className="p-3 bg-white dark:bg-slate-800 text-rose-500 rounded-xl border border-rose-100 dark:border-rose-900 hover:bg-rose-500 hover:text-white transition-all"><Trash2 size={14} /></button>
+                    </div>
                   )}
                </div>
             </div>
@@ -305,25 +315,26 @@ const Homework: React.FC<HomeworkProps> = ({ user }) => {
                 className="w-full h-full border-none sm:block hidden" 
                 title="Homework PDF Viewer"
               />
+              {/* Android Access Portal Overlay */}
               <div className="absolute inset-0 flex flex-col items-center justify-center p-8 text-center bg-slate-900/95 backdrop-blur-lg sm:hidden">
-                  <div className="w-20 h-20 bg-indigo-600/20 text-indigo-400 rounded-full flex items-center justify-center mb-6 border border-indigo-500/30 shadow-inner">
-                    <Smartphone size={36} className="animate-pulse" />
+                  <div className="w-24 h-24 bg-indigo-600/20 text-indigo-400 rounded-full flex items-center justify-center mb-8 border border-indigo-500/30 shadow-inner">
+                    <Smartphone size={40} className="animate-pulse" />
                   </div>
-                  <h4 className="text-white font-black text-xl mb-3 uppercase">Mobile Access Restricted</h4>
-                  <p className="text-slate-400 font-medium text-xs mb-8 leading-relaxed uppercase tracking-widest">Mobile browsers block inline PDF data. Please use the fullscreen button below to view or save the file.</p>
-                  <div className="grid grid-cols-1 gap-3 w-full max-w-xs">
+                  <h4 className="text-white font-black text-2xl mb-4 uppercase tracking-tight">Assignment Access</h4>
+                  <p className="text-slate-400 font-medium text-sm mb-10 leading-relaxed uppercase tracking-widest max-w-xs">Android security requires using the system viewer for PDF documents. Open fullscreen to complete your task.</p>
+                  <div className="grid grid-cols-1 gap-4 w-full max-w-xs">
                     <button 
                       onClick={handleNativeOpen}
-                      className="w-full py-5 bg-indigo-600 text-white rounded-2xl font-black uppercase text-[10px] tracking-[0.2em] shadow-2xl"
+                      className="w-full py-6 bg-indigo-600 text-white rounded-[1.8rem] font-black uppercase text-xs tracking-[0.2em] shadow-2xl active:scale-95 transition-transform"
                     >
                       Open in Fullscreen
                     </button>
                     <a 
                       href={blobUrl || viewingFile.attachment.url} 
                       download={viewingFile.attachment.name}
-                      className="w-full py-5 bg-white/5 text-white border border-white/10 rounded-2xl font-black uppercase text-[10px] tracking-[0.2em]"
+                      className="w-full py-6 bg-white/5 text-white border border-white/10 rounded-[1.8rem] font-black uppercase text-xs tracking-[0.2em] flex items-center justify-center gap-3"
                     >
-                      Download File
+                      Save Assignment
                     </a>
                   </div>
               </div>
