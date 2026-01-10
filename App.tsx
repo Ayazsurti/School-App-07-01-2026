@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { HashRouter, Routes, Route, Navigate, Link, useLocation, useNavigate } from 'react-router-dom';
 import { 
@@ -46,6 +47,7 @@ import MarksEntry from './pages/MarksEntry';
 import MarksSetup from './pages/MarksSetup';
 import MarksheetGenerator from './pages/MarksheetGenerator';
 import FeesManager from './pages/FeesManager';
+import FeesManagement from './pages/FeesManagement';
 import Homework from './pages/Homework';
 import FoodChart from './pages/FoodChart';
 import SMSPanel from './pages/SMSPanel';
@@ -194,7 +196,6 @@ const Layout: React.FC<LayoutProps> = ({ user, onLogout, onUpdateUser, schoolLog
 
   const allNavItems = useMemo(() => {
     const baseNav = (NAVIGATION as any)[user.role] || [];
-    // Combine saved order with any missing items (in case navigation was updated)
     const ordered = [...navOrder]
       .map(name => baseNav.find((n: any) => n.name === name))
       .filter(Boolean);
@@ -266,7 +267,7 @@ const Layout: React.FC<LayoutProps> = ({ user, onLogout, onUpdateUser, schoolLog
         />
       )}
 
-      {showCustomizeModal && (
+      {showCustomizeModal && user.role === 'ADMIN' && (
         <CustomizeSidebarModal 
           items={allNavItems}
           hiddenItems={hiddenNavItems}
@@ -307,9 +308,11 @@ const Layout: React.FC<LayoutProps> = ({ user, onLogout, onUpdateUser, schoolLog
           </nav>
 
           <div className="p-4 border-t border-slate-100 dark:border-slate-800 space-y-1">
-            <button onClick={() => setShowCustomizeModal(true)} className="w-full flex items-center gap-3 px-4 py-3 text-slate-500 hover:bg-indigo-50 dark:hover:bg-indigo-950/30 hover:text-indigo-600 rounded-lg transition-colors font-bold text-xs uppercase tracking-widest">
-              <Settings2 size={18} /> Customize Menu
-            </button>
+            {user.role === 'ADMIN' && (
+              <button onClick={() => setShowCustomizeModal(true)} className="w-full flex items-center gap-3 px-4 py-3 text-slate-500 hover:bg-indigo-50 dark:hover:bg-indigo-950/30 hover:text-indigo-600 rounded-lg transition-colors font-bold text-xs uppercase tracking-widest">
+                <Settings2 size={18} /> Customize Menu
+              </button>
+            )}
             <button onClick={triggerLogout} className="w-full flex items-center gap-3 px-4 py-3 text-slate-500 hover:bg-rose-50 dark:hover:bg-rose-950/30 hover:text-rose-600 rounded-lg transition-colors font-bold text-xs uppercase tracking-widest">
               <Power size={18} /> Sign Out
             </button>
@@ -330,7 +333,7 @@ const Layout: React.FC<LayoutProps> = ({ user, onLogout, onUpdateUser, schoolLog
             <div className="h-8 w-px bg-slate-200 dark:bg-slate-800 mx-2 hidden sm:block" />
             <div className="flex items-center gap-3 pl-2 group cursor-pointer" onClick={() => setShowProfileModal(true)}>
               <div className="text-right hidden sm:block">
-                <p className="text-sm font-bold text-slate-800 dark:text-slate-200 leading-none group-hover:text-indigo-600 transition-colors">{user.name}</p>
+                <p className="text-sm font-bold text-slate-800 dark:text-white leading-none group-hover:text-indigo-600 transition-colors">{user.name}</p>
                 <p className="text-[9px] text-slate-400 dark:text-slate-500 font-black mt-1 uppercase tracking-widest">{user.role}</p>
               </div>
               <div className="w-10 h-10 bg-indigo-100 dark:bg-indigo-900/30 text-indigo-600 rounded-xl flex items-center justify-center font-bold overflow-hidden shadow-sm">
@@ -357,11 +360,13 @@ const Layout: React.FC<LayoutProps> = ({ user, onLogout, onUpdateUser, schoolLog
             <Route path="/admin/sms" element={<SMSPanel user={user} />} />
             <Route path="/admin/marksheet" element={<MarksheetGenerator user={user} schoolLogo={schoolLogo} />} />
             <Route path="/admin/exams" element={<ExamSetup user={user} />} />
+            <Route path="/admin/fees/management" element={<FeesManagement user={user} />} />
             <Route path="/admin/fees/setup" element={<FeeSetup user={user} />} />
             <Route path="/admin/fees/studentwise" element={<StudentwiseFee user={user} />} />
             <Route path="/admin/fees/receipt-config" element={<ReceiptSetup user={user} />} />
             <Route path="/admin/fees/general-receipt" element={<GeneralReceipt user={user} schoolLogo={schoolLogo} />} />
             <Route path="/admin/fees/search" element={<FeeSearch user={user} schoolLogo={schoolLogo} />} />
+            <Route path="/admin/fees/audit" element={<AuditLog user={user} moduleFilter="Finance" />} />
             <Route path="/admin/gallery" element={<MediaGallery user={user} />} />
             <Route path="/admin/notices" element={<NoticeBoard user={user} />} />
             <Route path="/admin/audit" element={<AuditLog user={user} />} />
@@ -373,6 +378,7 @@ const Layout: React.FC<LayoutProps> = ({ user, onLogout, onUpdateUser, schoolLog
             <Route path="/teacher/timetable" element={<Timetable user={user} />} />
             <Route path="/teacher/food-chart" element={<FoodChart user={user} />} />
             <Route path="/teacher/sms" element={<SMSPanel user={user} />} />
+            <Route path="/teacher/fees" element={<FeesManagement user={user} />} />
             <Route path="/teacher/marks" element={<MarksEntry user={user} />} />
             <Route path="/teacher/marksheet" element={<MarksheetGenerator user={user} schoolLogo={schoolLogo} />} />
             <Route path="/teacher/notices" element={<NoticeBoard user={user} />} />
@@ -385,6 +391,7 @@ const Layout: React.FC<LayoutProps> = ({ user, onLogout, onUpdateUser, schoolLog
             <Route path="/student/timetable" element={<Timetable user={user} />} />
             <Route path="/student/marksheet" element={<MarksheetGenerator user={user} schoolLogo={schoolLogo} />} />
             <Route path="/student/fees" element={<FeesManager user={user} />} />
+            <Route path="/student/notices" element={<NoticeBoard user={user} />} />
           </Routes>
         </main>
       </div>
@@ -418,7 +425,7 @@ const ProfileModal: React.FC<ProfileModalProps> = ({ user, onClose, onSave, onLo
 
   return (
     <div className="fixed inset-0 z-[150] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-in fade-in">
-      <div className="bg-white dark:bg-slate-900 rounded-[2.5rem] p-1 shadow-2xl max-w-md w-full animate-in zoom-in-95 overflow-hidden">
+      <div className="bg-white dark:bg-slate-900 rounded-[2.5rem] p-1 shadow-2xl max-md w-full animate-in zoom-in-95 overflow-hidden">
         <div className="p-8 border-b border-slate-100 dark:border-slate-800 flex justify-between items-center bg-slate-50/50 dark:bg-slate-800/30">
           <h3 className="text-xl font-black text-slate-900 dark:text-white uppercase tracking-tight">User Profile</h3>
           <button onClick={onClose} className="p-2 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-full text-slate-400"><X size={20} /></button>
@@ -472,7 +479,7 @@ const CustomizeSidebarModal: React.FC<CustomizeSidebarModalProps> = ({ items, hi
 
   return (
     <div className="fixed inset-0 z-[150] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-in fade-in">
-      <div className="bg-white dark:bg-slate-900 rounded-[2.5rem] p-1 shadow-2xl max-w-lg w-full max-h-[80vh] flex flex-col animate-in zoom-in-95 overflow-hidden">
+      <div className="bg-white dark:bg-slate-900 rounded-[2.5rem] p-1 shadow-2xl max-lg w-full max-h-[80vh] flex flex-col animate-in zoom-in-95 overflow-hidden">
         <div className="p-8 border-b border-slate-100 dark:border-slate-800 flex justify-between items-center bg-slate-50/50 dark:bg-slate-800/30">
           <div>
             <h3 className="text-xl font-black text-slate-900 dark:text-white uppercase tracking-tight">Customize Menu</h3>

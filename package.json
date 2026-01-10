@@ -1,26 +1,61 @@
+
 {
-  "name": "08/01/2026-time:05:016-pm",
-  "private": true,
-  "version": "0.0.0",
-  "type": "module",
+  "name": "deen-e-islam-school-app",
+  "version": "1.0.0",
+  "description": "Professional School Management System",
+  "main": "electron-main.js",
   "scripts": {
+    "start": "vite",
     "dev": "vite",
     "build": "vite build",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "electron:dev": "electron .",
+    "electron:start": "electron .",
+    "dist": "vite build && electron-builder"
+  },
+  "build": {
+    "appId": "com.deen.school",
+    "productName": "EduManagePro_Setup",
+    "directories": {
+      "output": "dist-exe"
+    },
+    "win": {
+      "target": "portable",
+      "icon": "public/icon.ico"
+    },
+    "files": [
+      "dist/**/*",
+      "electron-main.js",
+      "package.json"
+    ],
+    "extraResources": [
+      {
+        "from": "public",
+        "to": "public",
+        "filter": [
+          "**/*"
+        ]
+      }
+    ],
+    "publish": null
   },
   "dependencies": {
-    "react": "^19.2.3",
-    "react-dom": "^19.2.3",
-    "react-router-dom": "^7.11.0",
-    "recharts": "^3.6.0",
-    "lucide-react": "^0.562.0",
-    "jsqr": "1.4.0",
-    "@supabase/supabase-js": "^2.90.1"
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0",
+    "react-router-dom": "^7.1.0",
+    "lucide-react": "^0.460.0",
+    "recharts": "^2.13.0",
+    "jsqr": "^1.4.0",
+    "@supabase/supabase-js": "^2.46.0",
+    "@google/genai": "latest"
   },
   "devDependencies": {
-    "@types/node": "^22.14.0",
-    "@vitejs/plugin-react": "^5.0.0",
-    "typescript": "~5.8.2",
-    "vite": "^6.2.0"
-  }
+    "@vitejs/plugin-react": "^4.3.0",
+    "vite": "^6.0.0",
+    "typescript": "^5.7.0",
+    "electron": "^31.0.0",
+    "electron-builder": "^24.13.0"
+  },
+  "author": "Deen-E-Islam School",
+  "license": "ISC"
 }

@@ -1,5 +1,6 @@
+
 import React, { useRef, useState, useEffect, useMemo } from 'react';
-import { User, FeeRecord } from '../types';
+import { User, FeeRecord, Notice } from '../types';
 import { 
   Users, 
   GraduationCap, 
@@ -18,7 +19,10 @@ import {
   Star,
   Pencil,
   Book,
-  Rocket
+  Rocket,
+  Megaphone,
+  X,
+  ArrowRight
 } from 'lucide-react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 
@@ -59,6 +63,10 @@ const Dashboard: React.FC<DashboardProps> = ({ user, schoolLogo, onUpdateLogo })
   const [logoUploading, setLogoUploading] = useState(false);
   const [showSavedFeedback, setShowSavedFeedback] = useState(false);
   const [dailyFees, setDailyFees] = useState(0);
+  const [importantNotice, setImportantNotice] = useState<Notice | null>(null);
+  const [showNoticePopup, setShowNoticePopup] = useState(false);
+
+  const isStudent = user.role === 'STUDENT';
 
   const particles = useMemo(() => {
     return Array.from({ length: 15 }).map((_, i) => ({
@@ -85,10 +93,26 @@ const Dashboard: React.FC<DashboardProps> = ({ user, schoolLogo, onUpdateLogo })
         setDailyFees(1650);
       }
     };
+    
+    if (user.role === 'STUDENT') {
+        const savedNotices = localStorage.getItem('school_notices_db');
+        if (savedNotices) {
+            const notices: Notice[] = JSON.parse(savedNotices);
+            const urgent = notices.find(n => n.category === 'URGENT');
+            if (urgent) {
+                const seen = sessionStorage.getItem(`seen_notice_${urgent.id}`);
+                if (!seen) {
+                    setImportantNotice(urgent);
+                    setShowNoticePopup(true);
+                }
+            }
+        }
+    }
+
     calculateDailyFees();
     window.addEventListener('storage', calculateDailyFees);
     return () => window.removeEventListener('storage', calculateDailyFees);
-  }, []);
+  }, [user.role]);
 
   const stats = [
     { label: 'Total Students', value: '1,248', icon: <GraduationCap />, color: 'bg-indigo-600' },
@@ -127,7 +151,64 @@ const Dashboard: React.FC<DashboardProps> = ({ user, schoolLogo, onUpdateLogo })
     }
   };
 
+  const closeNoticePopup = () => {
+    if (importantNotice) {
+      sessionStorage.setItem(`seen_notice_${importantNotice.id}`, 'true');
+    }
+    setShowNoticePopup(false);
+  };
+
   const canManageLogo = user.role === 'ADMIN';
+
+  // Student specific blank view
+  if (isStudent) {
+    return (
+      <div className="min-h-full dashboard-rainbow-bg -m-4 lg:-m-8 p-4 lg:p-8 animate-in fade-in duration-700 flex items-center justify-center relative overflow-hidden">
+        {particles.map((p) => (
+          <div 
+            key={p.id} 
+            className="floating-icon" 
+            style={{ left: p.left, top: '110%', animationDelay: p.delay, animationDuration: p.duration }}
+          >
+            <p.icon size={24 + (p.id % 20)} />
+          </div>
+        ))}
+        
+        <div className="text-center relative z-10 space-y-4">
+           <div className="flex items-center justify-center gap-2 mb-4">
+            <Sparkles className="text-amber-500 animate-bounce" size={32} />
+          </div>
+          <h1 className="text-5xl lg:text-7xl font-black tracking-tighter leading-tight rainbow-text drop-shadow-sm uppercase">
+            WELCOME TO EDUCATION WORLD.
+          </h1>
+          <div className="w-24 h-1.5 bg-indigo-600 mx-auto rounded-full opacity-30"></div>
+          <p className="text-slate-500 dark:text-slate-400 font-bold text-xl mt-4">Your learning journey begins here.</p>
+        </div>
+
+        {showNoticePopup && importantNotice && (
+          <div className="fixed inset-0 z-[500] bg-slate-950/80 backdrop-blur-md flex items-center justify-center p-4 animate-in fade-in duration-500">
+             <div className="bg-white dark:bg-slate-900 rounded-[3rem] p-10 max-w-lg w-full shadow-2xl border border-white/10 relative overflow-hidden text-center">
+                <div className="absolute top-0 left-0 w-full h-2 bg-rose-500"></div>
+                <div className="w-20 h-20 bg-rose-50 dark:bg-rose-900/20 text-rose-600 rounded-[2rem] flex items-center justify-center mx-auto mb-6 shadow-inner border border-rose-100 dark:border-rose-900/50">
+                   <Megaphone size={40} className="animate-bounce" />
+                </div>
+                <h3 className="text-[10px] font-black text-rose-600 uppercase tracking-[0.3em] mb-2">High Priority Announcement</h3>
+                <h4 className="text-2xl font-black text-slate-900 dark:text-white uppercase tracking-tight leading-tight mb-4">{importantNotice.title}</h4>
+                <p className="text-slate-500 dark:text-slate-400 font-medium text-sm leading-relaxed mb-8 line-clamp-3 italic">
+                  "{importantNotice.content}"
+                </p>
+                <div className="flex gap-3">
+                   <button onClick={closeNoticePopup} className="flex-1 py-4 bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 font-black rounded-2xl uppercase text-[10px] tracking-widest hover:bg-slate-200 transition-colors">Dismiss</button>
+                   <button onClick={() => { closeNoticePopup(); window.location.hash = '/student/notices'; }} className="flex-[2] py-4 bg-indigo-600 text-white font-black rounded-2xl shadow-xl shadow-indigo-100 dark:shadow-none hover:bg-indigo-700 transition-all flex items-center justify-center gap-2 uppercase text-[10px] tracking-widest">
+                      Read Full News <ArrowRight size={14} />
+                   </button>
+                </div>
+             </div>
+          </div>
+        )}
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-full dashboard-rainbow-bg -m-4 lg:-m-8 p-4 lg:p-8 animate-in fade-in slide-in-from-bottom-4 duration-700 pb-20 relative">
@@ -249,8 +330,8 @@ const Dashboard: React.FC<DashboardProps> = ({ user, schoolLogo, onUpdateLogo })
               </div>
             ))}
           </div>
-          <button className="w-full mt-10 py-5 bg-white/5 backdrop-blur text-white/60 text-[10px] font-black uppercase tracking-[0.3em] rounded-2xl hover:bg-indigo-600 hover:text-white transition-all border border-white/5 flex items-center justify-center gap-2">
-            Explore Logs <ChevronRight size={16} strokeWidth={3} />
+          <button onClick={() => window.location.hash = isStudent ? '/student/notices' : '/admin/notices'} className="w-full mt-10 py-5 bg-white/5 backdrop-blur text-white/60 text-[10px] font-black uppercase tracking-[0.3em] rounded-2xl hover:bg-indigo-600 hover:text-white transition-all border border-white/5 flex items-center justify-center gap-2">
+            Explore All Notices <ChevronRight size={16} strokeWidth={3} />
           </button>
         </div>
       </div>

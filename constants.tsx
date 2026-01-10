@@ -1,3 +1,4 @@
+
 import React from 'react';
 import { 
   LayoutDashboard, 
@@ -23,7 +24,9 @@ import {
   Settings2,
   UtensilsCrossed,
   MessageSquareQuote,
-  SlidersHorizontal
+  SlidersHorizontal,
+  FileClock,
+  Banknote
 } from 'lucide-react';
 import { TimetableEntry, Student } from './types';
 
@@ -41,16 +44,18 @@ export const NAVIGATION = {
     { name: 'Timetable', icon: <CalendarDays size={20} />, path: '/admin/timetable' },
     { name: 'Food Chart', icon: <UtensilsCrossed size={20} />, path: '/admin/food-chart' },
     { name: 'SMS Panel', icon: <MessageSquareQuote size={20} />, path: '/admin/sms' },
+    { name: 'Fee Management', icon: <Banknote size={20} />, path: '/admin/fees/management' },
     { name: 'Fee Setup', icon: <Settings2 size={20} />, path: '/admin/fees/setup' },
     { name: 'Studentwise Fee', icon: <BadgeDollarSign size={20} />, path: '/admin/fees/studentwise' },
     { name: 'Receipt Config', icon: <Settings size={20} />, path: '/admin/fees/receipt-config' },
     { name: 'General Receipt', icon: <Receipt size={20} />, path: '/admin/fees/general-receipt' },
     { name: 'Fee Ledger', icon: <SearchCode size={20} />, path: '/admin/fees/search' },
+    { name: 'Online Fees Audit', icon: <FileClock size={20} />, path: '/admin/fees/audit' },
     { name: 'Exams', icon: <ClipboardList size={20} />, path: '/admin/exams' },
     { name: 'Marksheets', icon: <FileSpreadsheet size={20} />, path: '/admin/marksheet' },
     { name: 'Gallery', icon: <Images size={20} />, path: '/admin/gallery' },
     { name: 'Notice Board', icon: <Bell size={20} />, path: '/admin/notices' },
-    { name: 'Audit Logs', icon: <History size={20} />, path: '/admin/audit' },
+    { name: 'System Logs', icon: <History size={20} />, path: '/admin/audit' },
   ],
   TEACHER: [
     { name: 'Dashboard', icon: <LayoutDashboard size={20} />, path: '/teacher/dashboard' },
@@ -60,6 +65,7 @@ export const NAVIGATION = {
     { name: 'Timetable', icon: <CalendarDays size={20} />, path: '/teacher/timetable' },
     { name: 'Food Chart', icon: <UtensilsCrossed size={20} />, path: '/teacher/food-chart' },
     { name: 'SMS Panel', icon: <MessageSquareQuote size={20} />, path: '/teacher/sms' },
+    { name: 'Fee Management', icon: <Banknote size={20} />, path: '/teacher/fees' },
     { name: 'Notices', icon: <Bell size={20} />, path: '/teacher/notices' },
   ],
   STUDENT: [
@@ -70,6 +76,7 @@ export const NAVIGATION = {
     { name: 'Food Chart', icon: <UtensilsCrossed size={20} />, path: '/student/food-chart' },
     { name: 'Fees', icon: <CreditCard size={20} />, path: '/student/fees' },
     { name: 'Timetable', icon: <CalendarDays size={20} />, path: '/student/timetable' },
+    { name: 'Notice Board', icon: <Bell size={20} />, path: '/student/notices' },
   ]
 };
 
@@ -85,13 +92,14 @@ export const MOCK_STUDENTS: Partial<Student>[] = [
     residenceAddress: '123, Green Street, City Center',
     fatherName: 'Quincy Doe Sr.',
     motherName: 'Sarah Doe',
-    fatherMobile: '9876543211',
+    fatherMobile: '9876543210',
     motherMobile: '9876543212',
     rollNo: '101', 
     class: '10th', 
     section: 'A', 
     role: 'STUDENT',
-    email: '101@school.com'
+    email: '101@school.com',
+    mobile: '9876543210'
   },
   { 
     id: 'S002', 
@@ -104,21 +112,22 @@ export const MOCK_STUDENTS: Partial<Student>[] = [
     residenceAddress: '45, Ocean Drive, Coastal Area',
     fatherName: 'Michael Smith',
     motherName: 'Maria Smith',
-    fatherMobile: '9876543213',
+    fatherMobile: '8877665544',
     motherMobile: '9876543214',
     rollNo: '102', 
     class: '10th', 
     section: 'A',
     role: 'STUDENT',
-    email: '102@school.com'
+    email: '102@school.com',
+    mobile: '8877665544'
   }
 ];
 
 export const MOCK_TEACHERS = [
-  { id: 'T001', name: 'Prof. Robert Miller', staffId: 'TEA-101', subject: 'Mathematics' },
-  { id: 'T002', name: 'Dr. Emily Vance', staffId: 'TEA-102', subject: 'Science' },
-  { id: 'T003', name: 'Mr. James Wilson', staffId: 'TEA-103', subject: 'English' },
-  { id: 'T004', name: 'Ms. Linda Carter', staffId: 'TEA-104', subject: 'History' },
+  { id: 'T001', name: 'Prof. Robert Miller', staffId: 'TEA-101', subject: 'Mathematics', mobile: '9000011111' },
+  { id: 'T002', name: 'Dr. Emily Vance', staffId: 'TEA-102', subject: 'Science', mobile: '9000022222' },
+  { id: 'T003', name: 'Mr. James Wilson', staffId: 'TEA-103', subject: 'English', mobile: '9000033333' },
+  { id: 'T004', name: 'Ms. Linda Carter', staffId: 'TEA-104', subject: 'History', mobile: '9000044444' },
 ];
 
 export const MOCK_SUBJECTS = ['Mathematics', 'Science', 'English', 'History', 'Geography', 'Art', 'Arabic', 'Islamic Studies'];

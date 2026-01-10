@@ -1,5 +1,6 @@
 {
-  "name": "08/01/2026 TIME:05:016 PM",
+  "name": "School-app",
+  "appId": "com.nana.school",
   "description": "A comprehensive school management platform featuring role-based access for Admins, Teachers, and Students. Includes attendance tracking, marksheet generation, fee management, notice board, and curriculum tracking.",
   "requestFramePermissions": [
     "camera"

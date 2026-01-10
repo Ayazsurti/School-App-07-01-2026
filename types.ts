@@ -1,3 +1,4 @@
+
 export type UserRole = 'ADMIN' | 'TEACHER' | 'STUDENT';
 
 export interface User {
@@ -8,6 +9,7 @@ export interface User {
   profileImage?: string;
   enrollmentId?: string;
   staffId?: string;
+  mobile?: string;
 }
 
 export interface Student extends User {
@@ -39,6 +41,7 @@ export interface Student extends User {
 export interface Teacher extends User {
   subject: string;
   classes: string[];
+  mobile: string;
 }
 
 export interface ExamSubject {
