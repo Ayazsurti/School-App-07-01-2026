@@ -41,7 +41,10 @@ import {
   Cloud,
   School,
   Loader2,
-  RefreshCw
+  RefreshCw,
+  Video,
+  FileText,
+  BookOpen
 } from 'lucide-react';
 import { User, UserRole } from './types';
 import Login from './pages/Login';
@@ -73,6 +76,15 @@ import SchoolSettings from './pages/SchoolSettings';
 import { APP_NAME as DEFAULT_APP_NAME, NAVIGATION, MOCK_TEACHERS } from './constants';
 import { db, supabase } from './supabase';
 import { createAuditLog } from './utils/auditLogger';
+
+interface AppNotification {
+  id: string;
+  title: string;
+  message: string;
+  type: 'NOTICE' | 'GALLERY' | 'VIDEO' | 'CURRICULUM' | 'HOMEWORK';
+  timestamp: Date;
+  isRead: boolean;
+}
 
 const App: React.FC = () => {
   const [user, setUser] = useState<User | null>(() => {
@@ -176,6 +188,9 @@ const Layout: React.FC<LayoutProps> = ({ user, onLogout, onUpdateUser, schoolLog
   const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
   const [showProfileModal, setShowProfileModal] = useState(false);
   const [showCustomizeModal, setShowCustomizeModal] = useState(false);
+  const [notifications, setNotifications] = useState<AppNotification[]>([]);
+  const [showNotifications, setShowNotifications] = useState(false);
+  const [activeToast, setActiveToast] = useState<AppNotification | null>(null);
 
   const [hiddenNavItems, setHiddenNavItems] = useState<string[]>(() => {
     const saved = localStorage.getItem(`nav_visibility_${user.role}`);
@@ -191,6 +206,48 @@ const Layout: React.FC<LayoutProps> = ({ user, onLogout, onUpdateUser, schoolLog
 
   const location = useLocation();
   const navigate = useNavigate();
+
+  // GLOBAL REALTIME NOTIFICATION LISTENER
+  useEffect(() => {
+    const notificationChannel = supabase.channel('global-app-alerts')
+      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'notices' }, (payload) => {
+        triggerNotification('NOTICE', 'New Official Broadcast', payload.new.title);
+      })
+      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'gallery' }, (payload) => {
+        triggerNotification('GALLERY', 'New Photo Added', payload.new.name);
+      })
+      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'videos' }, (payload) => {
+        triggerNotification('VIDEO', 'New Educational Video', payload.new.name);
+      })
+      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'curriculum_files' }, (payload) => {
+        triggerNotification('CURRICULUM', 'New Curriculum Asset', payload.new.title);
+      })
+      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'homework' }, (payload) => {
+        triggerNotification('HOMEWORK', 'New Homework Assigned', payload.new.title);
+      })
+      .subscribe();
+
+    return () => { supabase.removeChannel(notificationChannel); };
+  }, []);
+
+  const triggerNotification = (type: AppNotification['type'], title: string, message: string) => {
+    const newNotif: AppNotification = {
+      id: Math.random().toString(36).substr(2, 9),
+      type, title, message,
+      timestamp: new Date(),
+      isRead: false
+    };
+    setNotifications(prev => [newNotif, ...prev].slice(0, 15));
+    setActiveToast(newNotif);
+    setTimeout(() => setActiveToast(null), 5000);
+  };
+
+  const markAllAsRead = () => {
+    setNotifications(prev => prev.map(n => ({ ...n, isRead: true })));
+    setShowNotifications(false);
+  };
+
+  const unreadCount = notifications.filter(n => !n.isRead).length;
 
   const allNavItems = useMemo(() => {
     const baseNav = (NAVIGATION as any)[user.role] || [];
@@ -240,6 +297,26 @@ const Layout: React.FC<LayoutProps> = ({ user, onLogout, onUpdateUser, schoolLog
 
   return (
     <div className="min-h-screen flex bg-slate-50 dark:bg-slate-950 transition-colors duration-300">
+      {/* Real-time Push Notification Toast */}
+      {activeToast && (
+        <div className="fixed top-20 left-1/2 -translate-x-1/2 z-[2000] animate-in slide-in-from-top-4 fade-in duration-500 w-full max-w-sm px-4">
+           <div className="bg-indigo-600 text-white p-5 rounded-[2rem] shadow-2xl flex items-center gap-4 border border-indigo-400 backdrop-blur-xl">
+              <div className="w-12 h-12 bg-white/20 rounded-2xl flex items-center justify-center shrink-0">
+                 {activeToast.type === 'VIDEO' ? <Video size={24}/> : 
+                  activeToast.type === 'GALLERY' ? <ImageIcon size={24}/> : 
+                  activeToast.type === 'CURRICULUM' ? <BookOpen size={24}/> :
+                  activeToast.type === 'HOMEWORK' ? <PencilRuler size={24}/> :
+                  <Megaphone size={24}/>}
+              </div>
+              <div className="min-w-0 flex-1">
+                 <p className="font-black text-[10px] uppercase tracking-widest text-indigo-100">{activeToast.title}</p>
+                 <p className="text-sm font-bold truncate">{activeToast.message}</p>
+              </div>
+              <button onClick={() => setActiveToast(null)} className="p-2 hover:bg-white/10 rounded-full transition-colors"><X size={18}/></button>
+           </div>
+        </div>
+      )}
+
       {showLogoutConfirm && (
         <div className="fixed inset-0 z-[200] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-in fade-in duration-200">
           <div className="bg-white dark:bg-slate-900 rounded-3xl p-8 max-sm w-full shadow-2xl animate-in zoom-in-95 duration-200 border border-slate-200 dark:border-slate-800">
@@ -328,9 +405,61 @@ const Layout: React.FC<LayoutProps> = ({ user, onLogout, onUpdateUser, schoolLog
           </div>
 
           <div className="flex items-center gap-3">
-            <button className="relative p-2 text-slate-400 dark:text-slate-500 hover:bg-slate-100 rounded-full transition-colors">
-              <Bell size={20} /><span className="absolute top-2 right-2 w-2 h-2 bg-rose-500 rounded-full border-2 border-white dark:border-slate-900" />
-            </button>
+            {/* Real-time Alert Bell */}
+            <div className="relative">
+              <button 
+                onClick={() => setShowNotifications(!showNotifications)}
+                className={`relative p-2.5 text-slate-400 dark:text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-2xl transition-all ${unreadCount > 0 ? 'animate-pulse text-indigo-600 dark:text-indigo-400' : ''}`}
+              >
+                <Bell size={20} />
+                {unreadCount > 0 && (
+                  <span className="absolute top-1 right-1 min-w-[18px] h-[18px] bg-rose-500 text-white text-[9px] font-black rounded-full border-2 border-white dark:border-slate-900 flex items-center justify-center">
+                    {unreadCount}
+                  </span>
+                )}
+              </button>
+
+              {/* Notification Center Dropdown */}
+              {showNotifications && (
+                <div className="absolute right-0 mt-4 w-80 bg-white dark:bg-slate-900 rounded-[2rem] shadow-2xl border border-slate-100 dark:border-slate-800 overflow-hidden z-[1000] animate-in fade-in slide-in-from-top-2">
+                   <div className="p-6 border-b border-slate-50 dark:border-slate-800 flex justify-between items-center bg-slate-50/50 dark:bg-slate-800/30">
+                      <h3 className="font-black text-slate-800 dark:text-white uppercase text-xs tracking-widest">Real-time Updates</h3>
+                      <button onClick={markAllAsRead} className="text-[9px] font-black uppercase text-indigo-600 dark:text-indigo-400 hover:underline">Clear All</button>
+                   </div>
+                   <div className="max-h-[400px] overflow-y-auto custom-scrollbar">
+                      {notifications.length > 0 ? (
+                        notifications.map(n => (
+                          <div key={n.id} className={`p-5 border-b border-slate-50 dark:border-slate-800 transition-colors ${n.isRead ? 'opacity-50' : 'bg-indigo-50/20'}`}>
+                             <div className="flex gap-4">
+                                <div className="w-10 h-10 bg-white dark:bg-slate-800 rounded-xl flex items-center justify-center text-indigo-600 dark:text-indigo-400 shadow-sm border border-slate-100 dark:border-slate-700 shrink-0">
+                                   {n.type === 'VIDEO' ? <Video size={18}/> : 
+                                    n.type === 'GALLERY' ? <ImageIcon size={18}/> : 
+                                    n.type === 'CURRICULUM' ? <BookOpen size={18}/> :
+                                    n.type === 'HOMEWORK' ? <PencilRuler size={18}/> :
+                                    <Megaphone size={18}/>}
+                                </div>
+                                <div className="min-w-0">
+                                   <p className="font-black text-[10px] text-slate-900 dark:text-white uppercase leading-none mb-1">{n.title}</p>
+                                   <p className="text-xs text-slate-500 dark:text-slate-400 font-medium truncate mb-2">{n.message}</p>
+                                   <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest">{n.timestamp.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</p>
+                                </div>
+                             </div>
+                          </div>
+                        ))
+                      ) : (
+                        <div className="p-20 text-center">
+                           <Bell size={32} className="text-slate-100 dark:text-slate-800 mx-auto mb-4" />
+                           <p className="text-[10px] font-black text-slate-300 dark:text-slate-600 uppercase tracking-widest">No Recent Alerts</p>
+                        </div>
+                      )}
+                   </div>
+                   <div className="p-4 bg-slate-50 dark:bg-slate-800/30 text-center">
+                      <p className="text-[8px] font-black text-slate-400 uppercase tracking-[0.2em]">Institutional Cloud Center Active</p>
+                   </div>
+                </div>
+              )}
+            </div>
+
             <div className="h-8 w-px bg-slate-200 dark:bg-slate-800 mx-2 hidden sm:block" />
             <div className="flex items-center gap-3 pl-2 group cursor-pointer" onClick={() => setShowProfileModal(true)}>
               <div className="text-right hidden sm:block">
@@ -667,5 +796,9 @@ const RecordsManager: React.FC<{ type: 'TEACHER', user: User }> = ({ type, user 
     </div>
   );
 };
+
+const Megaphone = ({ size, className }: { size: number, className?: string }) => (
+  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><path d="m3 11 18-5v12L3 13v-2Z"/><path d="M11.6 16.8a3 3 0 1 1-5.8-1.6"/></svg>
+);
 
 export default App;
