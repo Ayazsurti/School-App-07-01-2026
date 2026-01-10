@@ -37,7 +37,11 @@ import {
   ChevronDown,
   GripVertical,
   Plus,
-  Edit2
+  Edit2,
+  Cloud,
+  School,
+  Loader2,
+  RefreshCw
 } from 'lucide-react';
 import { User, UserRole } from './types';
 import Login from './pages/Login';
@@ -65,29 +69,42 @@ import FeeSearch from './pages/FeeSearch';
 import IdCardGenerator from './pages/IdCardGenerator';
 import AuditLog from './pages/AuditLog';
 import Curriculum from './pages/Curriculum';
-import { APP_NAME, NAVIGATION, MOCK_TEACHERS } from './constants';
+import SchoolSettings from './pages/SchoolSettings';
+import { APP_NAME as DEFAULT_APP_NAME, NAVIGATION, MOCK_TEACHERS } from './constants';
+import { db, supabase } from './supabase';
+import { createAuditLog } from './utils/auditLogger';
 
 const App: React.FC = () => {
   const [user, setUser] = useState<User | null>(() => {
     const saved = localStorage.getItem('school_app_user');
-    if (saved) {
-      const parsedUser = JSON.parse(saved) as User;
-      const persistentImage = localStorage.getItem(`profile_image_v2_${parsedUser.email}`);
-      if (persistentImage) {
-        parsedUser.profileImage = persistentImage;
-      }
-      return parsedUser;
-    }
-    return null;
+    return saved ? JSON.parse(saved) : null;
   });
 
   const [darkMode, setDarkMode] = useState<boolean>(() => {
     return localStorage.getItem('theme') === 'dark';
   });
 
-  const [schoolLogo, setSchoolLogo] = useState<string | null>(() => {
-    return localStorage.getItem('school_app_logo');
-  });
+  const [schoolLogo, setSchoolLogo] = useState<string | null>(null);
+  const [schoolName, setSchoolName] = useState<string>(DEFAULT_APP_NAME);
+
+  const fetchBranding = async () => {
+    try {
+      const settings = await db.settings.getAll();
+      if (settings.school_logo) setSchoolLogo(settings.school_logo);
+      if (settings.school_name) setSchoolName(settings.school_name);
+    } catch (err) { console.error("Identity Sync Error"); }
+  };
+
+  useEffect(() => {
+    fetchBranding();
+    const channel = supabase.channel('settings-global-sync')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'settings' }, () => {
+        fetchBranding();
+      })
+      .subscribe();
+      
+    return () => { supabase.removeChannel(channel); };
+  }, []);
 
   useEffect(() => {
     if (darkMode) {
@@ -100,10 +117,6 @@ const App: React.FC = () => {
   }, [darkMode]);
 
   const handleLogin = (userData: User) => {
-    const persistentImage = localStorage.getItem(`profile_image_v2_${userData.email}`);
-    if (persistentImage) {
-      userData.profileImage = persistentImage;
-    }
     setUser(userData);
     localStorage.setItem('school_app_user', JSON.stringify(userData));
   };
@@ -114,23 +127,8 @@ const App: React.FC = () => {
   };
 
   const handleUpdateUser = (updatedUser: User) => {
-    if (updatedUser.profileImage) {
-      localStorage.setItem(`profile_image_v2_${updatedUser.email}`, updatedUser.profileImage);
-    } else {
-      localStorage.removeItem(`profile_image_v2_${updatedUser.email}`);
-    }
     setUser(updatedUser);
     localStorage.setItem('school_app_user', JSON.stringify(updatedUser));
-  };
-
-  const handleUpdateLogo = (logoData: string | null) => {
-    if (logoData === null) {
-      localStorage.removeItem('school_app_logo');
-      setSchoolLogo(null);
-    } else {
-      localStorage.setItem('school_app_logo', logoData);
-      setSchoolLogo(logoData);
-    }
   };
 
   return (
@@ -139,7 +137,7 @@ const App: React.FC = () => {
         <Routes>
           <Route 
             path="/login" 
-            element={!user ? <Login onLogin={handleLogin} schoolLogo={schoolLogo} /> : <Navigate to="/" />} 
+            element={!user ? <Login onLogin={handleLogin} schoolLogo={schoolLogo} schoolName={schoolName} /> : <Navigate to="/" />} 
           />
           <Route 
             path="/*" 
@@ -150,7 +148,7 @@ const App: React.FC = () => {
                   onLogout={handleLogout} 
                   onUpdateUser={handleUpdateUser} 
                   schoolLogo={schoolLogo} 
-                  onUpdateLogo={handleUpdateLogo}
+                  schoolName={schoolName}
                   darkMode={darkMode}
                   setDarkMode={setDarkMode}
                 />
@@ -168,12 +166,12 @@ interface LayoutProps {
   onLogout: () => void;
   onUpdateUser: (user: User) => void;
   schoolLogo: string | null;
-  onUpdateLogo: (logo: string | null) => void;
+  schoolName: string;
   darkMode: boolean;
   setDarkMode: (val: boolean) => void;
 }
 
-const Layout: React.FC<LayoutProps> = ({ user, onLogout, onUpdateUser, schoolLogo, onUpdateLogo, darkMode, setDarkMode }) => {
+const Layout: React.FC<LayoutProps> = ({ user, onLogout, onUpdateUser, schoolLogo, schoolName, darkMode, setDarkMode }) => {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
   const [showProfileModal, setShowProfileModal] = useState(false);
@@ -285,9 +283,9 @@ const Layout: React.FC<LayoutProps> = ({ user, onLogout, onUpdateUser, schoolLog
             <div className="flex items-center justify-between mb-8">
                <div className="flex items-center gap-3">
                   <div className="w-9 h-9 bg-indigo-600 rounded-lg flex items-center justify-center text-white font-bold text-lg overflow-hidden shadow-sm shadow-indigo-100">
-                    {schoolLogo ? <img src={schoolLogo} className="w-full h-full object-cover" alt="Logo" /> : 'E'}
+                    {schoolLogo ? <img src={schoolLogo} className="w-full h-full object-cover" alt="Logo" /> : <School size={20} />}
                   </div>
-                  <span className="text-sm font-black text-slate-800 dark:text-white tracking-tight leading-tight uppercase truncate max-w-[120px]">{APP_NAME}</span>
+                  <span className="text-[10px] font-black text-slate-800 dark:text-white tracking-tight leading-tight uppercase truncate max-w-[120px]">{schoolName}</span>
                </div>
                <button onClick={() => setDarkMode(!darkMode)} className="p-2 bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400 rounded-xl hover:text-indigo-600 dark:hover:text-indigo-400 transition-all">
                  {darkMode ? <Sun size={18} /> : <Moon size={18} />}
@@ -301,19 +299,22 @@ const Layout: React.FC<LayoutProps> = ({ user, onLogout, onUpdateUser, schoolLog
               return (
                 <Link key={item.name} to={item.path} onClick={() => setSidebarOpen(false)} className={`flex items-center gap-3 px-4 py-3 rounded-lg transition-all ${isActive ? 'bg-indigo-600 text-white font-semibold shadow-lg shadow-indigo-100' : 'text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800/50 hover:text-indigo-600'}`}>
                   <span className={`${isActive ? 'text-white' : 'text-slate-400 dark:text-slate-500'}`}>{item.icon}</span>
-                  <span className="text-xs font-bold uppercase tracking-widest">{item.name}</span>
+                  <span className="text-[10px] font-bold uppercase tracking-widest">{item.name}</span>
                 </Link>
               );
             })}
           </nav>
 
           <div className="p-4 border-t border-slate-100 dark:border-slate-800 space-y-1">
+            <div className="px-4 py-2 flex items-center gap-2 text-[8px] font-black text-slate-400 uppercase tracking-widest border border-slate-50 dark:border-slate-800 rounded-lg mb-4">
+              <Cloud size={10} className="text-indigo-500" /> Cloud Sync Active
+            </div>
             {user.role === 'ADMIN' && (
-              <button onClick={() => setShowCustomizeModal(true)} className="w-full flex items-center gap-3 px-4 py-3 text-slate-500 hover:bg-indigo-50 dark:hover:bg-indigo-950/30 hover:text-indigo-600 rounded-lg transition-colors font-bold text-xs uppercase tracking-widest">
+              <button onClick={() => setShowCustomizeModal(true)} className="w-full flex items-center gap-3 px-4 py-3 text-slate-500 hover:bg-indigo-50 dark:hover:bg-indigo-950/30 hover:text-indigo-600 rounded-lg transition-colors font-bold text-[10px] uppercase tracking-widest text-left">
                 <Settings2 size={18} /> Customize Menu
               </button>
             )}
-            <button onClick={triggerLogout} className="w-full flex items-center gap-3 px-4 py-3 text-slate-500 hover:bg-rose-50 dark:hover:bg-rose-950/30 hover:text-rose-600 rounded-lg transition-colors font-bold text-xs uppercase tracking-widest">
+            <button onClick={triggerLogout} className="w-full flex items-center gap-3 px-4 py-3 text-slate-500 hover:bg-rose-50 dark:hover:bg-rose-950/30 hover:text-rose-600 rounded-lg transition-colors font-bold text-[10px] uppercase tracking-widest text-left">
               <Power size={18} /> Sign Out
             </button>
           </div>
@@ -346,10 +347,11 @@ const Layout: React.FC<LayoutProps> = ({ user, onLogout, onUpdateUser, schoolLog
         <main className="flex-1 p-4 lg:p-8 overflow-y-auto">
           <Routes>
             <Route path="/" element={<Navigate to={`/${user.role.toLowerCase()}/dashboard`} />} />
-            <Route path="/admin/dashboard" element={<Dashboard user={user} schoolLogo={schoolLogo} onUpdateLogo={onUpdateLogo} />} />
+            <Route path="/admin/dashboard" element={<Dashboard user={user} schoolLogo={schoolLogo} onUpdateLogo={() => navigate('/admin/branding')} />} />
+            <Route path="/admin/branding" element={<SchoolSettings user={user} />} />
             <Route path="/admin/students" element={<StudentsManager user={user} />} />
             <Route path="/admin/id-cards" element={<IdCardGenerator user={user} schoolLogo={schoolLogo} />} />
-            <Route path="/admin/teachers" element={<RecordsManager type="TEACHER" />} />
+            <Route path="/admin/teachers" element={<RecordsManager type="TEACHER" user={user} />} />
             <Route path="/admin/homework" element={<Homework user={user} />} />
             <Route path="/admin/curriculum" element={<Curriculum user={user} />} />
             <Route path="/admin/attendance" element={<Attendance user={user} />} />
@@ -371,7 +373,7 @@ const Layout: React.FC<LayoutProps> = ({ user, onLogout, onUpdateUser, schoolLog
             <Route path="/admin/notices" element={<NoticeBoard user={user} />} />
             <Route path="/admin/audit" element={<AuditLog user={user} />} />
             
-            <Route path="/teacher/dashboard" element={<Dashboard user={user} schoolLogo={schoolLogo} onUpdateLogo={onUpdateLogo} />} />
+            <Route path="/teacher/dashboard" element={<Dashboard user={user} schoolLogo={schoolLogo} onUpdateLogo={() => {}} />} />
             <Route path="/teacher/attendance" element={<Attendance user={user} />} />
             <Route path="/teacher/curriculum" element={<Curriculum user={user} />} />
             <Route path="/teacher/homework" element={<Homework user={user} />} />
@@ -383,7 +385,7 @@ const Layout: React.FC<LayoutProps> = ({ user, onLogout, onUpdateUser, schoolLog
             <Route path="/teacher/marksheet" element={<MarksheetGenerator user={user} schoolLogo={schoolLogo} />} />
             <Route path="/teacher/notices" element={<NoticeBoard user={user} />} />
             
-            <Route path="/student/dashboard" element={<Dashboard user={user} schoolLogo={schoolLogo} onUpdateLogo={onUpdateLogo} />} />
+            <Route path="/student/dashboard" element={<Dashboard user={user} schoolLogo={schoolLogo} onUpdateLogo={() => {}} />} />
             <Route path="/student/attendance" element={<Attendance user={user} />} />
             <Route path="/student/curriculum" element={<Curriculum user={user} />} />
             <Route path="/student/homework" element={<Homework user={user} />} />
@@ -523,89 +525,141 @@ const CustomizeSidebarModal: React.FC<CustomizeSidebarModalProps> = ({ items, hi
   );
 };
 
-const RecordsManager: React.FC<{ type: 'TEACHER' }> = ({ type }) => {
-  const [records, setRecords] = useState<any[]>(() => {
-    const saved = localStorage.getItem(`school_${type.toLowerCase()}s_db`);
-    if (saved) return JSON.parse(saved);
-    return MOCK_TEACHERS;
-  });
-
+const RecordsManager: React.FC<{ type: 'TEACHER', user: User }> = ({ type, user }) => {
+  const [records, setRecords] = useState<any[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [isSyncing, setIsSyncing] = useState(false);
   const [showModal, setShowModal] = useState(false);
-  const [formData, setFormData] = useState({ name: '', staffId: '', subject: '' });
+  const [formData, setFormData] = useState({ name: '', staffId: '', subject: '', mobile: '' });
   const [editingId, setEditingId] = useState<string | null>(null);
 
-  useEffect(() => {
-    localStorage.setItem(`school_${type.toLowerCase()}s_db`, JSON.stringify(records));
-  }, [records, type]);
-
-  const handleSave = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (editingId) {
-      setRecords(records.map(r => r.id === editingId ? { ...r, ...formData } : r));
-    } else {
-      setRecords([...records, { id: Math.random().toString(36).substr(2, 9), ...formData }]);
-    }
-    setShowModal(false);
-    setEditingId(null);
-    setFormData({ name: '', staffId: '', subject: '' });
+  const fetchCloudData = async () => {
+    try {
+      const data = await db.teachers.getAll();
+      setRecords(data);
+    } catch (err) { console.error("Faculty Sync Error"); }
+    finally { setIsLoading(false); }
   };
 
-  const handleDelete = (id: string) => {
-    if (confirm('Permanently remove this faculty record?')) {
-      setRecords(records.filter(r => r.id !== id));
+  useEffect(() => {
+    fetchCloudData();
+    const channel = supabase.channel('realtime-teachers')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'teachers' }, () => {
+        setIsSyncing(true);
+        fetchCloudData().then(() => setTimeout(() => setIsSyncing(false), 800));
+      })
+      .subscribe();
+    return () => { supabase.removeChannel(channel); };
+  }, []);
+
+  const handleSave = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setIsLoading(true);
+    try {
+      await db.teachers.upsert({ ...formData, id: editingId || '' });
+      createAuditLog(user, editingId ? 'UPDATE' : 'CREATE', 'Faculty', `Cloud Sync Faculty: ${formData.name}`);
+      setShowModal(false);
+      setEditingId(null);
+      setFormData({ name: '', staffId: '', subject: '', mobile: '' });
+    } catch (err) { alert("Failed to save faculty record to cloud."); }
+    finally { setIsLoading(false); }
+  };
+
+  const handleDelete = async (id: string) => {
+    if (confirm('Permanently remove this faculty record from the cloud?')) {
+      try {
+        await db.teachers.delete(id);
+        createAuditLog(user, 'DELETE', 'Faculty', `Purged faculty ID: ${id}`);
+      } catch (err) { alert("Delete failed."); }
     }
   };
 
   return (
-    <div className="space-y-8 animate-in fade-in duration-500">
+    <div className="space-y-8 animate-in fade-in duration-500 relative">
+      {isSyncing && (
+        <div className="fixed top-24 left-1/2 -translate-x-1/2 z-[1100] animate-bounce">
+           <div className="bg-indigo-600 text-white px-6 py-2 rounded-full shadow-2xl flex items-center gap-3 border border-indigo-400">
+              <RefreshCw size={14} className="animate-spin" />
+              <span className="text-[10px] font-black uppercase tracking-widest">Refreshing Faculty Registry...</span>
+           </div>
+        </div>
+      )}
+
       <div className="flex justify-between items-center">
         <div>
           <h1 className="text-3xl font-black text-slate-900 dark:text-white uppercase tracking-tight">Faculty Directory</h1>
-          <p className="text-slate-500 dark:text-slate-400 font-medium">Manage institutional staff and teaching assignments.</p>
+          <p className="text-slate-500 dark:text-slate-400 font-medium">Manage institutional staff assignments on the cloud.</p>
         </div>
-        <button onClick={() => setShowModal(true)} className="px-6 py-3 bg-indigo-600 text-white font-black rounded-2xl flex items-center gap-2 shadow-lg"><Plus size={18} /> New Faculty</button>
+        <button onClick={() => { setEditingId(null); setFormData({name:'', staffId:'', subject:'', mobile:''}); setShowModal(true); }} className="px-6 py-3 bg-indigo-600 text-white font-black rounded-2xl flex items-center gap-2 shadow-lg hover:bg-indigo-700 transition-all"><Plus size={18} /> New Faculty</button>
       </div>
 
       <div className="bg-white dark:bg-slate-900 rounded-[3rem] border border-slate-100 dark:border-slate-800 overflow-hidden shadow-sm">
-        <table className="w-full text-left">
-          <thead className="bg-slate-50 dark:bg-slate-800/50 text-slate-400 text-[10px] font-black uppercase tracking-widest border-b border-slate-100 dark:border-slate-800">
-            <tr>
-              <th className="px-8 py-5">Staff Identity</th>
-              <th className="px-8 py-5">ID Reference</th>
-              <th className="px-8 py-5">Specialization</th>
-              <th className="px-8 py-5 text-right">Actions</th>
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
-            {records.map((r) => (
-              <tr key={r.id} className="hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors group">
-                <td className="px-8 py-6 font-black text-slate-800 dark:text-white uppercase text-sm">{r.name}</td>
-                <td className="px-8 py-6 text-slate-500 dark:text-slate-400 text-xs font-bold">{r.staffId}</td>
-                <td className="px-8 py-6">
-                  <span className="px-3 py-1 bg-indigo-50 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400 rounded-lg text-[10px] font-black uppercase">{r.subject}</span>
-                </td>
-                <td className="px-8 py-6 text-right space-x-2">
-                  <button onClick={() => { setEditingId(r.id); setFormData(r); setShowModal(true); }} className="p-2 text-slate-400 hover:text-indigo-600 transition-all"><Edit2 size={16} /></button>
-                  <button onClick={() => handleDelete(r.id)} className="p-2 text-slate-400 hover:text-rose-600 transition-all"><Trash2 size={16} /></button>
-                </td>
+        {isLoading ? (
+          <div className="py-20 flex flex-col items-center justify-center animate-pulse">
+            <Loader2 className="animate-spin text-indigo-600 mb-4" size={32} />
+            <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Accessing Cloud Directory...</p>
+          </div>
+        ) : (
+          <table className="w-full text-left">
+            <thead className="bg-slate-50 dark:bg-slate-800/50 text-slate-400 text-[10px] font-black uppercase tracking-widest border-b border-slate-100 dark:border-slate-800">
+              <tr>
+                <th className="px-8 py-5">Staff Identity</th>
+                <th className="px-8 py-5">ID Reference</th>
+                <th className="px-8 py-5">Specialization</th>
+                <th className="px-8 py-5 text-right">Actions</th>
               </tr>
-            ))}
-          </tbody>
-        </table>
+            </thead>
+            <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
+              {records.map((r) => (
+                <tr key={r.id} className="hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors group">
+                  <td className="px-8 py-6 font-black text-slate-800 dark:text-white uppercase text-sm">{r.name}</td>
+                  <td className="px-8 py-6 text-slate-500 dark:text-slate-400 text-xs font-bold">{r.staff_id || r.staffId}</td>
+                  <td className="px-8 py-6">
+                    <span className="px-3 py-1 bg-indigo-50 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400 rounded-lg text-[10px] font-black uppercase">{r.subject}</span>
+                  </td>
+                  <td className="px-8 py-6 text-right space-x-2">
+                    <button onClick={() => { setEditingId(r.id); setFormData({name: r.name, staffId: r.staff_id || r.staffId, subject: r.subject, mobile: r.mobile}); setShowModal(true); }} className="p-2 text-slate-400 hover:text-indigo-600 transition-all"><Edit2 size={16} /></button>
+                    <button onClick={() => handleDelete(r.id)} className="p-2 text-slate-400 hover:text-rose-600 transition-all"><Trash2 size={16} /></button>
+                  </td>
+                </tr>
+              ))}
+              {records.length === 0 && (
+                <tr>
+                  <td colSpan={4} className="py-20 text-center text-slate-300 font-bold uppercase text-xs tracking-widest">No faculty registered in the cloud.</td>
+                </tr>
+              )}
+            </tbody>
+          </table>
+        )}
       </div>
 
       {showModal && (
         <div className="fixed inset-0 z-[150] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-in fade-in">
-          <form onSubmit={handleSave} className="bg-white dark:bg-slate-900 rounded-[2.5rem] p-10 max-md w-full shadow-2xl space-y-6">
-            <h3 className="text-xl font-black text-slate-900 dark:text-white uppercase">{editingId ? 'Edit Faculty' : 'New Faculty'}</h3>
+          <form onSubmit={handleSave} className="bg-white dark:bg-slate-900 rounded-[2.5rem] p-10 max-md w-full shadow-2xl space-y-6 border border-slate-100 dark:border-slate-800">
+            <h3 className="text-xl font-black text-slate-900 dark:text-white uppercase tracking-tight">{editingId ? 'Modify Faculty Record' : 'Enroll New Faculty'}</h3>
             <div className="space-y-4">
-              <input type="text" placeholder="Full Name" required value={formData.name} onChange={e => setFormData({...formData, name: e.target.value})} className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl px-4 py-3 font-bold dark:text-white" />
-              <input type="text" placeholder="Staff ID" required value={formData.staffId} onChange={e => setFormData({...formData, staffId: e.target.value})} className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl px-4 py-3 font-bold dark:text-white" />
-              <input type="text" placeholder="Subject Specialization" required value={formData.subject} onChange={e => setFormData({...formData, subject: e.target.value})} className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl px-4 py-3 font-bold dark:text-white" />
+              <div>
+                <label className="block text-[8px] font-black text-slate-400 uppercase tracking-widest mb-1.5 ml-1">Full Legal Name</label>
+                <input type="text" placeholder="Full Name" required value={formData.name} onChange={e => setFormData({...formData, name: e.target.value})} className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl px-4 py-3 font-bold text-slate-800 dark:text-white outline-none focus:ring-2 focus:ring-indigo-500" />
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-[8px] font-black text-slate-400 uppercase tracking-widest mb-1.5 ml-1">Staff ID</label>
+                  <input type="text" placeholder="Staff ID" required value={formData.staffId} onChange={e => setFormData({...formData, staffId: e.target.value})} className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl px-4 py-3 font-bold text-slate-800 dark:text-white outline-none" />
+                </div>
+                <div>
+                  <label className="block text-[8px] font-black text-slate-400 uppercase tracking-widest mb-1.5 ml-1">Contact Number</label>
+                  <input type="text" placeholder="Mobile No" value={formData.mobile} onChange={e => setFormData({...formData, mobile: e.target.value})} className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl px-4 py-3 font-bold text-slate-800 dark:text-white outline-none" />
+                </div>
+              </div>
+              <div>
+                <label className="block text-[8px] font-black text-slate-400 uppercase tracking-widest mb-1.5 ml-1">Academic Specialization</label>
+                <input type="text" placeholder="Subject Specialization" required value={formData.subject} onChange={e => setFormData({...formData, subject: e.target.value})} className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl px-4 py-3 font-bold text-slate-800 dark:text-white outline-none focus:ring-2 focus:ring-indigo-500" />
+              </div>
             </div>
             <div className="flex gap-4 pt-4">
-              <button type="button" onClick={() => setShowModal(false)} className="flex-1 py-4 bg-slate-100 dark:bg-slate-800 rounded-2xl font-bold dark:text-white">Cancel</button>
-              <button type="submit" className="flex-1 py-4 bg-indigo-600 text-white rounded-2xl font-bold">Save</button>
+              <button type="button" onClick={() => setShowModal(false)} className="flex-1 py-4 bg-slate-100 dark:bg-slate-800 rounded-2xl font-bold text-slate-600 dark:text-slate-300 uppercase text-[10px] tracking-widest">Discard</button>
+              <button type="submit" className="flex-1 py-4 bg-indigo-600 text-white rounded-2xl font-black shadow-lg shadow-indigo-100 hover:bg-indigo-700 transition-all uppercase text-[10px] tracking-widest">Commit to Cloud</button>
             </div>
           </form>
         </div>

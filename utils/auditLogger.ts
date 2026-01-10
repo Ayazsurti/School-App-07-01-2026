@@ -1,4 +1,6 @@
+
 import { User } from '../types';
+import { db } from '../supabase';
 
 export type AuditAction = 'CREATE' | 'UPDATE' | 'DELETE' | 'LOGIN' | 'EXPORT' | 'PAYMENT';
 
@@ -13,8 +15,8 @@ export interface AuditEntry {
 }
 
 /**
- * Local-First Institutional Audit Logger.
- * Stores events in school_audit_logs_v4 for local tracking.
+ * Cloud-Native Institutional Audit Logger.
+ * Synchronizes events with Supabase audit_logs table.
  */
 export const createAuditLog = async (user: User, action: AuditAction, module: string, details: string) => {
   const timestampStr = new Date().toLocaleString('en-GB', { 
@@ -22,8 +24,7 @@ export const createAuditLog = async (user: User, action: AuditAction, module: st
     hour: '2-digit', minute: '2-digit', hour12: true 
   }).replace(',', ' at');
 
-  const logPayload: AuditEntry = {
-    id: Math.random().toString(36).substr(2, 9),
+  const logPayload = {
     timestamp: timestampStr,
     user: user.name,
     role: user.role,
@@ -33,23 +34,26 @@ export const createAuditLog = async (user: User, action: AuditAction, module: st
   };
 
   try {
-    const localLogs: AuditEntry[] = JSON.parse(localStorage.getItem('school_audit_logs_v4') || '[]');
-    // Maintain a rolling buffer of 1000 logs
-    const updatedLogs = [logPayload, ...localLogs].slice(0, 1000);
-    localStorage.setItem('school_audit_logs_v4', JSON.stringify(updatedLogs));
-    
-    // Broadcast storage event for real-time UI updates
-    window.dispatchEvent(new Event('storage'));
+    await db.audit.insert(logPayload);
   } catch (err) {
-    console.error("Local Audit Write Failure:", err);
+    console.error("Cloud Audit Write Failure:", err);
   }
 };
 
-export const getAuditLogs = (): AuditEntry[] => {
+export const getAuditLogs = async (): Promise<AuditEntry[]> => {
   try {
-    return JSON.parse(localStorage.getItem('school_audit_logs_v4') || '[]');
+    const data = await db.audit.getAll();
+    return data.map((d: any) => ({
+      id: d.id,
+      timestamp: d.timestamp,
+      user: d.username,
+      role: d.role,
+      action: d.action as AuditAction,
+      module: d.module,
+      details: d.details
+    }));
   } catch (err) {
-    console.error("Local Audit Read Failure:", err);
+    console.error("Cloud Audit Read Failure:", err);
     return [];
   }
 };

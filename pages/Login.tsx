@@ -1,16 +1,17 @@
 
 import React, { useState } from 'react';
 import { User, UserRole } from '../types';
-import { ShieldCheck, User as UserIcon, GraduationCap, Lock, UserCircle, Eye, EyeOff, School, AlertCircle, ArrowRight, KeyRound } from 'lucide-react';
-import { APP_NAME, MOCK_STUDENTS, MOCK_TEACHERS } from '../constants';
+import { ShieldCheck, User as UserIcon, GraduationCap, Lock, UserCircle, Eye, EyeOff, School, AlertCircle, ArrowRight, Loader2 } from 'lucide-react';
+import { db } from '../supabase';
 import { createAuditLog } from '../utils/auditLogger';
 
 interface LoginProps {
   onLogin: (user: User) => void;
   schoolLogo: string | null;
+  schoolName: string;
 }
 
-const Login: React.FC<LoginProps> = ({ onLogin, schoolLogo }) => {
+const Login: React.FC<LoginProps> = ({ onLogin, schoolLogo, schoolName }) => {
   const [role, setRole] = useState<UserRole>('ADMIN');
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
@@ -23,60 +24,31 @@ const Login: React.FC<LoginProps> = ({ onLogin, schoolLogo }) => {
     setLoading(true);
     setError(null);
 
-    // Artificial delay for professional feel
-    await new Promise(resolve => setTimeout(resolve, 1000));
-
-    let authenticatedUser: User | null = null;
-
-    if (role === 'ADMIN') {
-      const ADMIN_CREDENTIALS = [
-        { user: 'admin', pass: 'admin123', name: 'Ayaz Surti' },
-        { user: 'ayazsurti', pass: 'Ayaz78692', name: 'Ayaz Surti' },
-        { user: 'zuber', pass: 'Zuber@1993', name: 'Zuber Shaikh' }
-      ];
-      const target = ADMIN_CREDENTIALS.find(c => c.user.toLowerCase() === username.toLowerCase() && c.pass === password);
-      if (target) {
-        authenticatedUser = {
-          id: 'ADMIN_01',
-          name: target.name,
-          email: `${target.user}@school.com`,
-          role: 'ADMIN',
-        };
+    try {
+      const profile = await db.auth.login(username, password);
+      
+      if (profile.role !== role) {
+        throw new Error(`Unauthorized: This user is assigned the role of ${profile.role}, not ${role}.`);
       }
-    } else if (role === 'TEACHER') {
-      // Logic: Username is Staff ID (e.g., teacher) and Password is teacher123
-      if (username.toLowerCase() === 'teacher' && password === 'teacher123') {
-        authenticatedUser = {
-          id: 'T_MOCK',
-          name: 'Demo Teacher',
-          email: 'teacher@school.com',
-          role: 'TEACHER',
-          staffId: 'TEA-101'
-        };
-      }
-    } else if (role === 'STUDENT') {
-      // Logic: Username is student and Password is student123
-      if (username.toLowerCase() === 'student' && password === 'student123') {
-        authenticatedUser = {
-          id: 'S_MOCK',
-          name: 'Demo Student',
-          email: 'student@school.com',
-          role: 'STUDENT',
-          // Fix: Added class and section alongside rollNo to fulfill student user requirements
-          rollNo: '101',
-          class: '10th',
-          section: 'A'
-        };
-      }
-    }
 
-    if (authenticatedUser) {
-      createAuditLog(authenticatedUser, 'LOGIN', 'Auth', `${role} verified via secure login`);
+      const authenticatedUser: User = {
+        id: profile.id,
+        name: profile.full_name,
+        email: profile.email || `${username}@school.com`,
+        role: profile.role as UserRole,
+        rollNo: profile.role === 'STUDENT' ? '101' : undefined,
+        class: profile.role === 'STUDENT' ? '10th' : undefined,
+        section: profile.role === 'STUDENT' ? 'A' : undefined
+      };
+
+      createAuditLog(authenticatedUser, 'LOGIN', 'Auth', `${role} Session Initialized`);
       onLogin(authenticatedUser);
-    } else {
-      setError("Invalid Credentials: Use 'admin'/'admin123', 'teacher'/'teacher123', or 'student'/'student123'");
+    } catch (err: any) {
+      console.error(err);
+      setError(err.message || "Invalid Credentials: Password or Username mismatch.");
+    } finally {
+      setLoading(false);
     }
-    setLoading(false);
   };
 
   return (
@@ -92,8 +64,8 @@ const Login: React.FC<LoginProps> = ({ onLogin, schoolLogo }) => {
               <School size={40} strokeWidth={2.5} />
             )}
           </div>
-          <h1 className="text-3xl font-black text-slate-900 dark:text-white tracking-tight leading-none uppercase">{APP_NAME}</h1>
-          <p className="text-[10px] font-black text-indigo-600 dark:text-indigo-400 uppercase tracking-[0.3em] mt-2">Institutional Portal Login</p>
+          <h1 className="text-2xl font-black text-slate-900 dark:text-white tracking-tight leading-tight uppercase px-4">{schoolName}</h1>
+          <p className="text-[9px] font-black text-indigo-600 dark:text-indigo-400 uppercase tracking-[0.3em] mt-2">Cloud Protected Portal</p>
         </div>
 
         <div className="bg-white dark:bg-slate-900 p-8 rounded-[3rem] shadow-2xl border border-slate-100 dark:border-slate-800">
@@ -103,9 +75,8 @@ const Login: React.FC<LoginProps> = ({ onLogin, schoolLogo }) => {
                 key={r}
                 type="button"
                 onClick={() => { setRole(r); setUsername(''); setPassword(''); setError(null); }}
-                className={`py-3 rounded-xl text-[9px] font-black uppercase tracking-widest transition-all ${role === r ? 'bg-white dark:bg-slate-700 shadow-lg text-indigo-600 dark:text-indigo-400' : 'text-slate-400 hover:text-slate-600'}`}
+                className={`py-3 rounded-xl text-[8px] font-black uppercase tracking-widest transition-all ${role === r ? 'bg-white dark:bg-slate-700 shadow-lg text-indigo-600 dark:text-indigo-400' : 'text-slate-400 hover:text-slate-600'}`}
               >
-                {r === 'ADMIN' ? <ShieldCheck size={12} className="inline mr-1"/> : r === 'TEACHER' ? <UserIcon size={12} className="inline mr-1"/> : <GraduationCap size={12} className="inline mr-1"/>}
                 {r}
               </button>
             ))}
@@ -120,7 +91,7 @@ const Login: React.FC<LoginProps> = ({ onLogin, schoolLogo }) => {
 
           <form onSubmit={handleLogin} className="space-y-6">
             <div className="space-y-1.5">
-              <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Username / ID</label>
+              <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest ml-1">Username / ID</label>
               <div className="relative group">
                 <UserCircle className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-300 group-focus-within:text-indigo-500 transition-colors" size={18} />
                 <input 
@@ -135,7 +106,7 @@ const Login: React.FC<LoginProps> = ({ onLogin, schoolLogo }) => {
             </div>
 
             <div className="space-y-1.5">
-              <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Password</label>
+              <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest ml-1">Password</label>
               <div className="relative group">
                 <Lock className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-300 group-focus-within:text-indigo-500 transition-colors" size={18} />
                 <input 
@@ -161,18 +132,22 @@ const Login: React.FC<LoginProps> = ({ onLogin, schoolLogo }) => {
               disabled={loading}
               className="w-full py-5 bg-indigo-600 text-white font-black rounded-2xl shadow-xl hover:bg-indigo-700 transition-all flex items-center justify-center gap-3 text-xs tracking-widest uppercase disabled:opacity-50"
             >
-              {loading ? <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin"></div> : (
-                <>Sign In to {role}<ArrowRight size={18} /></>
+              {loading ? <Loader2 className="animate-spin" size={20} /> : (
+                <>Secure Sign In <ArrowRight size={18} /></>
               )}
             </button>
           </form>
         </div>
-        <p className="text-center mt-8 text-slate-400 text-[10px] font-bold uppercase tracking-[0.2em]">
-          Powered by EDUCATION WORLD Registry Engine
+        <p className="text-center mt-8 text-slate-400 text-[9px] font-bold uppercase tracking-[0.2em]">
+          Powered by SUPABASE CLOUD AUTH
         </p>
       </div>
     </div>
   );
 };
+
+const UserCircle = ({ size, className }: { size: number, className?: string }) => (
+  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+);
 
 export default Login;

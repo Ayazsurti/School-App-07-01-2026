@@ -26,7 +26,8 @@ import {
   MessageSquareQuote,
   SlidersHorizontal,
   FileClock,
-  Banknote
+  Banknote,
+  Stamp
 } from 'lucide-react';
 import { TimetableEntry, Student } from './types';
 
@@ -35,6 +36,7 @@ export const APP_NAME = "Deen-E-islam School";
 export const NAVIGATION = {
   ADMIN: [
     { name: 'Dashboard', icon: <LayoutDashboard size={20} />, path: '/admin/dashboard' },
+    { name: 'School Branding', icon: <Stamp size={20} />, path: '/admin/branding' },
     { name: 'Students', icon: <Users size={20} />, path: '/admin/students' },
     { name: 'ID Card Gen', icon: <Contact size={20} />, path: '/admin/id-cards' },
     { name: 'Teachers', icon: <UserCheck size={20} />, path: '/admin/teachers' },
