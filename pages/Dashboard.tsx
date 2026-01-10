@@ -89,8 +89,6 @@ const Dashboard: React.FC<DashboardProps> = ({ user, schoolLogo, onUpdateLogo })
           .filter(record => record.date === today && record.status === 'PAID')
           .reduce((sum, record) => sum + record.amount, 0);
         setDailyFees(totalToday);
-      } else {
-        setDailyFees(1650);
       }
     };
     
@@ -110,8 +108,6 @@ const Dashboard: React.FC<DashboardProps> = ({ user, schoolLogo, onUpdateLogo })
     }
 
     calculateDailyFees();
-    window.addEventListener('storage', calculateDailyFees);
-    return () => window.removeEventListener('storage', calculateDailyFees);
   }, [user.role]);
 
   const stats = [
@@ -160,10 +156,10 @@ const Dashboard: React.FC<DashboardProps> = ({ user, schoolLogo, onUpdateLogo })
 
   const canManageLogo = user.role === 'ADMIN';
 
-  // Student specific blank view
+  // Student Dashboard: ONLY WELCOME MESSAGE
   if (isStudent) {
     return (
-      <div className="min-h-full dashboard-rainbow-bg -m-4 lg:-m-8 p-4 lg:p-8 animate-in fade-in duration-700 flex items-center justify-center relative overflow-hidden">
+      <div className="min-h-full dashboard-rainbow-bg -m-4 lg:-m-8 p-4 lg:p-8 animate-in fade-in duration-700 flex flex-col items-center justify-center relative overflow-hidden">
         {particles.map((p) => (
           <div 
             key={p.id} 
@@ -176,13 +172,13 @@ const Dashboard: React.FC<DashboardProps> = ({ user, schoolLogo, onUpdateLogo })
         
         <div className="text-center relative z-10 space-y-4">
            <div className="flex items-center justify-center gap-2 mb-4">
-            <Sparkles className="text-amber-500 animate-bounce" size={32} />
+            <Sparkles className="text-amber-500 animate-bounce" size={40} />
           </div>
           <h1 className="text-5xl lg:text-7xl font-black tracking-tighter leading-tight rainbow-text drop-shadow-sm uppercase">
             WELCOME TO EDUCATION WORLD.
           </h1>
-          <div className="w-24 h-1.5 bg-indigo-600 mx-auto rounded-full opacity-30"></div>
-          <p className="text-slate-500 dark:text-slate-400 font-bold text-xl mt-4">Your learning journey begins here.</p>
+          <div className="w-32 h-1.5 bg-indigo-600 mx-auto rounded-full opacity-30 mt-6"></div>
+          <p className="text-slate-500 dark:text-slate-400 font-bold text-xl mt-4">Your personalized learning dashboard is ready.</p>
         </div>
 
         {showNoticePopup && importantNotice && (
@@ -330,7 +326,7 @@ const Dashboard: React.FC<DashboardProps> = ({ user, schoolLogo, onUpdateLogo })
               </div>
             ))}
           </div>
-          <button onClick={() => window.location.hash = isStudent ? '/student/notices' : '/admin/notices'} className="w-full mt-10 py-5 bg-white/5 backdrop-blur text-white/60 text-[10px] font-black uppercase tracking-[0.3em] rounded-2xl hover:bg-indigo-600 hover:text-white transition-all border border-white/5 flex items-center justify-center gap-2">
+          <button onClick={() => window.location.hash = '/admin/notices'} className="w-full mt-10 py-5 bg-white/5 backdrop-blur text-white/60 text-[10px] font-black uppercase tracking-[0.3em] rounded-2xl hover:bg-indigo-600 hover:text-white transition-all border border-white/5 flex items-center justify-center gap-2">
             Explore All Notices <ChevronRight size={16} strokeWidth={3} />
           </button>
         </div>

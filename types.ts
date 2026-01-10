@@ -10,6 +10,10 @@ export interface User {
   enrollmentId?: string;
   staffId?: string;
   mobile?: string;
+  // Fix: Added optional rollNo, class, and section to User interface to support student-specific fields in the shared User type
+  rollNo?: string;
+  class?: string;
+  section?: string;
 }
 
 export interface Student extends User {
