@@ -1,12 +1,16 @@
 
 import { createClient } from '@supabase/supabase-js';
 
-const supabaseUrl = 'https://qfordtxirmjeogqthbtv.supabase.co';
-const supabaseAnonKey = 'sb_publishable_UM7jqQWzi2dxxow1MmAEZA_V1zwXxmt';
+// Vite looks for variables starting with VITE_
+// Fallback to hardcoded strings only if env variables are missing (for local dev safety)
+// Fix: cast import.meta to any to resolve property 'env' does not exist on type 'ImportMeta' error
+const supabaseUrl = (import.meta as any).env?.VITE_SUPABASE_URL || 'https://qfordtxirmjeogqthbtv.supabase.co';
+// Fix: cast import.meta to any to resolve property 'env' does not exist on type 'ImportMeta' error
+const supabaseAnonKey = (import.meta as any).env?.VITE_SUPABASE_ANON_KEY || 'sb_publishable_UM7jqQWzi2dxxow1MmAEZA_V1zwXxmt';
 
 export const supabase = createClient(supabaseUrl, supabaseAnonKey);
 
-// Master credentials for immediate access
+// Master credentials for immediate access (Always accessible regardless of DB state)
 const MASTER_ACCOUNTS = [
   { username: 'ayazsurti', password: 'Ayaz78692', role: 'ADMIN', full_name: 'Ayaz Surti', id: 'admin-master' },
   { username: 'teacher1', password: 'password123', role: 'TEACHER', full_name: 'Lead Teacher', id: 'teacher-master' },
@@ -156,7 +160,7 @@ export const db = {
     async insertPayment(payment: any) {
       const { data, error } = await supabase.from('fee_ledger').insert([{
         student_id: payment.studentId, amount: payment.amount, date: payment.date,
-        status: payment.status, type: payment.type, receipt_no: payment.receiptNo
+        status: payment.status, type: payment.type, receipt_no: payment.receipt_no
       }]);
       if (error) throw error;
       return data;
