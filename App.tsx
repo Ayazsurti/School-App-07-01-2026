@@ -44,7 +44,9 @@ import {
   RefreshCw,
   Video,
   FileText,
-  BookOpen
+  BookOpen,
+  SwitchCamera,
+  StopCircle
 } from 'lucide-react';
 import { User, UserRole } from './types';
 import Login from './pages/Login';
@@ -313,7 +315,7 @@ const Layout: React.FC<LayoutProps> = ({ user, onLogout, onUpdateUser, schoolLog
     <div className="min-h-screen flex bg-slate-50 dark:bg-slate-950 transition-colors duration-300">
       {/* Real-time Push Notification Toast */}
       {activeToast && (
-        <div className="fixed top-20 left-1/2 -translate-x-1/2 z-[2000] animate-in slide-in-from-top-4 fade-in duration-500 w-full max-w-sm px-4">
+        <div className="fixed top-20 left-1/2 -translate-x-1/2 z-[2000] animate-in slide-in-from-top-4 fade-in duration-500 w-full max-sm px-4">
            <div className="bg-indigo-600 text-white p-5 rounded-[2rem] shadow-2xl flex items-center gap-4 border border-indigo-400 backdrop-blur-xl">
               <div className="w-12 h-12 bg-white/20 rounded-2xl flex items-center justify-center shrink-0">
                  {activeToast.type === 'VIDEO' ? <Video size={24}/> : 
@@ -557,7 +559,55 @@ interface ProfileModalProps {
 const ProfileModal: React.FC<ProfileModalProps> = ({ user, onClose, onSave, onLogout }) => {
   const [photo, setPhoto] = useState<string | null>(user.profileImage || null);
   const [isSyncing, setIsSyncing] = useState(false);
+  const [isCameraActive, setIsCameraActive] = useState(false);
+  
   const inputRef = useRef<HTMLInputElement>(null);
+  const videoRef = useRef<HTMLVideoElement>(null);
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+
+  const startCamera = async () => {
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ 
+        video: { facingMode: 'user', width: { ideal: 480 }, height: { ideal: 480 } }, 
+        audio: false 
+      });
+      if (videoRef.current) {
+        videoRef.current.srcObject = stream;
+        setIsCameraActive(true);
+      }
+    } catch (err) {
+      alert("Camera Access Denied. Please grant permissions in browser settings.");
+    }
+  };
+
+  const stopCamera = () => {
+    if (videoRef.current && videoRef.current.srcObject) {
+      const stream = videoRef.current.srcObject as MediaStream;
+      stream.getTracks().forEach(track => track.stop());
+      videoRef.current.srcObject = null;
+    }
+    setIsCameraActive(false);
+  };
+
+  const capturePhoto = async () => {
+    if (videoRef.current && canvasRef.current) {
+      const context = canvasRef.current.getContext('2d');
+      if (context) {
+        canvasRef.current.width = videoRef.current.videoWidth;
+        canvasRef.current.height = videoRef.current.videoHeight;
+        context.drawImage(videoRef.current, 0, 0);
+        const dataUrl = canvasRef.current.toDataURL('image/jpeg', 0.8);
+        
+        setIsSyncing(true);
+        const success = await onSave(dataUrl);
+        if (success) {
+          setPhoto(dataUrl);
+        }
+        setIsSyncing(false);
+        stopCamera();
+      }
+    }
+  };
 
   const handleUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -581,44 +631,94 @@ const ProfileModal: React.FC<ProfileModalProps> = ({ user, onClose, onSave, onLo
     }
   };
 
+  // Clean up camera on unmount
+  useEffect(() => {
+    return () => stopCamera();
+  }, []);
+
   return (
     <div className="fixed inset-0 z-[150] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-in fade-in">
       <div className="bg-white dark:bg-slate-900 rounded-[2.5rem] p-1 shadow-2xl max-md w-full animate-in zoom-in-95 overflow-hidden">
         <div className="p-8 border-b border-slate-100 dark:border-slate-800 flex justify-between items-center bg-slate-50/50 dark:bg-slate-800/30">
-          <h3 className="text-xl font-black text-slate-900 dark:text-white uppercase tracking-tight">User Profile</h3>
-          <button onClick={onClose} className="p-2 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-full text-slate-400"><X size={20} /></button>
+          <h3 className="text-xl font-black text-slate-900 dark:text-white uppercase tracking-tight">Cloud Profile</h3>
+          <button onClick={() => { stopCamera(); onClose(); }} className="p-2 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-full text-slate-400"><X size={20} /></button>
         </div>
+        
         <div className="p-10 flex flex-col items-center">
           <div className="relative group mb-6">
-            <div className={`w-32 h-32 bg-indigo-100 dark:bg-indigo-900/30 rounded-[2rem] flex items-center justify-center text-indigo-600 dark:text-indigo-400 font-black text-4xl overflow-hidden border-4 border-white dark:border-slate-800 shadow-xl ${isSyncing ? 'animate-pulse opacity-50' : ''}`}>
-              {photo ? <img src={photo} className="w-full h-full object-cover" alt="Profile" /> : user.name.charAt(0)}
+            <div className={`w-36 h-36 bg-indigo-100 dark:bg-indigo-900/30 rounded-[2.5rem] flex items-center justify-center text-indigo-600 dark:text-indigo-400 font-black text-4xl overflow-hidden border-4 border-white dark:border-slate-800 shadow-xl relative ${isSyncing ? 'animate-pulse opacity-50' : ''}`}>
+              {isCameraActive ? (
+                <video ref={videoRef} autoPlay playsInline className="w-full h-full object-cover scale-x-[-1]" />
+              ) : (
+                photo ? <img src={photo} className="w-full h-full object-cover" alt="Profile" /> : user.name.charAt(0)
+              )}
+              
               {isSyncing && (
                 <div className="absolute inset-0 flex items-center justify-center bg-black/20">
                   <RefreshCw className="animate-spin text-white" size={32} />
                 </div>
               )}
             </div>
-            <button 
-              disabled={isSyncing}
+            
+            {/* Action Buttons Overlay */}
+            <div className="absolute -bottom-2 -right-2 flex flex-col gap-2">
+               {isCameraActive ? (
+                 <button 
+                  onClick={capturePhoto} 
+                  className="p-3 bg-emerald-600 text-white rounded-2xl shadow-lg hover:scale-110 transition-transform animate-bounce"
+                 >
+                   <CheckCircle2 size={18} />
+                 </button>
+               ) : (
+                 <button 
+                  onClick={startCamera} 
+                  className="p-3 bg-indigo-600 text-white rounded-2xl shadow-lg hover:scale-110 transition-transform"
+                 >
+                   <Camera size={18} />
+                 </button>
+               )}
+               
+               {isCameraActive && (
+                 <button 
+                  onClick={stopCamera} 
+                  className="p-3 bg-rose-600 text-white rounded-2xl shadow-lg hover:scale-110 transition-transform"
+                 >
+                   <StopCircle size={18} />
+                 </button>
+               )}
+            </div>
+
+            <canvas ref={canvasRef} className="hidden" />
+          </div>
+
+          <div className="text-center">
+            <h2 className="text-2xl font-black text-slate-900 dark:text-white uppercase tracking-tight leading-none">{user.name}</h2>
+            <p className="text-indigo-600 dark:text-indigo-400 font-bold uppercase tracking-widest text-[10px] mt-2">{user.role} IDENTITY</p>
+          </div>
+
+          <div className="flex items-center gap-2 mt-4 px-4 py-2 bg-slate-50 dark:bg-slate-800/50 rounded-full border border-slate-100 dark:border-slate-800">
+             <Cloud size={12} className={isSyncing ? 'animate-bounce text-indigo-500' : 'text-slate-400'} />
+             <p className="text-[9px] font-black uppercase tracking-widest text-slate-400">
+               {isSyncing ? 'Syncing with Supabase...' : 'Verified Global Account'}
+             </p>
+          </div>
+          
+          <div className="w-full grid grid-cols-2 gap-4 mt-10">
+             <button 
+              disabled={isSyncing || isCameraActive}
               onClick={() => inputRef.current?.click()} 
-              className="absolute bottom-0 right-0 p-3 bg-indigo-600 text-white rounded-2xl shadow-lg hover:scale-110 transition-transform disabled:opacity-50"
-            >
-              {isSyncing ? <Loader2 className="animate-spin" size={18} /> : <Camera size={18} />}
-            </button>
-            <input type="file" ref={inputRef} onChange={handleUpload} className="hidden" accept="image/*" />
+              className="py-4 bg-slate-50 dark:bg-slate-800 text-slate-600 dark:text-slate-300 font-black rounded-2xl flex items-center justify-center gap-3 hover:bg-slate-100 dark:hover:bg-slate-700 transition-all uppercase text-[10px] tracking-widest disabled:opacity-50"
+             >
+               <Upload size={18} /> {photo ? 'Change File' : 'Upload Photo'}
+             </button>
+             <button 
+              onClick={onLogout} 
+              className="py-4 bg-rose-50 dark:bg-rose-900/20 text-rose-600 dark:text-rose-400 font-black rounded-2xl flex items-center justify-center gap-3 hover:bg-rose-600 hover:text-white transition-all uppercase text-[10px] tracking-widest"
+             >
+               <Power size={18} /> Sign Out
+             </button>
           </div>
-          <h2 className="text-2xl font-black text-slate-900 dark:text-white uppercase tracking-tight">{user.name}</h2>
-          <p className="text-indigo-600 dark:text-indigo-400 font-bold uppercase tracking-widest text-xs mt-1">{user.role}</p>
-          <div className="flex items-center gap-2 mt-4 text-slate-400 dark:text-slate-500">
-             <Cloud size={14} className={isSyncing ? 'animate-bounce text-indigo-500' : ''} />
-             <p className="text-[10px] font-black uppercase tracking-widest">{isSyncing ? 'Synchronizing with Cloud...' : 'Cloud Verified Profile'}</p>
-          </div>
-          
-          <div className="w-full h-px bg-slate-100 dark:bg-slate-800 my-8" />
-          
-          <button onClick={onLogout} className="w-full py-4 bg-rose-50 dark:bg-rose-900/20 text-rose-600 dark:text-rose-400 font-black rounded-2xl flex items-center justify-center gap-3 hover:bg-rose-600 hover:text-white transition-all uppercase text-xs tracking-widest">
-            <Power size={18} /> Sign Out
-          </button>
+          <input type="file" ref={inputRef} onChange={handleUpload} className="hidden" accept="image/*" />
         </div>
       </div>
     </div>
