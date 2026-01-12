@@ -1,15 +1,13 @@
 
 import { createClient } from '@supabase/supabase-js';
 
-// Vite looks for variables starting with VITE_
 const supabaseUrl = (import.meta as any).env?.VITE_SUPABASE_URL || 'https://qfordtxirmjeogqthbtv.supabase.co';
 const supabaseAnonKey = (import.meta as any).env?.VITE_SUPABASE_ANON_KEY || 'sb_publishable_UM7jqQWzi2dxxow1MmAEZA_V1zwXxmt';
 
 export const supabase = createClient(supabaseUrl, supabaseAnonKey);
 
-// Master credentials for immediate access
 const MASTER_ACCOUNTS = [
-  { username: 'ayazsurti', password: 'Ayaz78692', role: 'ADMIN', full_name: 'Ayaz Surti', id: 'admin-master' },
+  { username: 'ayazsurti', password: 'password123', role: 'ADMIN', full_name: 'Ayaz Surti', id: 'admin-master' },
   { username: 'teacher1', password: 'password123', role: 'TEACHER', full_name: 'Lead Teacher', id: 'teacher-master' },
   { username: 'student1', password: 'password123', role: 'STUDENT', full_name: 'Demo Student', id: 'student-master' }
 ];
@@ -35,12 +33,10 @@ export const db = {
   profiles: {
     async updateImage(userId: string, imageUrl: string) {
       if (userId.includes('-master')) return;
-      
       const { error } = await supabase
         .from('profiles')
         .update({ profile_image: imageUrl })
         .eq('id', userId);
-      
       if (error) throw error;
     }
   },
@@ -83,8 +79,8 @@ export const db = {
       return data;
     },
     async upsert(student: any) {
-      // CRITICAL FIX: If id is empty or a master-account id, we remove it so Supabase generates a new UUID
-      const cleanId = (student.id && student.id.length > 20 && !student.id.includes('-master')) ? student.id : undefined;
+      // CRITICAL FIX: If ID is not a real UUID (length > 20) or if it's a master ID, we treat as NEW record.
+      const isNew = !student.id || student.id.length < 20 || student.id.includes('-master');
       
       const payload: any = {
         full_name: student.fullName || '', 
@@ -100,16 +96,16 @@ export const db = {
         mother_mobile: student.motherMobile || '',
         residence_address: student.residenceAddress || '',
         gender: student.gender || 'Male',
-        dob: student.dob || '',
-        admission_date: student.admissionDate || '',
+        dob: student.dob || null,
+        admission_date: student.admissionDate || null,
         aadhar_no: student.aadharNo || student.aadharNumber || '',
         uid_id: student.uidId || student.uidNumber || '',
         pen_no: student.penNo || student.panNumber || ''
       };
 
-      // Only include ID if we are updating an existing record
-      if (cleanId) {
-        payload.id = cleanId;
+      // Only include ID if it's an update
+      if (!isNew) {
+        payload.id = student.id;
       }
       
       const { data, error } = await supabase

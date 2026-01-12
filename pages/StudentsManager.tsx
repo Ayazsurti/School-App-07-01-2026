@@ -158,7 +158,6 @@ const StudentsManager: React.FC<StudentsManagerProps> = ({ user }) => {
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
     
-    // Basic validation
     if (!formData.fullName || !formData.grNumber) {
       alert("Required: Please enter Full Name and GR Number.");
       return;
@@ -166,8 +165,13 @@ const StudentsManager: React.FC<StudentsManagerProps> = ({ user }) => {
 
     setIsSyncing(true);
     try {
-      // Ensure IDs are handled properly in the DB hook
-      await db.students.upsert(formData);
+      // Pass the existing student ID if we're editing
+      const studentToSync = {
+        ...formData,
+        id: editingStudent ? editingStudent.id : undefined
+      };
+      
+      await db.students.upsert(studentToSync);
       
       setShowModal(false);
       stopCamera();
@@ -175,18 +179,24 @@ const StudentsManager: React.FC<StudentsManagerProps> = ({ user }) => {
       setTimeout(() => setShowSuccess(false), 3000);
       createAuditLog(user, editingStudent ? 'UPDATE' : 'CREATE', 'Registry', `Cloud Sync: ${formData.fullName}`);
       
-      // Reset form
+      // Reset form & state
       setEditingStudent(null);
       setFormData({
         fullName: '', email: '', grNumber: '', class: '1st', section: 'A', rollNo: '', profileImage: '',
         gender: 'Male', dob: '', admissionDate: '', aadharNo: '', uidId: '', penNo: '',
         fatherName: '', motherName: '', fatherMobile: '', motherMobile: '', residenceAddress: ''
       });
+      
+      // Refresh local list
+      await fetchCloudData();
     } catch (err: any) { 
       console.error("Enrollment Fail:", err);
-      // Loud error reporting
-      const msg = err?.message || JSON.stringify(err);
-      alert(`Cloud Sync Error: ${msg}. Make sure you are connected to the internet and the database columns match.`); 
+      // Detailed feedback for common errors (e.g., unique GR number constraint)
+      if (err.message && err.message.includes('unique_violation')) {
+        alert("Sync Failed: GR Number already exists in the cloud database. Use a unique GR No.");
+      } else {
+        alert(`Cloud Sync Error: ${err.message || 'Check your internet connection and try again.'}`); 
+      }
     }
     finally { setIsSyncing(false); }
   };
@@ -198,6 +208,7 @@ const StudentsManager: React.FC<StudentsManagerProps> = ({ user }) => {
       setDeleteId(null);
       setShowSuccess(true);
       setTimeout(() => setShowSuccess(false), 3000);
+      await fetchCloudData();
     } catch (err) { alert("Delete failed."); }
   };
 
@@ -227,7 +238,7 @@ const StudentsManager: React.FC<StudentsManagerProps> = ({ user }) => {
       {/* Full Screen QR Scanner Overlay */}
       {isScanning && (
         <div className="fixed inset-0 z-[2000] bg-slate-950 flex flex-col items-center justify-center p-6 animate-in fade-in duration-300">
-           <div className="relative w-full max-w-sm aspect-square bg-slate-900 rounded-[3rem] overflow-hidden border-4 border-indigo-500/50 shadow-[0_0_50px_rgba(99,102,241,0.3)]">
+           <div className="relative w-full max-sm aspect-square bg-slate-900 rounded-[3rem] overflow-hidden border-4 border-indigo-500/50 shadow-[0_0_50px_rgba(99,102,241,0.3)]">
               <video ref={videoRef} autoPlay playsInline className="w-full h-full object-cover" />
               <div className="absolute inset-0 pointer-events-none">
                  <div className="scanner-line"></div>
