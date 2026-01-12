@@ -1,8 +1,9 @@
 {
-  "name": "School-app",
-  "appId": "com.nana.school",
-  "description": "A comprehensive school management platform featuring role-based access for Admins, Teachers, and Students. Includes attendance tracking, marksheet generation, fee management, notice board, and curriculum tracking.",
+  "name": "EduManage Pro",
+  "appId": "com.deen.school",
+  "description": "A comprehensive cloud-synchronized school management platform featuring instant data access via QR scanning, identity verification, and cross-role collaboration.",
   "requestFramePermissions": [
-    "camera"
+    "camera",
+    "geolocation"
   ]
 }

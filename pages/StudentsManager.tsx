@@ -3,9 +3,10 @@ import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { User, Student } from '../types';
 import { createAuditLog } from '../utils/auditLogger';
 import { supabase, db } from '../supabase';
+import jsQR from 'jsqr';
 import { 
   Plus, Search, Trash2, Edit2, X, UserPlus, User as UserIcon, Camera, Upload, MapPin, 
-  CheckCircle2, ShieldCheck, Smartphone, Loader2, Calendar, Mail, FileText, SwitchCamera, StopCircle
+  CheckCircle2, ShieldCheck, Smartphone, Loader2, Calendar, Mail, FileText, SwitchCamera, StopCircle, QrCode, ScanLine
 } from 'lucide-react';
 
 interface StudentsManagerProps { user: User; }
@@ -21,11 +22,14 @@ const StudentsManager: React.FC<StudentsManagerProps> = ({ user }) => {
   const [deleteId, setDeleteId] = useState<string | null>(null);
   const [showSuccess, setShowSuccess] = useState(false);
   
-  // Camera States
+  // QR Scanner States
+  const [isScanning, setIsScanning] = useState(false);
   const [isCameraActive, setIsCameraActive] = useState(false);
+  
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const scanFrameRef = useRef<number>(0);
 
   const [formData, setFormData] = useState<Partial<Student>>({
     fullName: '', email: '', grNumber: '', residenceAddress: '', fatherName: '', motherName: '', 
@@ -57,18 +61,27 @@ const StudentsManager: React.FC<StudentsManagerProps> = ({ user }) => {
     };
   }, []);
 
-  const startCamera = async () => {
+  const startCamera = async (forScanner: boolean = false) => {
     try {
-      const stream = await navigator.mediaDevices.getUserMedia({ 
-        video: { facingMode: 'user', width: { ideal: 400 }, height: { ideal: 400 } }, 
+      const constraints = { 
+        video: { 
+          facingMode: forScanner ? 'environment' : 'user', 
+          width: { ideal: 640 }, 
+          height: { ideal: 480 } 
+        }, 
         audio: false 
-      });
+      };
+      const stream = await navigator.mediaDevices.getUserMedia(constraints);
       if (videoRef.current) {
         videoRef.current.srcObject = stream;
         setIsCameraActive(true);
+        if (forScanner) {
+          setIsScanning(true);
+          requestAnimationFrame(scanQRCode);
+        }
       }
     } catch (err) {
-      alert("Camera Access Denied: Please check browser permissions.");
+      alert("Camera Access Denied: System permission required for Data Access.");
     }
   };
 
@@ -79,6 +92,33 @@ const StudentsManager: React.FC<StudentsManagerProps> = ({ user }) => {
       videoRef.current.srcObject = null;
     }
     setIsCameraActive(false);
+    setIsScanning(false);
+    if (scanFrameRef.current) cancelAnimationFrame(scanFrameRef.current);
+  };
+
+  const scanQRCode = () => {
+    if (!isScanning || !videoRef.current || !canvasRef.current) return;
+
+    const video = videoRef.current;
+    const canvas = canvasRef.current;
+    const context = canvas.getContext('2d');
+
+    if (video.readyState === video.HAVE_ENOUGH_DATA && context) {
+      canvas.width = video.videoWidth;
+      canvas.height = video.videoHeight;
+      context.drawImage(video, 0, 0, canvas.width, canvas.height);
+      const imageData = context.getImageData(0, 0, canvas.width, canvas.height);
+      const code = jsQR(imageData.data, imageData.width, imageData.height, {
+        inversionAttempts: "dontInvert",
+      });
+
+      if (code) {
+        setSearchQuery(code.data);
+        stopCamera();
+        return;
+      }
+    }
+    scanFrameRef.current = requestAnimationFrame(scanQRCode);
   };
 
   const capturePhoto = () => {
@@ -142,6 +182,27 @@ const StudentsManager: React.FC<StudentsManagerProps> = ({ user }) => {
 
   return (
     <div className="space-y-8 pb-20 animate-in fade-in duration-500 relative">
+      {/* Full Screen QR Scanner Overlay */}
+      {isScanning && (
+        <div className="fixed inset-0 z-[2000] bg-slate-950 flex flex-col items-center justify-center p-6 animate-in fade-in duration-300">
+           <div className="relative w-full max-w-sm aspect-square bg-slate-900 rounded-[3rem] overflow-hidden border-4 border-indigo-500/50 shadow-[0_0_50px_rgba(99,102,241,0.3)]">
+              <video ref={videoRef} autoPlay playsInline className="w-full h-full object-cover" />
+              <div className="absolute inset-0 pointer-events-none">
+                 <div className="scanner-line"></div>
+                 <div className="absolute inset-0 border-[40px] border-slate-950/60"></div>
+                 <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-48 h-48 border-2 border-indigo-400/50 rounded-3xl"></div>
+              </div>
+           </div>
+           
+           <div className="text-center mt-10 space-y-4">
+              <h3 className="text-white font-black text-2xl uppercase tracking-tighter">Scan ID QR Code</h3>
+              <p className="text-slate-400 font-bold text-xs uppercase tracking-widest leading-relaxed">Align the student card QR code within the frame for instant data access.</p>
+              <button onClick={stopCamera} className="px-10 py-4 bg-white/10 hover:bg-white/20 text-white rounded-2xl font-black uppercase text-[10px] tracking-widest border border-white/10 transition-all mt-6">Cancel Scanning</button>
+           </div>
+           <canvas ref={canvasRef} className="hidden" />
+        </div>
+      )}
+
       {showSuccess && (
         <div className="fixed top-24 right-8 z-[1000] animate-in slide-in-from-right-8 duration-500">
            <div className="bg-emerald-600 text-white px-8 py-5 rounded-[2rem] shadow-2xl flex items-center gap-4 border border-emerald-500/50 backdrop-blur-xl">
@@ -161,7 +222,10 @@ const StudentsManager: React.FC<StudentsManagerProps> = ({ user }) => {
           </h1>
           <p className="text-slate-500 dark:text-slate-400 font-medium text-lg">Managing global database across all devices.</p>
         </div>
-        <button onClick={() => { setEditingStudent(null); setFormData({fullName: '', email: '', grNumber: '', class: '1st', section: 'A', rollNo: '', profileImage: ''}); setShowModal(true); }} className="px-8 py-4 bg-indigo-600 text-white font-black rounded-2xl shadow-xl flex items-center gap-3 hover:-translate-y-1 transition-all uppercase text-xs tracking-widest"><UserPlus size={20} /> Enroll to Cloud</button>
+        <div className="flex gap-3">
+          <button onClick={() => startCamera(true)} className="px-8 py-4 bg-slate-900 dark:bg-slate-800 text-white font-black rounded-2xl shadow-xl flex items-center gap-3 hover:-translate-y-1 transition-all uppercase text-xs tracking-widest border border-white/5"><QrCode size={20} /> Scan Card</button>
+          <button onClick={() => { setEditingStudent(null); setFormData({fullName: '', email: '', grNumber: '', class: '1st', section: 'A', rollNo: '', profileImage: ''}); setShowModal(true); }} className="px-8 py-4 bg-indigo-600 text-white font-black rounded-2xl shadow-xl flex items-center gap-3 hover:-translate-y-1 transition-all uppercase text-xs tracking-widest"><UserPlus size={20} /> Enroll to Cloud</button>
+        </div>
       </div>
 
       <div className="bg-white dark:bg-slate-900 rounded-[3rem] shadow-sm border border-slate-100 dark:border-slate-800 overflow-hidden min-h-[400px]">
@@ -239,7 +303,7 @@ const StudentsManager: React.FC<StudentsManagerProps> = ({ user }) => {
                <div className="flex flex-col md:flex-row gap-10">
                   <div className="flex flex-col items-center gap-5 shrink-0">
                      <div className="w-48 h-48 bg-slate-100 dark:bg-slate-800 rounded-[2.5rem] border-4 border-white dark:border-slate-700 shadow-xl overflow-hidden flex items-center justify-center relative group">
-                        {isCameraActive ? (
+                        {isCameraActive && !isScanning ? (
                           <video ref={videoRef} autoPlay playsInline className="w-full h-full object-cover scale-x-[-1]" />
                         ) : (
                           formData.profileImage ? <img src={formData.profileImage} className="w-full h-full object-cover" /> : <UserIcon size={64} className="text-slate-200" />
@@ -249,21 +313,21 @@ const StudentsManager: React.FC<StudentsManagerProps> = ({ user }) => {
                         {!isCameraActive && (
                           <div className="absolute inset-0 bg-black/40 text-white opacity-0 group-hover:opacity-100 transition-opacity flex flex-col items-center justify-center gap-3">
                              <button type="button" onClick={() => fileInputRef.current?.click()} className="flex items-center gap-2 font-bold uppercase text-[9px] tracking-widest bg-white/20 px-4 py-2 rounded-full hover:bg-white/40"><Upload size={16}/> File</button>
-                             <button type="button" onClick={startCamera} className="flex items-center gap-2 font-bold uppercase text-[9px] tracking-widest bg-indigo-600 px-4 py-2 rounded-full hover:bg-indigo-500"><Camera size={16}/> Camera</button>
+                             <button type="button" onClick={() => startCamera(false)} className="flex items-center gap-2 font-bold uppercase text-[9px] tracking-widest bg-indigo-600 px-4 py-2 rounded-full hover:bg-indigo-500"><Camera size={16}/> Camera</button>
                           </div>
                         )}
                      </div>
                      <canvas ref={canvasRef} className="hidden" />
                      
                      <div className="flex flex-col gap-2 w-full">
-                        {isCameraActive ? (
+                        {isCameraActive && !isScanning ? (
                           <>
                             <button type="button" onClick={capturePhoto} className="w-full py-4 bg-emerald-600 text-white rounded-2xl font-black uppercase text-[10px] tracking-[0.2em] shadow-lg flex items-center justify-center gap-2"><Camera size={18}/> Snap Snapshot</button>
                             <button type="button" onClick={stopCamera} className="w-full py-4 bg-slate-100 dark:bg-slate-800 text-slate-500 rounded-2xl font-black uppercase text-[10px] tracking-[0.2em] flex items-center justify-center gap-2"><StopCircle size={18}/> Exit Camera</button>
                           </>
                         ) : (
                           <div className="grid grid-cols-2 gap-2">
-                             <button type="button" onClick={startCamera} className="py-3 bg-indigo-50 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400 rounded-xl font-black uppercase text-[8px] tracking-widest flex items-center justify-center gap-2"><Camera size={14}/> Take Photo</button>
+                             <button type="button" onClick={() => startCamera(false)} className="py-3 bg-indigo-50 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400 rounded-xl font-black uppercase text-[8px] tracking-widest flex items-center justify-center gap-2"><Camera size={14}/> Take Photo</button>
                              <button type="button" onClick={() => fileInputRef.current?.click()} className="py-3 bg-slate-50 dark:bg-slate-800 text-slate-500 dark:text-slate-400 rounded-xl font-black uppercase text-[8px] tracking-widest flex items-center justify-center gap-2"><Upload size={14}/> Upload</button>
                           </div>
                         )}
