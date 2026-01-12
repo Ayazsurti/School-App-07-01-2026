@@ -10,18 +10,26 @@ export interface User {
   enrollmentId?: string;
   staffId?: string;
   mobile?: string;
-  // Fix: Added optional rollNo, class, and section to User interface to support student-specific fields in the shared User type
   rollNo?: string;
   class?: string;
   section?: string;
 }
 
 export interface Student extends User {
-  // Personal Fields
+  // Personal & Identity Fields
   fullName: string;
-  panNumber: string;
-  aadharNumber: string;
-  uidNumber: string;
+  gender: string;
+  dob: string;
+  admissionDate: string;
+  aadharNo: string;
+  // Added aadharNumber to support IdCardGenerator and constants.tsx mock data
+  aadharNumber?: string;
+  uidId: string;
+  // Added uidNumber to support constants.tsx mock data
+  uidNumber?: string;
+  // Added panNumber to resolve reported errors in constants.tsx
+  panNumber?: string;
+  penNo: string;
   grNumber: string;
   residenceAddress: string;
 
@@ -31,14 +39,12 @@ export interface Student extends User {
   fatherMobile: string;
   motherMobile: string;
 
-  // System Essentials (Required for Attendance/Fees functionality)
+  // System Essentials
   class: string;
   section: string;
   rollNo: string;
 
   // Extended Details
-  dateOfAdmission?: string;
-  dateOfBirth?: string;
   remarks?: string;
 }
 

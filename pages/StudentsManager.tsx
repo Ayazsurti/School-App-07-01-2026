@@ -6,7 +6,7 @@ import { supabase, db } from '../supabase';
 import jsQR from 'jsqr';
 import { 
   Plus, Search, Trash2, Edit2, X, UserPlus, User as UserIcon, Camera, Upload, MapPin, 
-  CheckCircle2, ShieldCheck, Smartphone, Loader2, Calendar, Mail, FileText, SwitchCamera, StopCircle, QrCode, ScanLine
+  CheckCircle2, ShieldCheck, Smartphone, Loader2, Calendar, Mail, FileText, SwitchCamera, StopCircle, QrCode, ScanLine, CreditCard, Phone, UserCheck, GraduationCap
 } from 'lucide-react';
 
 interface StudentsManagerProps { user: User; }
@@ -15,6 +15,7 @@ const ALL_CLASSES = ['1st', '2nd', '3rd', '4th', '5th', '6th', '7th', '8th', '9t
 const StudentsManager: React.FC<StudentsManagerProps> = ({ user }) => {
   const [students, setStudents] = useState<Student[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [isSyncing, setIsSyncing] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedClass, setSelectedClass] = useState('All');
   const [showModal, setShowModal] = useState(false);
@@ -32,21 +33,40 @@ const StudentsManager: React.FC<StudentsManagerProps> = ({ user }) => {
   const scanFrameRef = useRef<number>(0);
 
   const [formData, setFormData] = useState<Partial<Student>>({
-    fullName: '', email: '', grNumber: '', residenceAddress: '', fatherName: '', motherName: '', 
-    fatherMobile: '', class: '1st', section: 'A', rollNo: '', profileImage: ''
+    fullName: '', email: '', grNumber: '', class: '1st', section: 'A', rollNo: '', profileImage: '',
+    gender: 'Male', dob: '', admissionDate: '', aadharNo: '', uidId: '', penNo: '',
+    fatherName: '', motherName: '', fatherMobile: '', motherMobile: '', residenceAddress: ''
   });
 
   const fetchCloudData = async () => {
     try {
       const data = await db.students.getAll();
       const mapped = data.map((s: any) => ({
-        id: s.id, fullName: s.full_name, name: s.full_name, email: s.email, rollNo: s.roll_no,
-        class: s.class, section: s.section, grNumber: s.gr_number, profileImage: s.profile_image,
-        fatherName: s.father_name, motherName: s.mother_name, fatherMobile: s.father_mobile,
-        residenceAddress: s.residence_address
+        id: s.id, 
+        fullName: s.full_name, 
+        name: s.full_name, 
+        email: s.email, 
+        rollNo: s.roll_no,
+        class: s.class, 
+        section: s.section, 
+        grNumber: s.gr_number, 
+        profileImage: s.profile_image,
+        fatherName: s.father_name, 
+        motherName: s.mother_name, 
+        fatherMobile: s.father_mobile,
+        motherMobile: s.mother_mobile,
+        residenceAddress: s.residence_address,
+        gender: s.gender,
+        dob: s.dob,
+        admissionDate: s.admission_date,
+        aadharNo: s.aadhar_no,
+        uidId: s.uid_id,
+        penNo: s.pen_no
       }));
       setStudents(mapped);
-    } catch (err) { console.error("Cloud Sync Error:", err); }
+    } catch (err) { 
+      console.error("Cloud Sync Error:", err); 
+    }
     finally { setIsLoading(false); }
   };
 
@@ -137,16 +157,38 @@ const StudentsManager: React.FC<StudentsManagerProps> = ({ user }) => {
 
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
-    setIsLoading(true);
+    
+    // Basic validation
+    if (!formData.fullName || !formData.grNumber) {
+      alert("Required: Please enter Full Name and GR Number.");
+      return;
+    }
+
+    setIsSyncing(true);
     try {
-      await db.students.upsert({ ...formData, id: editingStudent?.id || '' });
+      // Ensure IDs are handled properly in the DB hook
+      await db.students.upsert(formData);
+      
       setShowModal(false);
       stopCamera();
       setShowSuccess(true);
       setTimeout(() => setShowSuccess(false), 3000);
       createAuditLog(user, editingStudent ? 'UPDATE' : 'CREATE', 'Registry', `Cloud Sync: ${formData.fullName}`);
-    } catch (err) { alert("Failed to save to cloud."); }
-    finally { setIsLoading(false); }
+      
+      // Reset form
+      setEditingStudent(null);
+      setFormData({
+        fullName: '', email: '', grNumber: '', class: '1st', section: 'A', rollNo: '', profileImage: '',
+        gender: 'Male', dob: '', admissionDate: '', aadharNo: '', uidId: '', penNo: '',
+        fatherName: '', motherName: '', fatherMobile: '', motherMobile: '', residenceAddress: ''
+      });
+    } catch (err: any) { 
+      console.error("Enrollment Fail:", err);
+      // Loud error reporting
+      const msg = err?.message || JSON.stringify(err);
+      alert(`Cloud Sync Error: ${msg}. Make sure you are connected to the internet and the database columns match.`); 
+    }
+    finally { setIsSyncing(false); }
   };
 
   const confirmDelete = async () => {
@@ -209,7 +251,7 @@ const StudentsManager: React.FC<StudentsManagerProps> = ({ user }) => {
               <CheckCircle2 size={24} strokeWidth={3} />
               <div>
                  <p className="font-black text-xs uppercase tracking-[0.2em]">Sync Complete</p>
-                 <p className="text-[10px] font-bold text-emerald-100 uppercase tracking-widest mt-0.5">Cloud Ledger Updated</p>
+                 <p className="text-[10px] font-bold text-emerald-100 uppercase mt-0.5">Cloud Ledger Updated</p>
               </div>
            </div>
         </div>
@@ -224,7 +266,15 @@ const StudentsManager: React.FC<StudentsManagerProps> = ({ user }) => {
         </div>
         <div className="flex gap-3">
           <button onClick={() => startCamera(true)} className="px-8 py-4 bg-slate-900 dark:bg-slate-800 text-white font-black rounded-2xl shadow-xl flex items-center gap-3 hover:-translate-y-1 transition-all uppercase text-xs tracking-widest border border-white/5"><QrCode size={20} /> Scan Card</button>
-          <button onClick={() => { setEditingStudent(null); setFormData({fullName: '', email: '', grNumber: '', class: '1st', section: 'A', rollNo: '', profileImage: ''}); setShowModal(true); }} className="px-8 py-4 bg-indigo-600 text-white font-black rounded-2xl shadow-xl flex items-center gap-3 hover:-translate-y-1 transition-all uppercase text-xs tracking-widest"><UserPlus size={20} /> Enroll to Cloud</button>
+          <button onClick={() => { 
+            setEditingStudent(null); 
+            setFormData({
+              fullName: '', email: '', grNumber: '', class: '1st', section: 'A', rollNo: '', profileImage: '',
+              gender: 'Male', dob: '', admissionDate: '', aadharNo: '', uidId: '', penNo: '',
+              fatherName: '', motherName: '', fatherMobile: '', motherMobile: '', residenceAddress: ''
+            }); 
+            setShowModal(true); 
+          }} className="px-8 py-4 bg-indigo-600 text-white font-black rounded-2xl shadow-xl flex items-center gap-3 hover:-translate-y-1 transition-all uppercase text-xs tracking-widest"><UserPlus size={20} /> Enroll to Cloud</button>
         </div>
       </div>
 
@@ -291,25 +341,25 @@ const StudentsManager: React.FC<StudentsManagerProps> = ({ user }) => {
 
       {showModal && (
         <div className="fixed inset-0 z-[150] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-in fade-in">
-          <div className="bg-white dark:bg-slate-900 rounded-[3rem] p-1 shadow-2xl max-w-4xl w-full max-h-[90vh] overflow-hidden flex flex-col">
+          <div className="bg-white dark:bg-slate-900 rounded-[3rem] p-1 shadow-2xl max-w-5xl w-full max-h-[95vh] overflow-hidden flex flex-col">
             <div className="p-8 border-b border-slate-100 dark:border-slate-800 flex justify-between items-center bg-slate-50/50 dark:bg-slate-800/30">
                <div>
-                  <h3 className="text-2xl font-black text-slate-900 dark:text-white uppercase tracking-tight">Cloud Enrollment Form</h3>
-                  <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-1 flex items-center gap-2"><Smartphone size={12}/> Unified Data Access Protocol</p>
+                  <h3 className="text-2xl font-black text-slate-900 dark:text-white uppercase tracking-tight">Student Enrollment Matrix</h3>
+                  <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-1 flex items-center gap-2"><Smartphone size={12}/> Complete Cloud Record Entry</p>
                </div>
                <button onClick={() => { setShowModal(false); stopCamera(); }} className="p-2 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-full text-slate-400 transition-all"><X size={24} /></button>
             </div>
-            <form onSubmit={handleSave} className="flex-1 overflow-y-auto p-10 space-y-8 custom-scrollbar">
-               <div className="flex flex-col md:flex-row gap-10">
+            <form onSubmit={handleSave} className="flex-1 overflow-y-auto p-10 space-y-12 custom-scrollbar">
+               <div className="flex flex-col md:flex-row gap-12">
+                  {/* PHOTO COLUMN */}
                   <div className="flex flex-col items-center gap-5 shrink-0">
-                     <div className="w-48 h-48 bg-slate-100 dark:bg-slate-800 rounded-[2.5rem] border-4 border-white dark:border-slate-700 shadow-xl overflow-hidden flex items-center justify-center relative group">
+                     <div className="w-56 h-56 bg-slate-100 dark:bg-slate-800 rounded-[3rem] border-4 border-white dark:border-slate-700 shadow-xl overflow-hidden flex items-center justify-center relative group">
                         {isCameraActive && !isScanning ? (
                           <video ref={videoRef} autoPlay playsInline className="w-full h-full object-cover scale-x-[-1]" />
                         ) : (
-                          formData.profileImage ? <img src={formData.profileImage} className="w-full h-full object-cover" /> : <UserIcon size={64} className="text-slate-200" />
+                          formData.profileImage ? <img src={formData.profileImage} className="w-full h-full object-cover" /> : <UserIcon size={80} className="text-slate-200" />
                         )}
                         
-                        {/* Overlay Controls */}
                         {!isCameraActive && (
                           <div className="absolute inset-0 bg-black/40 text-white opacity-0 group-hover:opacity-100 transition-opacity flex flex-col items-center justify-center gap-3">
                              <button type="button" onClick={() => fileInputRef.current?.click()} className="flex items-center gap-2 font-bold uppercase text-[9px] tracking-widest bg-white/20 px-4 py-2 rounded-full hover:bg-white/40"><Upload size={16}/> File</button>
@@ -322,8 +372,8 @@ const StudentsManager: React.FC<StudentsManagerProps> = ({ user }) => {
                      <div className="flex flex-col gap-2 w-full">
                         {isCameraActive && !isScanning ? (
                           <>
-                            <button type="button" onClick={capturePhoto} className="w-full py-4 bg-emerald-600 text-white rounded-2xl font-black uppercase text-[10px] tracking-[0.2em] shadow-lg flex items-center justify-center gap-2"><Camera size={18}/> Snap Snapshot</button>
-                            <button type="button" onClick={stopCamera} className="w-full py-4 bg-slate-100 dark:bg-slate-800 text-slate-500 rounded-2xl font-black uppercase text-[10px] tracking-[0.2em] flex items-center justify-center gap-2"><StopCircle size={18}/> Exit Camera</button>
+                            <button type="button" onClick={capturePhoto} className="w-full py-4 bg-emerald-600 text-white rounded-2xl font-black uppercase text-[10px] tracking-[0.2em] shadow-lg flex items-center justify-center gap-2"><Camera size={18}/> Capture</button>
+                            <button type="button" onClick={stopCamera} className="w-full py-4 bg-slate-100 dark:bg-slate-800 text-slate-500 rounded-2xl font-black uppercase text-[10px] tracking-[0.2em] flex items-center justify-center gap-2"><StopCircle size={18}/> Stop</button>
                           </>
                         ) : (
                           <div className="grid grid-cols-2 gap-2">
@@ -335,34 +385,123 @@ const StudentsManager: React.FC<StudentsManagerProps> = ({ user }) => {
                      <input type="file" ref={fileInputRef} className="hidden" accept="image/*" onChange={handleFileUpload} />
                   </div>
 
-                  <div className="flex-1 grid grid-cols-1 md:grid-cols-2 gap-6">
-                     <div className="space-y-1">
-                        <label className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest ml-1">Full Legal Name</label>
-                        <input type="text" required value={formData.fullName} onChange={e => setFormData({...formData, fullName: e.target.value})} className="w-full bg-slate-50 dark:bg-slate-800 border-2 border-slate-100 dark:border-slate-700 focus:border-indigo-500 rounded-2xl px-5 py-4 font-bold text-slate-800 dark:text-white outline-none transition-all shadow-inner" />
+                  {/* FORM FIELDS GRID */}
+                  <div className="flex-1 space-y-10">
+                     {/* SECTION: ACADEMIC */}
+                     <div className="space-y-6">
+                        <div className="flex items-center gap-3 border-l-4 border-indigo-500 pl-4 py-1">
+                           <GraduationCap className="text-indigo-600" size={20} />
+                           <h4 className="text-sm font-black text-slate-800 dark:text-white uppercase tracking-widest">Academic Identity</h4>
+                        </div>
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                           <div className="space-y-1">
+                              <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest ml-1">Full Name</label>
+                              <input type="text" required value={formData.fullName} onChange={e => setFormData({...formData, fullName: e.target.value})} className="w-full bg-slate-50 dark:bg-slate-800 border-2 rounded-2xl px-5 py-4 font-bold text-slate-800 dark:text-white outline-none focus:ring-2 focus:ring-indigo-500" placeholder="Full Name" />
+                           </div>
+                           <div className="space-y-1">
+                              <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest ml-1">GR Number</label>
+                              <input type="text" required value={formData.grNumber} onChange={e => setFormData({...formData, grNumber: e.target.value})} className="w-full bg-slate-50 dark:bg-slate-800 border-2 rounded-2xl px-5 py-4 font-bold text-slate-800 dark:text-white outline-none" placeholder="GR No" />
+                           </div>
+                           <div className="space-y-1">
+                              <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest ml-1">Roll Number</label>
+                              <input type="text" required value={formData.rollNo} onChange={e => setFormData({...formData, rollNo: e.target.value})} className="w-full bg-slate-50 dark:bg-slate-800 border-2 rounded-2xl px-5 py-4 font-bold text-slate-800 dark:text-white outline-none" placeholder="Roll No" />
+                           </div>
+                           <div className="space-y-1">
+                              <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest ml-1">Class</label>
+                              <select value={formData.class} onChange={e => setFormData({...formData, class: e.target.value})} className="w-full bg-slate-50 dark:bg-slate-800 border-2 rounded-2xl px-5 py-4 font-bold text-slate-800 dark:text-white outline-none">
+                                 {ALL_CLASSES.map(c => <option key={c} value={c}>{c}</option>)}
+                              </select>
+                           </div>
+                           <div className="space-y-1">
+                              <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest ml-1">Section</label>
+                              <select value={formData.section} onChange={e => setFormData({...formData, section: e.target.value})} className="w-full bg-slate-50 dark:bg-slate-800 border-2 rounded-2xl px-5 py-4 font-bold text-slate-800 dark:text-white outline-none">
+                                 <option value="A">A</option>
+                                 <option value="B">B</option>
+                                 <option value="C">C</option>
+                              </select>
+                           </div>
+                           <div className="space-y-1">
+                              <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest ml-1">Admission Date</label>
+                              <input type="date" value={formData.admissionDate} onChange={e => setFormData({...formData, admissionDate: e.target.value})} className="w-full bg-slate-50 dark:bg-slate-800 border-2 rounded-2xl px-5 py-4 font-bold text-slate-800 dark:text-white outline-none" />
+                           </div>
+                        </div>
                      </div>
-                     <div className="space-y-1">
-                        <label className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest ml-1">GR Registry Number</label>
-                        <input type="text" required value={formData.grNumber} onChange={e => setFormData({...formData, grNumber: e.target.value})} className="w-full bg-slate-50 dark:bg-slate-800 border-2 border-slate-100 dark:border-slate-700 focus:border-indigo-500 rounded-2xl px-5 py-4 font-bold text-slate-800 dark:text-white outline-none transition-all shadow-inner" />
+
+                     {/* SECTION: PERSONAL IDENTITY */}
+                     <div className="space-y-6">
+                        <div className="flex items-center gap-3 border-l-4 border-amber-500 pl-4 py-1">
+                           <ShieldCheck className="text-amber-600" size={20} />
+                           <h4 className="text-sm font-black text-slate-800 dark:text-white uppercase tracking-widest">Personal & Identity</h4>
+                        </div>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                           <div className="space-y-1">
+                              <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1.5 ml-1">Gender Identity</label>
+                              <select value={formData.gender} onChange={e => setFormData({...formData, gender: e.target.value})} className="w-full bg-slate-50 dark:bg-slate-800 border-2 rounded-2xl px-5 py-4 font-bold text-slate-800 dark:text-white outline-none focus:ring-2 focus:ring-indigo-500">
+                                 <option value="Male">Male</option>
+                                 <option value="Female">Female</option>
+                                 <option value="Other">Other</option>
+                              </select>
+                           </div>
+                           <div className="space-y-1">
+                              <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1.5 ml-1">Date of Birth (DOB)</label>
+                              <input type="date" value={formData.dob} onChange={e => setFormData({...formData, dob: e.target.value})} className="w-full bg-slate-50 dark:bg-slate-800 border-2 rounded-2xl px-5 py-4 font-bold text-slate-800 dark:text-white outline-none focus:ring-2 focus:ring-indigo-500" />
+                           </div>
+                           <div className="space-y-1">
+                              <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1.5 ml-1">Aadhar Card No</label>
+                              <input type="text" value={formData.aadharNo} onChange={e => setFormData({...formData, aadharNo: e.target.value})} className="w-full bg-slate-50 dark:bg-slate-800 border-2 rounded-2xl px-5 py-4 font-bold text-slate-800 dark:text-white outline-none focus:ring-2 focus:ring-indigo-500" placeholder="XXXX-XXXX-XXXX" />
+                           </div>
+                           <div className="space-y-1">
+                              <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1.5 ml-1">UID ID / ID Number</label>
+                              <input type="text" value={formData.uidId} onChange={e => setFormData({...formData, uidId: e.target.value})} className="w-full bg-slate-50 dark:bg-slate-800 border-2 rounded-2xl px-5 py-4 font-bold text-slate-800 dark:text-white outline-none focus:ring-2 focus:ring-indigo-500" placeholder="Unique ID" />
+                           </div>
+                           <div className="space-y-1 md:col-span-2">
+                              <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1.5 ml-1">PEN Number</label>
+                              <input type="text" value={formData.penNo} onChange={e => setFormData({...formData, penNo: e.target.value})} className="w-full bg-slate-50 dark:bg-slate-800 border-2 rounded-2xl px-5 py-4 font-bold text-slate-800 dark:text-white outline-none focus:ring-2 focus:ring-indigo-500" placeholder="PEN NO." />
+                           </div>
+                        </div>
                      </div>
-                     <div className="space-y-1">
-                        <label className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest ml-1">Academic Grade</label>
-                        <select value={formData.class} onChange={e => setFormData({...formData, class: e.target.value})} className="w-full bg-slate-50 dark:bg-slate-800 border-2 border-slate-100 dark:border-slate-700 focus:border-indigo-500 rounded-2xl px-5 py-4 font-bold text-slate-800 dark:text-white outline-none">
-                           {ALL_CLASSES.map(c => <option key={c} value={c}>{c} Std</option>)}
-                        </select>
-                     </div>
-                     <div className="space-y-1">
-                        <label className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest ml-1">Institutional Roll</label>
-                        <input type="text" value={formData.rollNo} onChange={e => setFormData({...formData, rollNo: e.target.value})} className="w-full bg-slate-50 dark:bg-slate-800 border-2 border-slate-100 dark:border-slate-700 focus:border-indigo-500 rounded-2xl px-5 py-4 font-bold text-slate-800 dark:text-white outline-none transition-all shadow-inner" />
-                     </div>
-                     <div className="space-y-1 md:col-span-2">
-                        <label className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest ml-1">Residential Address</label>
-                        <textarea rows={2} value={formData.residenceAddress} onChange={e => setFormData({...formData, residenceAddress: e.target.value})} className="w-full bg-slate-50 dark:bg-slate-800 border-2 border-slate-100 dark:border-slate-700 focus:border-indigo-500 rounded-2xl px-5 py-4 font-bold text-slate-800 dark:text-white outline-none transition-all shadow-inner resize-none" />
+
+                     {/* SECTION: PARENTAL INFORMATION */}
+                     <div className="space-y-6">
+                        <div className="flex items-center gap-3 border-l-4 border-emerald-500 pl-4 py-1">
+                           <UserCheck className="text-emerald-600" size={20} />
+                           <h4 className="text-sm font-black text-slate-800 dark:text-white uppercase tracking-widest">Parental & Contact Registry</h4>
+                        </div>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-x-10 gap-y-6">
+                           <div className="space-y-4">
+                              <div className="space-y-1">
+                                 <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest ml-1">Father's Full Name</label>
+                                 <input type="text" value={formData.fatherName} onChange={e => setFormData({...formData, fatherName: e.target.value})} className="w-full bg-slate-50 dark:bg-slate-800 border-2 rounded-2xl px-5 py-4 font-bold text-slate-800 dark:text-white outline-none" placeholder="Father's Name" />
+                              </div>
+                              <div className="space-y-1">
+                                 <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest ml-1">Father's Mobile</label>
+                                 <input type="tel" value={formData.fatherMobile} onChange={e => setFormData({...formData, fatherMobile: e.target.value})} className="w-full bg-slate-50 dark:bg-slate-800 border-2 rounded-2xl px-5 py-4 font-bold text-slate-800 dark:text-white outline-none" placeholder="Contact No" />
+                              </div>
+                           </div>
+                           <div className="space-y-4">
+                              <div className="space-y-1">
+                                 <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest ml-1">Mother's Full Name</label>
+                                 <input type="text" value={formData.motherName} onChange={e => setFormData({...formData, motherName: e.target.value})} className="w-full bg-slate-50 dark:bg-slate-800 border-2 rounded-2xl px-5 py-4 font-bold text-slate-800 dark:text-white outline-none" placeholder="Mother's Name" />
+                              </div>
+                              <div className="space-y-1">
+                                 <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest ml-1">Mother's Mobile</label>
+                                 <input type="tel" value={formData.motherMobile} onChange={e => setFormData({...formData, motherMobile: e.target.value})} className="w-full bg-slate-50 dark:bg-slate-800 border-2 rounded-2xl px-5 py-4 font-bold text-slate-800 dark:text-white outline-none" placeholder="Contact No" />
+                              </div>
+                           </div>
+                           <div className="md:col-span-2 space-y-1">
+                              <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest ml-1">Residence Address</label>
+                              <textarea rows={3} value={formData.residenceAddress} onChange={e => setFormData({...formData, residenceAddress: e.target.value})} className="w-full bg-slate-50 dark:bg-slate-800 border-2 rounded-2xl px-6 py-4 font-bold text-slate-800 dark:text-white outline-none resize-none" placeholder="Residential Address" />
+                           </div>
+                        </div>
                      </div>
                   </div>
                </div>
-               <div className="flex gap-4 pt-6 border-t border-slate-100 dark:border-slate-800">
-                  <button type="button" onClick={() => { setShowModal(false); stopCamera(); }} className="flex-1 py-5 bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 font-black rounded-3xl uppercase text-[10px] tracking-widest">Discard</button>
-                  <button type="submit" className="flex-[2] py-5 bg-indigo-600 text-white font-black rounded-3xl shadow-xl hover:bg-indigo-700 transition-all uppercase text-[10px] tracking-[0.2em]">Finalize & Sync to Cloud</button>
+               <div className="flex gap-4 pt-8 border-t border-slate-100 dark:border-slate-800">
+                  <button type="button" onClick={() => { setShowModal(false); stopCamera(); }} className="flex-1 py-5 bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 font-black rounded-3xl uppercase text-[10px] tracking-widest">Cancel</button>
+                  <button type="submit" disabled={isSyncing} className="flex-[2] py-5 bg-indigo-600 text-white font-black rounded-3xl shadow-xl hover:bg-indigo-700 transition-all uppercase text-[10px] tracking-[0.2em] flex items-center justify-center gap-3 disabled:opacity-50">
+                    {isSyncing ? <Loader2 className="animate-spin" size={20} /> : <ShieldCheck size={20} />}
+                    {isSyncing ? 'Synchronizing...' : 'Finalize & Sync to Cloud'}
+                  </button>
                </div>
             </form>
           </div>

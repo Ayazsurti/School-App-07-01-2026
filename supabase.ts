@@ -2,15 +2,12 @@
 import { createClient } from '@supabase/supabase-js';
 
 // Vite looks for variables starting with VITE_
-// Fallback to hardcoded strings only if env variables are missing (for local dev safety)
-// Fix: cast import.meta to any to resolve property 'env' does not exist on type 'ImportMeta' error
 const supabaseUrl = (import.meta as any).env?.VITE_SUPABASE_URL || 'https://qfordtxirmjeogqthbtv.supabase.co';
-// Fix: cast import.meta to any to resolve property 'env' does not exist on type 'ImportMeta' error
 const supabaseAnonKey = (import.meta as any).env?.VITE_SUPABASE_ANON_KEY || 'sb_publishable_UM7jqQWzi2dxxow1MmAEZA_V1zwXxmt';
 
 export const supabase = createClient(supabaseUrl, supabaseAnonKey);
 
-// Master credentials for immediate access (Always accessible regardless of DB state)
+// Master credentials for immediate access
 const MASTER_ACCOUNTS = [
   { username: 'ayazsurti', password: 'Ayaz78692', role: 'ADMIN', full_name: 'Ayaz Surti', id: 'admin-master' },
   { username: 'teacher1', password: 'password123', role: 'TEACHER', full_name: 'Lead Teacher', id: 'teacher-master' },
@@ -37,8 +34,6 @@ export const db = {
   },
   profiles: {
     async updateImage(userId: string, imageUrl: string) {
-      // Master accounts don't have real DB entries in the profiles table, 
-      // but we allow the update for regular DB users
       if (userId.includes('-master')) return;
       
       const { error } = await supabase
@@ -88,15 +83,44 @@ export const db = {
       return data;
     },
     async upsert(student: any) {
-      const { data, error } = await supabase.from('students').upsert([{
-        id: student.id && student.id.length > 20 ? student.id : undefined,
-        full_name: student.fullName, email: student.email, roll_no: student.rollNo,
-        class: student.class, section: student.section, gr_number: student.grNumber,
-        profile_image: student.profileImage, father_name: student.fatherName,
-        mother_name: student.motherName, father_mobile: student.fatherMobile,
-        residence_address: student.residenceAddress
-      }]);
-      if (error) throw error;
+      // CRITICAL FIX: If id is empty or a master-account id, we remove it so Supabase generates a new UUID
+      const cleanId = (student.id && student.id.length > 20 && !student.id.includes('-master')) ? student.id : undefined;
+      
+      const payload: any = {
+        full_name: student.fullName || '', 
+        email: student.email || '', 
+        roll_no: student.rollNo || '',
+        class: student.class || '1st', 
+        section: student.section || 'A', 
+        gr_number: student.grNumber || '',
+        profile_image: student.profileImage || '', 
+        father_name: student.fatherName || '',
+        mother_name: student.motherName || '', 
+        father_mobile: student.fatherMobile || '',
+        mother_mobile: student.motherMobile || '',
+        residence_address: student.residenceAddress || '',
+        gender: student.gender || 'Male',
+        dob: student.dob || '',
+        admission_date: student.admissionDate || '',
+        aadhar_no: student.aadharNo || student.aadharNumber || '',
+        uid_id: student.uidId || student.uidNumber || '',
+        pen_no: student.penNo || student.panNumber || ''
+      };
+
+      // Only include ID if we are updating an existing record
+      if (cleanId) {
+        payload.id = cleanId;
+      }
+      
+      const { data, error } = await supabase
+        .from('students')
+        .upsert(payload, { onConflict: 'id' })
+        .select();
+
+      if (error) {
+        console.error("Supabase Students Error:", error);
+        throw error;
+      }
       return data;
     },
     async delete(id: string) {
@@ -111,8 +135,9 @@ export const db = {
       return data;
     },
     async upsert(teacher: any) {
+      const cleanId = (teacher.id && teacher.id.length > 20) ? teacher.id : undefined;
       const { data, error } = await supabase.from('teachers').upsert([{
-        id: teacher.id && teacher.id.length > 20 ? teacher.id : undefined,
+        id: cleanId,
         name: teacher.name, staff_id: teacher.staffId, subject: teacher.subject,
         mobile: teacher.mobile
       }]);
@@ -131,8 +156,9 @@ export const db = {
       return data;
     },
     async upsert(hw: any) {
+      const cleanId = (hw.id && hw.id.length > 20) ? hw.id : undefined;
       const { data, error } = await supabase.from('homework').upsert([{
-        id: hw.id && hw.id.length > 20 ? hw.id : undefined,
+        id: cleanId,
         title: hw.title, description: hw.description, subject: hw.subject,
         class_name: hw.className, section: hw.section, due_date: hw.dueDate,
         created_by: hw.createdBy, attachment: hw.attachment
@@ -152,8 +178,9 @@ export const db = {
       return data;
     },
     async upsert(exam: any) {
+      const cleanId = (exam.id && exam.id.length > 20) ? exam.id : undefined;
       const { data, error } = await supabase.from('exams').upsert([{
-        id: exam.id && exam.id.length > 20 ? exam.id : undefined,
+        id: cleanId,
         name: exam.name, academic_year: exam.academicYear, class_name: exam.className,
         subjects: exam.subjects, status: exam.status
       }]);
@@ -185,8 +212,9 @@ export const db = {
       return data;
     },
     async upsertCategory(cat: any) {
+      const cleanId = (cat.id && cat.id.length > 20) ? cat.id : undefined;
       const { error } = await supabase.from('fee_categories').upsert([{
-        id: cat.id && cat.id.length > 20 ? cat.id : undefined,
+        id: cleanId,
         name: cat.name, frequency: cat.frequency
       }]);
       if (error) throw error;
