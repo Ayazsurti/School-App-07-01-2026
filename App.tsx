@@ -138,9 +138,23 @@ const App: React.FC = () => {
     localStorage.removeItem('school_app_user');
   };
 
-  const handleUpdateUser = (updatedUser: User) => {
-    setUser(updatedUser);
-    localStorage.setItem('school_app_user', JSON.stringify(updatedUser));
+  const handleUpdateUser = async (updatedUser: User) => {
+    try {
+      // Sync with Cloud database first
+      if (updatedUser.profileImage) {
+        await db.profiles.updateImage(updatedUser.id, updatedUser.profileImage);
+      }
+      
+      // Update local state and storage
+      setUser(updatedUser);
+      localStorage.setItem('school_app_user', JSON.stringify(updatedUser));
+      createAuditLog(updatedUser, 'UPDATE', 'Profile', 'Profile photo updated & synced with cloud');
+      return true;
+    } catch (err) {
+      console.error("Cloud Sync Error (Profile Photo):", err);
+      alert("Failed to sync photo to cloud. Please check connection.");
+      return false;
+    }
   };
 
   return (
@@ -176,7 +190,7 @@ const App: React.FC = () => {
 interface LayoutProps {
   user: User;
   onLogout: () => void;
-  onUpdateUser: (user: User) => void;
+  onUpdateUser: (user: User) => Promise<boolean>;
   schoolLogo: string | null;
   schoolName: string;
   darkMode: boolean;
@@ -337,7 +351,10 @@ const Layout: React.FC<LayoutProps> = ({ user, onLogout, onUpdateUser, schoolLog
         <ProfileModal 
           user={user} 
           onClose={() => setShowProfileModal(false)} 
-          onSave={(photo) => onUpdateUser({ ...user, profileImage: photo || undefined })}
+          onSave={async (photo) => {
+            const success = await onUpdateUser({ ...user, profileImage: photo || undefined });
+            return success;
+          }}
           onLogout={triggerLogout}
         />
       )}
@@ -533,22 +550,32 @@ const Layout: React.FC<LayoutProps> = ({ user, onLogout, onUpdateUser, schoolLog
 interface ProfileModalProps {
   user: User;
   onClose: () => void;
-  onSave: (photo: string | null) => void;
+  onSave: (photo: string | null) => Promise<boolean>;
   onLogout: () => void;
 }
 
 const ProfileModal: React.FC<ProfileModalProps> = ({ user, onClose, onSave, onLogout }) => {
   const [photo, setPhoto] = useState<string | null>(user.profileImage || null);
+  const [isSyncing, setIsSyncing] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
 
-  const handleUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
+      if (file.size > 500 * 1024) {
+        alert("Image too large. Please use a photo under 500KB.");
+        return;
+      }
+      
+      setIsSyncing(true);
       const reader = new FileReader();
-      reader.onload = (ev) => {
+      reader.onload = async (ev) => {
         const data = ev.target?.result as string;
-        setPhoto(data);
-        onSave(data);
+        const success = await onSave(data);
+        if (success) {
+          setPhoto(data);
+        }
+        setIsSyncing(false);
       };
       reader.readAsDataURL(file);
     }
@@ -563,16 +590,32 @@ const ProfileModal: React.FC<ProfileModalProps> = ({ user, onClose, onSave, onLo
         </div>
         <div className="p-10 flex flex-col items-center">
           <div className="relative group mb-6">
-            <div className="w-32 h-32 bg-indigo-100 dark:bg-indigo-900/30 rounded-[2rem] flex items-center justify-center text-indigo-600 dark:text-indigo-400 font-black text-4xl overflow-hidden border-4 border-white dark:border-slate-800 shadow-xl">
+            <div className={`w-32 h-32 bg-indigo-100 dark:bg-indigo-900/30 rounded-[2rem] flex items-center justify-center text-indigo-600 dark:text-indigo-400 font-black text-4xl overflow-hidden border-4 border-white dark:border-slate-800 shadow-xl ${isSyncing ? 'animate-pulse opacity-50' : ''}`}>
               {photo ? <img src={photo} className="w-full h-full object-cover" alt="Profile" /> : user.name.charAt(0)}
+              {isSyncing && (
+                <div className="absolute inset-0 flex items-center justify-center bg-black/20">
+                  <RefreshCw className="animate-spin text-white" size={32} />
+                </div>
+              )}
             </div>
-            <button onClick={() => inputRef.current?.click()} className="absolute bottom-0 right-0 p-3 bg-indigo-600 text-white rounded-2xl shadow-lg hover:scale-110 transition-transform"><Camera size={18} /></button>
+            <button 
+              disabled={isSyncing}
+              onClick={() => inputRef.current?.click()} 
+              className="absolute bottom-0 right-0 p-3 bg-indigo-600 text-white rounded-2xl shadow-lg hover:scale-110 transition-transform disabled:opacity-50"
+            >
+              {isSyncing ? <Loader2 className="animate-spin" size={18} /> : <Camera size={18} />}
+            </button>
             <input type="file" ref={inputRef} onChange={handleUpload} className="hidden" accept="image/*" />
           </div>
           <h2 className="text-2xl font-black text-slate-900 dark:text-white uppercase tracking-tight">{user.name}</h2>
           <p className="text-indigo-600 dark:text-indigo-400 font-bold uppercase tracking-widest text-xs mt-1">{user.role}</p>
-          <p className="text-slate-400 dark:text-slate-500 text-sm mt-4">{user.email}</p>
+          <div className="flex items-center gap-2 mt-4 text-slate-400 dark:text-slate-500">
+             <Cloud size={14} className={isSyncing ? 'animate-bounce text-indigo-500' : ''} />
+             <p className="text-[10px] font-black uppercase tracking-widest">{isSyncing ? 'Synchronizing with Cloud...' : 'Cloud Verified Profile'}</p>
+          </div>
+          
           <div className="w-full h-px bg-slate-100 dark:bg-slate-800 my-8" />
+          
           <button onClick={onLogout} className="w-full py-4 bg-rose-50 dark:bg-rose-900/20 text-rose-600 dark:text-rose-400 font-black rounded-2xl flex items-center justify-center gap-3 hover:bg-rose-600 hover:text-white transition-all uppercase text-xs tracking-widest">
             <Power size={18} /> Sign Out
           </button>

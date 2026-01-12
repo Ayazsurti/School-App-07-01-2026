@@ -35,6 +35,20 @@ export const db = {
       return data;
     }
   },
+  profiles: {
+    async updateImage(userId: string, imageUrl: string) {
+      // Master accounts don't have real DB entries in the profiles table, 
+      // but we allow the update for regular DB users
+      if (userId.includes('-master')) return;
+      
+      const { error } = await supabase
+        .from('profiles')
+        .update({ profile_image: imageUrl })
+        .eq('id', userId);
+      
+      if (error) throw error;
+    }
+  },
   settings: {
     async getAll() {
       const { data, error } = await supabase.from('settings').select('*');
