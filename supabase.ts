@@ -60,10 +60,15 @@ export const db = {
       return data;
     },
     async insert(notice: any) {
+      // Fix: Add .select() to ensure inserted record is returned in Supabase v2
       const { data, error } = await supabase.from('notices').insert([{
-        title: notice.title, content: notice.content, category: notice.category,
-        date: notice.date, posted_by: notice.postedBy, attachments: notice.attachments
-      }]);
+        title: notice.title,
+        content: notice.content,
+        category: notice.category,
+        date: notice.date,
+        posted_by: notice.postedBy,
+        attachments: notice.attachments
+      }]).select();
       if (error) throw error;
       return data;
     },
@@ -79,16 +84,21 @@ export const db = {
       return data;
     },
     async upsert(student: any) {
-      // Clean ID for master accounts or invalid UUIDs
-      const isUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-5][0-9a-f]{3}-[089ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(student.id);
+      // Helper function to sanitize dates for SQL
+      const formatDate = (dateStr: string | undefined | null) => {
+        if (!dateStr || dateStr.trim() === "") return null;
+        return dateStr;
+      };
+
+      const isNew = !student.id || student.id.includes('-master') || student.id.length < 20;
       
       const payload: any = {
-        full_name: student.fullName || student.name || 'Unknown Student',
+        full_name: student.fullName || student.name || 'Unknown',
         email: student.email || null,
         roll_no: student.rollNo || null,
         class: student.class || '1st',
         section: student.section || 'A',
-        gr_number: student.grNumber || null,
+        gr_number: student.grNumber || '',
         profile_image: student.profileImage || null,
         father_name: student.fatherName || null,
         mother_name: student.motherName || null,
@@ -96,14 +106,14 @@ export const db = {
         mother_mobile: student.motherMobile || null,
         residence_address: student.residenceAddress || null,
         gender: student.gender || 'Male',
-        dob: student.dob || null,
-        admission_date: student.admissionDate || null,
+        dob: formatDate(student.dob),
+        admission_date: formatDate(student.admissionDate),
         aadhar_no: student.aadharNo || null,
         uid_id: student.uidId || null,
         pen_no: student.penNo || null
       };
 
-      if (isUUID) {
+      if (!isNew) {
         payload.id = student.id;
       }
 
@@ -113,9 +123,11 @@ export const db = {
         .select();
 
       if (error) {
-        console.error("Supabase Error Code:", error.code);
-        if (error.code === 'PGRST204') {
-          throw new Error("Column 'aadhar_no' is not active in Supabase cache. Please run: NOTIFY pgrst, 'reload schema'; in SQL Editor.");
+        // If error code is PGRST204, it means cache is stale. 
+        // Instructions for user to run reload notify are better than auto-retry in frontend.
+        console.error("Supabase Sync Error:", error);
+        if (error.message?.includes('admission_date')) {
+          throw new Error("Supabase Cache stale. Please run 'NOTIFY pgrst, reload schema' in SQL Editor.");
         }
         throw error;
       }
@@ -133,119 +145,21 @@ export const db = {
       return data;
     },
     async upsert(teacher: any) {
-      const isUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-5][0-9a-f]{3}-[089ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(teacher.id);
+      const isNew = !teacher.id || teacher.id.length < 20;
       const payload: any = {
         name: teacher.name,
         staff_id: teacher.staffId,
         subject: teacher.subject,
         mobile: teacher.mobile
       };
-      if (isUUID) payload.id = teacher.id;
-
-      const { data, error } = await supabase.from('teachers').upsert([payload]);
+      if (!isNew) payload.id = teacher.id;
+      // Fix: Add .select() to ensure result is returned
+      const { data, error } = await supabase.from('teachers').upsert([payload]).select();
       if (error) throw error;
       return data;
     },
     async delete(id: string) {
       const { error } = await supabase.from('teachers').delete().eq('id', id);
-      if (error) throw error;
-    }
-  },
-  homework: {
-    async getAll() {
-      const { data, error } = await supabase.from('homework').select('*').order('created_at', { ascending: false });
-      if (error) throw error;
-      return data;
-    },
-    async upsert(hw: any) {
-      const isUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-5][0-9a-f]{3}-[089ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(hw.id);
-      const payload: any = {
-        title: hw.title,
-        description: hw.description,
-        subject: hw.subject,
-        class_name: hw.className,
-        section: hw.section,
-        due_date: hw.dueDate,
-        created_by: hw.createdBy,
-        attachment: hw.attachment
-      };
-      if (isUUID) payload.id = hw.id;
-
-      const { data, error } = await supabase.from('homework').upsert([payload]);
-      if (error) throw error;
-      return data;
-    },
-    async delete(id: string) {
-      const { error } = await supabase.from('homework').delete().eq('id', id);
-      if (error) throw error;
-    }
-  },
-  exams: {
-    async getAll() {
-      const { data, error } = await supabase.from('exams').select('*').order('created_at', { ascending: false });
-      if (error) throw error;
-      return data;
-    },
-    async upsert(exam: any) {
-      const isUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-5][0-9a-f]{3}-[089ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(exam.id);
-      const payload: any = {
-        name: exam.name,
-        academic_year: exam.academicYear,
-        class_name: exam.className,
-        subjects: exam.subjects,
-        status: exam.status
-      };
-      if (isUUID) payload.id = exam.id;
-
-      const { data, error } = await supabase.from('exams').upsert([payload]);
-      if (error) throw error;
-      return data;
-    },
-    async delete(id: string) {
-      const { error } = await supabase.from('exams').delete().eq('id', id);
-      if (error) throw error;
-    }
-  },
-  fees: {
-    async getLedger() {
-      const { data, error } = await supabase.from('fee_ledger').select('*').order('created_at', { ascending: false });
-      if (error) throw error;
-      return data;
-    },
-    async insertPayment(payment: any) {
-      const { data, error } = await supabase.from('fee_ledger').insert([{
-        student_id: payment.studentId,
-        amount: payment.amount,
-        date: payment.date,
-        status: payment.status,
-        type: payment.type,
-        receipt_no: payment.receiptNo
-      }]);
-      if (error) throw error;
-      return data;
-    },
-    async getCategories() {
-      const { data, error } = await supabase.from('fee_categories').select('*');
-      if (error) throw error;
-      return data;
-    },
-    async upsertCategory(cat: any) {
-      const isUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-5][0-9a-f]{3}-[089ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(cat.id);
-      const payload: any = { name: cat.name, frequency: cat.frequency };
-      if (isUUID) payload.id = cat.id;
-      const { error } = await supabase.from('fee_categories').upsert([payload]);
-      if (error) throw error;
-    },
-    async getStructures() {
-      const { data, error } = await supabase.from('fee_structures').select('*');
-      if (error) throw error;
-      return data;
-    },
-    async upsertStructure(struct: any) {
-      const { error } = await supabase.from('fee_structures').upsert([{
-        class_name: struct.className,
-        fees: struct.fees
-      }]);
       if (error) throw error;
     }
   },
@@ -256,7 +170,8 @@ export const db = {
       return data;
     },
     async bulkUpsert(records: any[]) {
-      const { data, error } = await supabase.from('attendance').upsert(records);
+      // Fix: Add .select() to return updated records
+      const { data, error } = await supabase.from('attendance').upsert(records).select();
       if (error) throw error;
       return data;
     }
@@ -267,10 +182,188 @@ export const db = {
       if (error) throw error;
       return data;
     },
-    async upsertMarks(marksRecords: any[]) {
-      const { data, error } = await supabase.from('marks').upsert(marksRecords);
+    async upsertMarks(records: any[]) {
+      // Fix: Add .select() to return updated records
+      const { data, error } = await supabase.from('marks').upsert(records).select();
       if (error) throw error;
       return data;
+    }
+  },
+  curriculum: {
+    async getFolders() {
+      const { data, error } = await supabase.from('curriculum_folders').select('*, curriculum_files(*)');
+      if (error) throw error;
+      return data;
+    },
+    async insertFolder(name: string, date: string) {
+      // Fix: Add .select() to return inserted folder
+      const { data, error } = await supabase.from('curriculum_folders').insert([{ name, date }]).select();
+      if (error) throw error;
+      return data;
+    },
+    async insertFile(file: any) {
+      // Fix: Add .select() to return inserted file
+      const { data, error } = await supabase.from('curriculum_files').insert([{
+        folder_id: file.folderId,
+        title: file.title,
+        type: file.type,
+        metadata: file.metadata,
+        media_url: file.mediaUrl,
+        timestamp: file.timestamp
+      }]).select();
+      if (error) throw error;
+      return data;
+    },
+    async deleteFile(id: string) {
+      const { error } = await supabase.from('curriculum_files').delete().eq('id', id);
+      if (error) throw error;
+    }
+  },
+  gallery: {
+    async getAll() {
+      const { data, error } = await supabase.from('gallery').select('*').order('created_at', { ascending: false });
+      if (error) throw error;
+      return data;
+    },
+    async insert(asset: any) {
+      // Fix: Add .select() to return inserted asset
+      const { data, error } = await supabase.from('gallery').insert([{
+        name: asset.name, url: asset.url, description: asset.description,
+        type: asset.type, uploaded_by: asset.uploadedBy, date: asset.date
+      }]).select();
+      if (error) throw error;
+      return data;
+    },
+    async update(id: string, asset: any) {
+      // Fix: Destructured 'data' and added .select() to ensure 'data' is defined and returned
+      const { data, error } = await supabase.from('gallery').update({
+        name: asset.name, description: asset.description, url: asset.url
+      }).eq('id', id).select();
+      if (error) throw error;
+      return data;
+    },
+    async delete(id: string) {
+      const { error } = await supabase.from('gallery').delete().eq('id', id);
+      if (error) throw error;
+    }
+  },
+  videos: {
+    async getAll() {
+      const { data, error } = await supabase.from('videos').select('*').order('created_at', { ascending: false });
+      if (error) throw error;
+      return data;
+    },
+    async insert(video: any) {
+      // Fix: Add .select() to return inserted video
+      const { data, error } = await supabase.from('videos').insert([{
+        name: video.name, url: video.url, description: video.description,
+        uploaded_by: video.uploadedBy, date: video.date
+      }]).select();
+      if (error) throw error;
+      return data;
+    },
+    async delete(id: string) {
+      const { error } = await supabase.from('videos').delete().eq('id', id);
+      if (error) throw error;
+    }
+  },
+  exams: {
+    async getAll() {
+      const { data, error } = await supabase.from('exams').select('*').order('created_at', { ascending: false });
+      if (error) throw error;
+      return data;
+    },
+    async upsert(exam: any) {
+      const isNew = !exam.id || exam.id.length < 20;
+      const payload: any = {
+        name: exam.name,
+        academic_year: exam.academicYear,
+        class_name: exam.className,
+        subjects: exam.subjects,
+        status: exam.status
+      };
+      if (!isNew) payload.id = exam.id;
+      // Fix: Add .select() to return result
+      const { data, error } = await supabase.from('exams').upsert([payload]).select();
+      if (error) throw error;
+      return data;
+    },
+    async delete(id: string) {
+      const { error } = await supabase.from('exams').delete().eq('id', id);
+      if (error) throw error;
+    }
+  },
+  fees: {
+    async getCategories() {
+      const { data, error } = await supabase.from('fee_categories').select('*');
+      if (error) throw error;
+      return data;
+    },
+    async getStructures() {
+      const { data, error } = await supabase.from('fee_structures').select('*');
+      if (error) throw error;
+      return data;
+    },
+    async upsertCategory(cat: any) {
+      // Fix: Add .select() to return record
+      const { data, error } = await supabase.from('fee_categories').upsert([cat]).select();
+      if (error) throw error;
+      return data;
+    },
+    async upsertStructure(struct: any) {
+      const { error } = await supabase.from('fee_structures').upsert([{
+        class_name: struct.className,
+        fees: struct.fees
+      }]);
+      if (error) throw error;
+      return true;
+    },
+    async getLedger() {
+      const { data, error } = await supabase.from('fee_ledger').select('*, students(full_name, gr_number)').order('created_at', { ascending: false });
+      if (error) throw error;
+      return data;
+    },
+    async insertPayment(entry: any) {
+      // Fix: Add .select() to return inserted payment
+      const { data, error } = await supabase.from('fee_ledger').insert([{
+        student_id: entry.studentId,
+        amount: entry.amount,
+        date: entry.date,
+        status: entry.status,
+        type: entry.type,
+        receipt_no: entry.receiptNo
+      }]).select();
+      if (error) throw error;
+      return data;
+    }
+  },
+  homework: {
+    async getAll() {
+      const { data, error } = await supabase.from('homework').select('*').order('created_at', { ascending: false });
+      if (error) throw error;
+      return data;
+    },
+    async upsert(hw: any) {
+      const isNew = !hw.id || hw.id.length < 20;
+      const payload: any = {
+        title: hw.title,
+        description: hw.description,
+        subject: hw.subject,
+        class_name: hw.className,
+        section: hw.section,
+        due_date: hw.dueDate,
+        created_by: hw.createdBy,
+        attachment: hw.attachment
+      };
+      if (!isNew) payload.id = hw.id;
+      // Fix: Add .select() to return record
+      const { data, error } = await supabase.from('homework').upsert([payload]).select();
+      if (error) throw error;
+      return data;
+    },
+    async delete(id: string) {
+      const { error } = await supabase.from('homework').delete().eq('id', id);
+      if (error) throw error;
     }
   },
   audit: {
@@ -296,74 +389,6 @@ export const db = {
     },
     async deleteByModule(module: string) {
       const { error } = await supabase.from('audit_logs').delete().eq('module', module);
-      if (error) throw error;
-    }
-  },
-  gallery: {
-    async getAll() {
-      const { data, error } = await supabase.from('gallery').select('*').order('created_at', { ascending: false });
-      if (error) throw error;
-      return data;
-    },
-    async insert(asset: any) {
-      const { data, error } = await supabase.from('gallery').insert([{
-        name: asset.name, url: asset.url, description: asset.description,
-        type: asset.type, uploaded_by: asset.uploadedBy, date: asset.date
-      }]);
-      if (error) throw error;
-      return data;
-    },
-    async update(id: string, asset: any) {
-      const { error } = await supabase.from('gallery').update({
-        name: asset.name, description: asset.description
-      }).eq('id', id);
-      if (error) throw error;
-    },
-    async delete(id: string) {
-      const { error } = await supabase.from('gallery').delete().eq('id', id);
-      if (error) throw error;
-    }
-  },
-  videos: {
-    async getAll() {
-      const { data, error } = await supabase.from('videos').select('*').order('created_at', { ascending: false });
-      if (error) throw error;
-      return data;
-    },
-    async insert(video: any) {
-      const { data, error } = await supabase.from('videos').insert([{
-        name: video.name, url: video.url, description: video.description,
-        uploaded_by: video.uploadedBy, date: video.date
-      }]);
-      if (error) throw error;
-      return data;
-    },
-    async delete(id: string) {
-      const { error } = await supabase.from('videos').delete().eq('id', id);
-      if (error) throw error;
-    }
-  },
-  curriculum: {
-    async getFolders() {
-      const { data, error } = await supabase.from('curriculum_folders').select('*, curriculum_files(*)').order('created_at', { ascending: false });
-      if (error) throw error;
-      return data;
-    },
-    async insertFolder(name: string, timestamp: string) {
-      const { data, error } = await supabase.from('curriculum_folders').insert([{ name, timestamp }]).select();
-      if (error) throw error;
-      return data[0];
-    },
-    async insertFile(file: any) {
-      const { data, error } = await supabase.from('curriculum_files').insert([{
-        folder_id: file.folderId, title: file.title, type: file.type,
-        metadata: file.metadata, media_url: file.mediaUrl, timestamp: file.timestamp
-      }]);
-      if (error) throw error;
-      return data;
-    },
-    async deleteFile(id: string) {
-      const { error } = await supabase.from('curriculum_files').delete().eq('id', id);
       if (error) throw error;
     }
   }
