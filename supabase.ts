@@ -12,11 +12,11 @@ const MASTER_ACCOUNTS = [
   { username: 'student1', password: 'password123', role: 'STUDENT', full_name: 'Demo Student', id: 'student-master' }
 ];
 
-// Helper to handle dates safely for SQL (Required for DATE columns)
+// Refined Helper: Ensures dates are either valid strings or null for Supabase DATE columns
 const safeDate = (d: any) => {
-  if (!d || d === "" || d === "-" || d === "undefined") return null;
-  // Ensure string format is YYYY-MM-DD
-  return d;
+  if (!d || d === "" || d === "-" || d === "undefined" || d === "null") return null;
+  // If the date is already in YYYY-MM-DD, return it. Otherwise, return null to avoid DB crash.
+  return typeof d === 'string' && d.includes('-') ? d : null;
 };
 
 export const db = {
@@ -92,7 +92,6 @@ export const db = {
     async upsert(student: any) {
       const isNew = !student.id || student.id.includes('-master') || student.id.length < 20;
       
-      // Explicit mapping of App State to SQL Table Columns
       const payload: any = {
         full_name: student.fullName || student.name || 'Unknown',
         email: student.email || null,
@@ -118,18 +117,18 @@ export const db = {
         payload.id = student.id;
       }
 
+      // Using gr_number as conflict target to ensure updates work correctly even if ID is new
       const { data, error } = await supabase
         .from('students')
-        .upsert(payload)
+        .upsert(payload, { onConflict: 'gr_number' })
         .select();
 
       if (error) {
-        console.error("Database Sync Detail:", error);
-        // If still getting error, it means schema cache is old
-        if (error.message.includes('dob')) {
-          throw new Error("Schema Error: Run 'NOTIFY pgrst, reload schema' in Supabase SQL Editor.");
+        // Simplifed error handling: No scary JSON logs
+        if (error.code === 'PGRST204') {
+          throw new Error("Cloud Cache Error: Please run 'NOTIFY pgrst, reload schema' in your Supabase SQL Editor once.");
         }
-        throw error;
+        throw new Error(error.message);
       }
       return data;
     },
