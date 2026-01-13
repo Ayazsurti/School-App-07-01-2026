@@ -6,7 +6,7 @@ import { supabase, db } from '../supabase';
 import jsQR from 'jsqr';
 import { 
   Plus, Search, Trash2, Edit2, X, UserPlus, User as UserIcon, Camera, Upload, MapPin, 
-  CheckCircle2, ShieldCheck, Smartphone, Loader2, Calendar, Mail, FileText, SwitchCamera, StopCircle, QrCode, ScanLine, CreditCard, Phone, UserCheck, GraduationCap
+  CheckCircle2, ShieldCheck, Smartphone, Loader2, Calendar, Mail, FileText, SwitchCamera, StopCircle, QrCode, ScanLine, CreditCard, Phone, UserCheck, GraduationCap, RefreshCw
 } from 'lucide-react';
 
 interface StudentsManagerProps { user: User; }
@@ -364,7 +364,7 @@ const StudentsManager: React.FC<StudentsManagerProps> = ({ user }) => {
                <div className="flex flex-col md:flex-row gap-12">
                   {/* PHOTO COLUMN */}
                   <div className="flex flex-col items-center gap-5 shrink-0">
-                     <div className="w-56 h-56 bg-slate-100 dark:bg-slate-800 rounded-[3rem] border-4 border-white dark:border-slate-700 shadow-xl overflow-hidden flex items-center justify-center relative group">
+                     <div className="w-56 h-56 bg-slate-100 dark:bg-slate-800 rounded-[3rem] border-4 border-white dark:bg-slate-700 shadow-xl overflow-hidden flex items-center justify-center relative group">
                         {isCameraActive && !isScanning ? (
                           <video ref={videoRef} autoPlay playsInline className="w-full h-full object-cover scale-x-[-1]" />
                         ) : (
@@ -458,7 +458,7 @@ const StudentsManager: React.FC<StudentsManagerProps> = ({ user }) => {
                               <input type="date" value={formData.dob} onChange={e => setFormData({...formData, dob: e.target.value})} className="w-full bg-slate-50 dark:bg-slate-800 border-2 rounded-2xl px-5 py-4 font-bold text-slate-800 dark:text-white outline-none focus:ring-2 focus:ring-indigo-500" />
                            </div>
                            <div className="space-y-1">
-                              <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1.5 ml-1">Aadhar Card No</label>
+                              <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1.5 ml-1">Aadhar Number</label>
                               <input type="text" value={formData.aadharNo} onChange={e => setFormData({...formData, aadharNo: e.target.value})} className="w-full bg-slate-50 dark:bg-slate-800 border-2 rounded-2xl px-5 py-4 font-bold text-slate-800 dark:text-white outline-none focus:ring-2 focus:ring-indigo-500" placeholder="XXXX-XXXX-XXXX" />
                            </div>
                            <div className="space-y-1">
