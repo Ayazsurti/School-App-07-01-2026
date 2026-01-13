@@ -12,9 +12,10 @@ const MASTER_ACCOUNTS = [
   { username: 'student1', password: 'password123', role: 'STUDENT', full_name: 'Demo Student', id: 'student-master' }
 ];
 
-// Helper to handle dates safely for SQL
+// Helper to handle dates safely for SQL (Required for DATE columns)
 const safeDate = (d: any) => {
-  if (!d || d === "" || d === "-") return null;
+  if (!d || d === "" || d === "-" || d === "undefined") return null;
+  // Ensure string format is YYYY-MM-DD
   return d;
 };
 
@@ -91,6 +92,7 @@ export const db = {
     async upsert(student: any) {
       const isNew = !student.id || student.id.includes('-master') || student.id.length < 20;
       
+      // Explicit mapping of App State to SQL Table Columns
       const payload: any = {
         full_name: student.fullName || student.name || 'Unknown',
         email: student.email || null,
@@ -121,7 +123,14 @@ export const db = {
         .upsert(payload)
         .select();
 
-      if (error) throw error;
+      if (error) {
+        console.error("Database Sync Detail:", error);
+        // If still getting error, it means schema cache is old
+        if (error.message.includes('dob')) {
+          throw new Error("Schema Error: Run 'NOTIFY pgrst, reload schema' in Supabase SQL Editor.");
+        }
+        throw error;
+      }
       return data;
     },
     async delete(id: string) {
@@ -160,7 +169,6 @@ export const db = {
       return data;
     },
     async bulkUpsert(records: any[]) {
-      // Ensure student_id is valid UUID and clean data
       const cleaned = records.filter(r => r.student_id && r.student_id.length > 20);
       const { data, error } = await supabase.from('attendance').upsert(cleaned).select();
       if (error) throw error;
@@ -187,7 +195,6 @@ export const db = {
       return data;
     },
     async insertFolder(name: string, timestamp: string) {
-      // SQL uses 'timestamp' column for folders
       const { data, error } = await supabase.from('curriculum_folders').insert([{ name, timestamp }]).select();
       if (error) throw error;
       return data;
