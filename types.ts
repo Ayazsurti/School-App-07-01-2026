@@ -6,6 +6,8 @@ export interface User {
   name: string;
   email: string;
   role: UserRole;
+  username?: string;
+  password?: string;
   profileImage?: string;
   enrollmentId?: string;
   staffId?: string;
@@ -16,29 +18,27 @@ export interface User {
 }
 
 export interface Student extends User {
-  // Personal & Identity Fields
+  // Personal & Identity Fields (Requested)
   fullName: string;
+  grNumber: string;
+  rollNo: string;
   gender: string;
-  dob: string;
   admissionDate: string;
-  aadharNo: string;
+  dob: string;
   uidId: string;
   penNo: string;
-  grNumber: string;
-  residenceAddress: string;
-
-  // Parental Information
-  fatherName: string;
+  aadharNo: string;
+  
+  // Parental Information (Requested)
   motherName: string;
-  fatherMobile: string;
   motherMobile: string;
+  fatherName: string;
+  fatherMobile: string;
+  residenceAddress: string;
 
   // System Essentials
   class: string;
   section: string;
-  rollNo: string;
-
-  // Extended Details
   remarks?: string;
 }
 

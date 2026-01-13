@@ -7,9 +7,7 @@ const supabaseAnonKey = (import.meta as any).env?.VITE_SUPABASE_ANON_KEY || 'sb_
 export const supabase = createClient(supabaseUrl, supabaseAnonKey);
 
 const MASTER_ACCOUNTS = [
-  { username: 'ayazsurti', password: 'password123', role: 'ADMIN', full_name: 'Ayaz Surti', id: 'admin-master' },
-  { username: 'teacher1', password: 'password123', role: 'TEACHER', full_name: 'Lead Teacher', id: 'teacher-master' },
-  { username: 'student1', password: 'password123', role: 'STUDENT', full_name: 'Demo Student', id: 'student-master' }
+  { username: 'ayazsurti', password: 'password123', role: 'ADMIN', full_name: 'Ayaz Surti', id: 'admin-master' }
 ];
 
 const safeDate = (d: any) => {
@@ -32,7 +30,7 @@ export const db = {
         .eq('password', pass)
         .single();
       
-      if (error) throw new Error("Invalid Credentials");
+      if (error) throw new Error("Invalid Credentials: User not found or password incorrect.");
       return data;
     }
   },
@@ -89,7 +87,6 @@ export const db = {
       return data;
     },
     async upsert(student: any) {
-      // 1. Build strict payload
       const payload: any = {
         full_name: student.fullName || student.name || 'Unnamed Student',
         email: student.email || null,
@@ -115,38 +112,9 @@ export const db = {
         payload.id = student.id;
       }
 
-      // Initial Try
-      let result = await supabase.from('students').upsert(payload, { onConflict: 'gr_number' }).select();
-
-      // 2. DYNAMIC AUTO-REPAIR: If Supabase reports ANY column is missing in cache
-      // Loop up to 3 times to strip missing columns identified by error messages
-      let retryCount = 0;
-      while (result.error && result.error.message.includes("column") && result.error.message.includes("schema cache") && retryCount < 3) {
-        const errorMessage = result.error.message;
-        console.warn("Supabase Schema Cache Mismatch:", errorMessage);
-        
-        // Extract the column name from error: Could not find the 'column_name' column...
-        const match = errorMessage.match(/'([^']+)'/);
-        const colName = match ? match[1] : null;
-
-        if (colName && payload.hasOwnProperty(colName)) {
-          console.log(`Auto-repair: Removing missing column '${colName}' from payload and retrying...`);
-          delete payload[colName];
-          result = await supabase.from('students').upsert(payload, { onConflict: 'gr_number' }).select();
-        } else {
-          // If we can't identify the column but it's a cache error, try stripping all optional new columns
-          delete payload.gender;
-          delete payload.dob;
-          delete payload.admission_date;
-          delete payload.aadhar_no;
-          result = await supabase.from('students').upsert(payload, { onConflict: 'gr_number' }).select();
-          break;
-        }
-        retryCount++;
-      }
-
-      if (result.error) throw new Error(result.error.message);
-      return result.data;
+      const { data, error } = await supabase.from('students').upsert(payload, { onConflict: 'gr_number' }).select();
+      if (error) throw error;
+      return data;
     },
     async delete(id: string) {
       const { error } = await supabase.from('students').delete().eq('id', id);

@@ -6,11 +6,12 @@ import { supabase, db } from '../supabase';
 import jsQR from 'jsqr';
 import { 
   Plus, Search, Trash2, Edit2, X, UserPlus, User as UserIcon, Camera, Upload, 
-  CheckCircle2, ShieldCheck, Smartphone, Loader2, QrCode, StopCircle, GraduationCap, RefreshCw
+  CheckCircle2, ShieldCheck, Smartphone, Loader2, QrCode, StopCircle, GraduationCap, RefreshCw,
+  Lock, Key, Phone, Mail, MapPin, UserCheck
 } from 'lucide-react';
 
 interface StudentsManagerProps { user: User; }
-const ALL_CLASSES = ['1st', '2nd', '3rd', '4th', '5th', '6th', '7th', '8th', '9th', '10th', '11th', '12th'];
+const ALL_CLASSES = ['Nursery', 'LKG', 'UKG', '1st', '2nd', '3rd', '4th', '5th', '6th', '7th', '8th', '9th', '10th', '11th', '12th'];
 
 const StudentsManager: React.FC<StudentsManagerProps> = ({ user }) => {
   const [students, setStudents] = useState<Student[]>([]);
@@ -23,20 +24,18 @@ const StudentsManager: React.FC<StudentsManagerProps> = ({ user }) => {
   const [deleteId, setDeleteId] = useState<string | null>(null);
   const [showSuccess, setShowSuccess] = useState(false);
   
-  // QR Scanner States
-  const [isScanning, setIsScanning] = useState(false);
-  const [isCameraActive, setIsCameraActive] = useState(false);
-  
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const scanFrameRef = useRef<number>(0);
 
-  const [formData, setFormData] = useState<Partial<Student>>({
+  const initialFormData: Partial<Student> = {
     fullName: '', email: '', grNumber: '', class: '1st', section: 'A', rollNo: '', profileImage: '',
     gender: 'Male', dob: '', admissionDate: '', aadharNo: '', uidId: '', penNo: '',
-    fatherName: '', motherName: '', fatherMobile: '', motherMobile: '', residenceAddress: ''
-  });
+    fatherName: '', motherName: '', fatherMobile: '', motherMobile: '', residenceAddress: '',
+    username: '', password: ''
+  };
+
+  const [formData, setFormData] = useState<Partial<Student>>(initialFormData);
 
   const fetchCloudData = async () => {
     try {
@@ -61,7 +60,9 @@ const StudentsManager: React.FC<StudentsManagerProps> = ({ user }) => {
         admissionDate: s.admission_date,
         aadharNo: s.aadhar_no,
         uidId: s.uid_id,
-        penNo: s.pen_no
+        penNo: s.pen_no,
+        username: s.username,
+        password: s.password
       }));
       setStudents(mapped);
     } catch (err) { 
@@ -78,77 +79,8 @@ const StudentsManager: React.FC<StudentsManagerProps> = ({ user }) => {
         fetchCloudData().then(() => setTimeout(() => setIsSyncing(false), 800));
       })
       .subscribe();
-    return () => { 
-      stopCamera();
-      supabase.removeChannel(channel); 
-    };
+    return () => { supabase.removeChannel(channel); };
   }, []);
-
-  const startCamera = async (forScanner: boolean = false) => {
-    try {
-      const constraints = { 
-        video: { facingMode: forScanner ? 'environment' : 'user', width: { ideal: 640 }, height: { ideal: 480 } }, 
-        audio: false 
-      };
-      const stream = await navigator.mediaDevices.getUserMedia(constraints);
-      if (videoRef.current) {
-        videoRef.current.srcObject = stream;
-        setIsCameraActive(true);
-        if (forScanner) {
-          setIsScanning(true);
-          requestAnimationFrame(scanQRCode);
-        }
-      }
-    } catch (err) {
-      alert("Camera Error: Access required.");
-    }
-  };
-
-  const stopCamera = () => {
-    if (videoRef.current && videoRef.current.srcObject) {
-      const stream = videoRef.current.srcObject as MediaStream;
-      stream.getTracks().forEach(track => track.stop());
-      videoRef.current.srcObject = null;
-    }
-    setIsCameraActive(false);
-    setIsScanning(false);
-    if (scanFrameRef.current) cancelAnimationFrame(scanFrameRef.current);
-  };
-
-  const scanQRCode = () => {
-    if (!isScanning || !videoRef.current || !canvasRef.current) return;
-    const video = videoRef.current;
-    const canvas = canvasRef.current;
-    const context = canvas.getContext('2d');
-
-    if (video.readyState === video.HAVE_ENOUGH_DATA && context) {
-      canvas.width = video.videoWidth;
-      canvas.height = video.videoHeight;
-      context.drawImage(video, 0, 0, canvas.width, canvas.height);
-      const imageData = context.getImageData(0, 0, canvas.width, canvas.height);
-      const code = jsQR(imageData.data, imageData.width, imageData.height, { inversionAttempts: "dontInvert" });
-      if (code) {
-        setSearchQuery(code.data);
-        stopCamera();
-        return;
-      }
-    }
-    scanFrameRef.current = requestAnimationFrame(scanQRCode);
-  };
-
-  const capturePhoto = () => {
-    if (videoRef.current && canvasRef.current) {
-      const context = canvasRef.current.getContext('2d');
-      if (context) {
-        canvasRef.current.width = videoRef.current.videoWidth;
-        canvasRef.current.height = videoRef.current.videoHeight;
-        context.drawImage(videoRef.current, 0, 0);
-        const dataUrl = canvasRef.current.toDataURL('image/jpeg', 0.8);
-        setFormData(prev => ({ ...prev, profileImage: dataUrl }));
-        stopCamera();
-      }
-    }
-  };
 
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -159,35 +91,33 @@ const StudentsManager: React.FC<StudentsManagerProps> = ({ user }) => {
     setIsSyncing(true);
     try {
       const studentToSync = { ...formData, id: editingStudent ? editingStudent.id : undefined };
+      
+      // Auto-generate username from GR Number if empty
+      if (!studentToSync.username) studentToSync.username = `student_${formData.grNumber}`;
+      if (!studentToSync.password) studentToSync.password = '123456';
+
       await db.students.upsert(studentToSync);
+      
+      // Sync Login Profile automatically
+      await supabase.from('profiles').upsert([{
+        username: studentToSync.username,
+        password: studentToSync.password,
+        role: 'STUDENT',
+        full_name: studentToSync.fullName
+      }], { onConflict: 'username' });
+
       setShowModal(false);
-      stopCamera();
       setShowSuccess(true);
       setTimeout(() => setShowSuccess(false), 3000);
-      createAuditLog(user, editingStudent ? 'UPDATE' : 'CREATE', 'Registry', `Cloud Sync: ${formData.fullName}`);
+      createAuditLog(user, editingStudent ? 'UPDATE' : 'CREATE', 'Registry', `Enrollment Sync: ${formData.fullName} (GR: ${formData.grNumber})`);
       setEditingStudent(null);
-      setFormData({
-        fullName: '', email: '', grNumber: '', class: '1st', section: 'A', rollNo: '', profileImage: '',
-        gender: 'Male', dob: '', admissionDate: '', aadharNo: '', uidId: '', penNo: '',
-        fatherName: '', motherName: '', fatherMobile: '', motherMobile: '', residenceAddress: ''
-      });
+      setFormData(initialFormData);
       fetchCloudData();
     } catch (err: any) { 
       alert(`Sync Error: ${err.message}`); 
     } finally { 
       setIsSyncing(false); 
     }
-  };
-
-  const confirmDelete = async () => {
-    if (!deleteId) return;
-    try {
-      await db.students.delete(deleteId);
-      setDeleteId(null);
-      setShowSuccess(true);
-      setTimeout(() => setShowSuccess(false), 3000);
-      fetchCloudData();
-    } catch (err) { alert("Delete failed."); }
   };
 
   const filteredStudents = useMemo(() => {
@@ -203,9 +133,7 @@ const StudentsManager: React.FC<StudentsManagerProps> = ({ user }) => {
     const file = e.target.files?.[0];
     if (file) {
       const reader = new FileReader();
-      reader.onload = (ev) => {
-        setFormData(prev => ({ ...prev, profileImage: ev.target?.result as string }));
-      };
+      reader.onload = (ev) => setFormData(prev => ({ ...prev, profileImage: ev.target?.result as string }));
       reader.readAsDataURL(file);
     }
   };
@@ -216,7 +144,7 @@ const StudentsManager: React.FC<StudentsManagerProps> = ({ user }) => {
         <div className="fixed top-24 left-1/2 -translate-x-1/2 z-[1100] animate-bounce">
            <div className="bg-indigo-600 text-white px-6 py-2 rounded-full shadow-2xl flex items-center gap-3 border border-indigo-400">
               <RefreshCw size={14} className="animate-spin" />
-              <span className="text-[10px] font-black uppercase tracking-widest">Refreshing Registry...</span>
+              <span className="text-[10px] font-black uppercase tracking-widest">Cloud Database Syncing...</span>
            </div>
         </div>
       )}
@@ -226,8 +154,8 @@ const StudentsManager: React.FC<StudentsManagerProps> = ({ user }) => {
            <div className="bg-emerald-600 text-white px-8 py-5 rounded-[2rem] shadow-2xl flex items-center gap-4 border border-emerald-500/50 backdrop-blur-xl">
               <CheckCircle2 size={24} strokeWidth={3} />
               <div>
-                 <p className="font-black text-xs uppercase tracking-widest">Global Sync Complete</p>
-                 <p className="text-[10px] font-bold text-emerald-100 uppercase mt-0.5">Cloud Database Updated</p>
+                 <p className="font-black text-xs uppercase tracking-widest">Registry Updated</p>
+                 <p className="text-[10px] font-bold text-emerald-100 uppercase mt-0.5">Profile & Login Active</p>
               </div>
            </div>
         </div>
@@ -236,52 +164,51 @@ const StudentsManager: React.FC<StudentsManagerProps> = ({ user }) => {
       <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6 no-print">
         <div>
           <h1 className="text-4xl font-black text-slate-900 dark:text-white tracking-tight uppercase flex items-center gap-3">
-             Institutional Registry <ShieldCheck className="text-indigo-600" />
+             Student Management <ShieldCheck className="text-indigo-600" />
           </h1>
-          <p className="text-slate-500 dark:text-slate-400 font-medium text-lg">Centralized cloud management for all student identities.</p>
+          <p className="text-slate-500 dark:text-slate-400 font-medium text-lg uppercase tracking-tight">Institutional Cloud Registry & Login Control</p>
         </div>
         <div className="flex gap-3">
-          <button onClick={() => startCamera(true)} className="px-8 py-4 bg-slate-900 dark:bg-slate-800 text-white font-black rounded-2xl shadow-xl flex items-center gap-3 hover:-translate-y-1 transition-all uppercase text-xs tracking-widest border border-white/5"><QrCode size={20} /> Scan Card</button>
           <button onClick={() => { 
             setEditingStudent(null); 
-            setFormData({
-              fullName: '', email: '', grNumber: '', class: '1st', section: 'A', rollNo: '', profileImage: '',
-              gender: 'Male', dob: '', admissionDate: '', aadharNo: '', uidId: '', penNo: '',
-              fatherName: '', motherName: '', fatherMobile: '', motherMobile: '', residenceAddress: ''
-            }); 
+            setFormData(initialFormData); 
             setShowModal(true); 
-          }} className="px-8 py-4 bg-indigo-600 text-white font-black rounded-2xl shadow-xl flex items-center gap-3 hover:-translate-y-1 transition-all uppercase text-xs tracking-widest"><UserPlus size={20} /> Enroll New</button>
+          }} className="px-8 py-4 bg-indigo-600 text-white font-black rounded-2xl shadow-xl flex items-center gap-3 hover:-translate-y-1 transition-all uppercase text-xs tracking-widest"><UserPlus size={20} /> Enroll New Student</button>
         </div>
       </div>
 
+      {/* SEARCH AND FILTERS */}
+      <div className="bg-white dark:bg-slate-900 p-6 rounded-[2.5rem] shadow-sm border border-slate-100 dark:border-slate-800 flex flex-col md:flex-row gap-4 items-center">
+          <div className="relative group w-full max-w-md">
+              <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-300" size={18} />
+              <input type="text" placeholder="Search by Name, GR No or Roll No..." value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} className="w-full pl-12 pr-4 py-4 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl font-bold outline-none focus:ring-2 focus:ring-indigo-500 transition-all shadow-inner dark:text-white" />
+          </div>
+          <div className="flex gap-2 overflow-x-auto w-full pb-2 md:pb-0 custom-scrollbar">
+              <button onClick={() => setSelectedClass('All')} className={`whitespace-nowrap px-6 py-3 rounded-xl text-[10px] font-black uppercase transition-all ${selectedClass === 'All' ? 'bg-indigo-600 text-white shadow-lg' : 'bg-slate-100 dark:bg-slate-800 text-slate-400'}`}>All Grades</button>
+              {ALL_CLASSES.map(c => (
+                <button key={c} onClick={() => setSelectedClass(c)} className={`whitespace-nowrap px-4 py-3 rounded-xl text-[10px] font-black uppercase transition-all ${selectedClass === c ? 'bg-indigo-600 text-white shadow-lg' : 'bg-slate-100 dark:bg-slate-800 text-slate-400'}`}>{c}</button>
+              ))}
+          </div>
+      </div>
+
+      {/* DATA TABLE */}
       <div className="bg-white dark:bg-slate-900 rounded-[3rem] shadow-sm border border-slate-100 dark:border-slate-800 overflow-hidden min-h-[400px]">
         {isLoading ? (
           <div className="py-40 flex flex-col items-center justify-center text-slate-400 animate-pulse">
             <Loader2 size={64} className="animate-spin text-indigo-600 mb-6" />
-            <p className="font-black text-xs uppercase tracking-widest">Connecting to Cloud Server...</p>
+            <p className="font-black text-xs uppercase tracking-widest">Connecting to Education Cloud...</p>
           </div>
         ) : (
           <div className="overflow-x-auto">
-             <div className="p-8 border-b border-slate-50 dark:border-slate-800 flex flex-col sm:flex-row justify-between items-center gap-4">
-                <div className="relative group w-full max-w-md">
-                   <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-300" size={18} />
-                   <input type="text" placeholder="Search by name or GR number..." value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} className="w-full pl-12 pr-4 py-4 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl font-bold outline-none focus:ring-2 focus:ring-indigo-500 transition-all shadow-inner" />
-                </div>
-                <div className="flex gap-2">
-                   <button onClick={() => setSelectedClass('All')} className={`px-6 py-2 rounded-xl text-[10px] font-black uppercase transition-all ${selectedClass === 'All' ? 'bg-indigo-600 text-white shadow-lg' : 'bg-slate-100 dark:bg-slate-800 text-slate-400'}`}>All Students</button>
-                   {ALL_CLASSES.slice(0, 5).map(c => (
-                     <button key={c} onClick={() => setSelectedClass(c)} className={`px-4 py-2 rounded-xl text-[10px] font-black uppercase transition-all ${selectedClass === c ? 'bg-indigo-600 text-white shadow-lg' : 'bg-slate-100 dark:bg-slate-800 text-slate-400'}`}>Std {c}</button>
-                   ))}
-                </div>
-             </div>
-            <table className="w-full min-w-[1000px]">
+            <table className="w-full min-w-[1200px]">
               <thead>
                 <tr className="bg-slate-50 dark:bg-slate-800/50 text-slate-400 text-[10px] font-black uppercase tracking-widest border-b border-slate-100 dark:border-slate-800">
-                  <th className="px-10 py-6 text-left">Full Identity</th>
-                  <th className="px-8 py-6 text-left">GR / Cloud ID</th>
-                  <th className="px-8 py-6 text-left">Academic Placement</th>
-                  <th className="px-8 py-6 text-left">Documents</th>
-                  <th className="px-8 py-6 text-right">Registry Operations</th>
+                  <th className="px-10 py-6 text-left">Identity Profile</th>
+                  <th className="px-8 py-6 text-left">Registry IDs</th>
+                  <th className="px-8 py-6 text-left">Grade / Roll</th>
+                  <th className="px-8 py-6 text-left">Parents / Mobile</th>
+                  <th className="px-8 py-6 text-left">Login Status</th>
+                  <th className="px-8 py-6 text-right">Actions</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
@@ -290,22 +217,34 @@ const StudentsManager: React.FC<StudentsManagerProps> = ({ user }) => {
                     <td className="px-10 py-6">
                       <div className="flex items-center gap-5">
                         <div className="w-14 h-14 bg-indigo-600 rounded-2xl flex items-center justify-center text-white font-black text-xl shadow-lg overflow-hidden">
-                          {student.profileImage ? <img src={student.profileImage} className="w-full h-full object-cover" alt="S" /> : (student.fullName || '').charAt(0)}
+                          {student.profileImage ? <img src={student.profileImage} className="w-full h-full object-cover" alt="S" /> : student.fullName.charAt(0)}
                         </div>
                         <div>
-                          <p className="font-black text-slate-800 dark:text-slate-200 text-base uppercase">{student.fullName}</p>
-                          <p className="text-[10px] text-indigo-500 font-black uppercase tracking-widest">{student.email || 'No Linked Email'}</p>
+                          <p className="font-black text-slate-800 dark:text-slate-200 text-base uppercase leading-tight">{student.fullName}</p>
+                          <p className="text-[9px] text-indigo-500 font-black uppercase tracking-widest mt-1">{student.gender} • DOB: {student.dob || 'N/A'}</p>
                         </div>
                       </div>
                     </td>
-                    <td className="px-8 py-6 font-black text-slate-600 dark:text-slate-400 text-xs uppercase tracking-widest">{student.grNumber}</td>
                     <td className="px-8 py-6">
-                      <div className="bg-indigo-50 dark:bg-indigo-900/30 px-3 py-1.5 rounded-xl text-[10px] font-black text-indigo-700 dark:text-indigo-400 uppercase inline-block border border-indigo-100 dark:border-indigo-800">Std {student.class}-{student.section}</div>
+                       <div className="space-y-1">
+                          <p className="text-[10px] font-black text-slate-700 dark:text-slate-300 uppercase">GR: {student.grNumber}</p>
+                          <p className="text-[8px] font-bold text-slate-400 uppercase">Aadhar: {student.aadharNo || 'Pending'}</p>
+                          <p className="text-[8px] font-bold text-slate-400 uppercase">PEN: {student.penNo || 'N/A'}</p>
+                       </div>
                     </td>
                     <td className="px-8 py-6">
-                       <div className="flex flex-col gap-1">
-                          <p className="text-[8px] font-black text-slate-400 uppercase">Aadhar: {student.aadharNo || 'Missing'}</p>
-                          <p className="text-[8px] font-black text-slate-400 uppercase">PEN: {student.penNo || 'Missing'}</p>
+                      <div className="inline-block bg-indigo-50 dark:bg-indigo-900/30 px-3 py-1.5 rounded-xl text-[10px] font-black text-indigo-700 dark:text-indigo-400 uppercase border border-indigo-100 dark:border-indigo-800">Std {student.class}-{student.section} • Roll {student.rollNo}</div>
+                    </td>
+                    <td className="px-8 py-6">
+                       <div className="space-y-1">
+                          <p className="text-[10px] font-black text-slate-700 dark:text-slate-300 uppercase">{student.fatherName}</p>
+                          <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest flex items-center gap-1"><Smartphone size={10}/> {student.fatherMobile}</p>
+                       </div>
+                    </td>
+                    <td className="px-8 py-6">
+                       <div className="flex items-center gap-2">
+                          <div className={`w-2 h-2 rounded-full ${student.username ? 'bg-emerald-500' : 'bg-slate-300 animate-pulse'}`}></div>
+                          <p className="text-[9px] font-black text-slate-500 uppercase tracking-widest">{student.username || 'System Ready'}</p>
                        </div>
                     </td>
                     <td className="px-8 py-6 text-right">
@@ -322,128 +261,171 @@ const StudentsManager: React.FC<StudentsManagerProps> = ({ user }) => {
         )}
       </div>
 
+      {/* ENROLLMENT MODAL */}
       {showModal && (
-        <div className="fixed inset-0 z-[1000] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-in fade-in">
-          <div className="bg-white dark:bg-slate-900 rounded-[3rem] p-1 shadow-2xl max-w-5xl w-full max-h-[95vh] overflow-hidden flex flex-col">
+        <div className="fixed inset-0 z-[1000] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-md animate-in fade-in">
+          <div className="bg-white dark:bg-slate-900 rounded-[3rem] p-1 shadow-2xl max-w-6xl w-full max-h-[95vh] overflow-hidden flex flex-col border border-slate-100 dark:border-slate-800">
             <div className="p-8 border-b border-slate-100 dark:border-slate-800 flex justify-between items-center bg-slate-50/50 dark:bg-slate-800/30">
                <div>
-                  <h3 className="text-2xl font-black text-slate-900 dark:text-white uppercase tracking-tight">Identity Enrollment Matrix</h3>
-                  <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-1">Official Institutional Registry</p>
+                  <h3 className="text-2xl font-black text-slate-900 dark:text-white uppercase tracking-tight">Institutional Enrollment Portal</h3>
+                  <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-1">Session 2025-2026 • Official Cloud Registry</p>
                </div>
-               <button onClick={() => { setShowModal(false); stopCamera(); }} className="p-3 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-full text-slate-400 transition-all"><X size={28} /></button>
+               <button onClick={() => setShowModal(false)} className="p-3 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-full text-slate-400 transition-all"><X size={28} /></button>
             </div>
-            <form onSubmit={handleSave} className="flex-1 overflow-y-auto p-10 space-y-12 custom-scrollbar">
-               <div className="flex flex-col md:flex-row gap-12">
-                  <div className="flex flex-col items-center gap-5 shrink-0">
-                     <div className="w-56 h-56 bg-slate-100 dark:bg-slate-800 rounded-[3rem] border-4 border-white dark:bg-slate-700 shadow-xl overflow-hidden flex items-center justify-center relative group">
-                        {isCameraActive ? (
-                          <video ref={videoRef} autoPlay playsInline className="w-full h-full object-cover scale-x-[-1]" />
-                        ) : (
-                          formData.profileImage ? <img src={formData.profileImage} className="w-full h-full object-cover" alt="Profile" /> : <UserIcon size={80} className="text-slate-200" />
-                        )}
-                        {!isCameraActive && (
-                          <div className="absolute inset-0 bg-black/40 text-white opacity-0 group-hover:opacity-100 transition-opacity flex flex-col items-center justify-center gap-3">
-                             <button type="button" onClick={() => fileInputRef.current?.click()} className="flex items-center gap-2 font-bold uppercase text-[9px] tracking-widest bg-white/20 px-4 py-2 rounded-full hover:bg-white/40"><Upload size={16}/> Upload File</button>
-                             <button type="button" onClick={() => startCamera(false)} className="flex items-center gap-2 font-bold uppercase text-[9px] tracking-widest bg-indigo-600 px-4 py-2 rounded-full hover:bg-indigo-500"><Camera size={16}/> Live Photo</button>
-                          </div>
-                        )}
+            
+            <form onSubmit={handleSave} className="flex-1 overflow-y-auto p-10 custom-scrollbar space-y-12 bg-white dark:bg-slate-900">
+               <div className="grid grid-cols-1 lg:grid-cols-12 gap-12">
+                  
+                  {/* Photo & Login Section */}
+                  <div className="lg:col-span-3 space-y-10">
+                     <div className="flex flex-col items-center gap-5 shrink-0">
+                        <div className="w-52 h-52 bg-slate-50 dark:bg-slate-800 rounded-[2.5rem] border-4 border-white dark:border-slate-700 shadow-xl overflow-hidden flex items-center justify-center relative group">
+                           {formData.profileImage ? <img src={formData.profileImage} className="w-full h-full object-cover" alt="Profile" /> : <UserIcon size={70} className="text-slate-200" />}
+                           <div className="absolute inset-0 bg-black/40 text-white opacity-0 group-hover:opacity-100 transition-opacity flex flex-col items-center justify-center gap-3">
+                              <button type="button" onClick={() => fileInputRef.current?.click()} className="flex items-center gap-2 font-bold uppercase text-[9px] tracking-widest bg-white/20 px-4 py-2 rounded-full hover:bg-white/40"><Upload size={16}/> Change Photo</button>
+                           </div>
+                        </div>
+                        <input type="file" ref={fileInputRef} className="hidden" accept="image/*" onChange={handleFileUpload} />
+                        <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Student Avatar</h4>
                      </div>
-                     <canvas ref={canvasRef} className="hidden" />
-                     {isCameraActive && (
-                       <button type="button" onClick={capturePhoto} className="w-full py-4 bg-emerald-600 text-white rounded-2xl font-black uppercase text-[10px] tracking-widest flex items-center justify-center gap-2 shadow-lg"><Camera size={18}/> Capture Snapshot</button>
-                     )}
-                     <input type="file" ref={fileInputRef} className="hidden" accept="image/*" onChange={handleFileUpload} />
+
+                     <div className="space-y-6 bg-indigo-50/50 dark:bg-indigo-900/20 p-8 rounded-[2.5rem] border border-indigo-100 dark:border-indigo-800">
+                        <div className="flex items-center gap-2 mb-4">
+                           <Key className="text-indigo-600" size={18} />
+                           <h4 className="text-[10px] font-black text-slate-800 dark:text-white uppercase tracking-widest">Login Control</h4>
+                        </div>
+                        <div className="space-y-4">
+                           <div className="space-y-1">
+                              <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest ml-1">Username (GR Default)</label>
+                              <input type="text" value={formData.username} onChange={e => setFormData({...formData, username: e.target.value})} className="w-full bg-white dark:bg-slate-800 border rounded-xl px-4 py-3 font-bold text-xs outline-none" placeholder="auto-generated" />
+                           </div>
+                           <div className="space-y-1">
+                              <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest ml-1">Account Password</label>
+                              <div className="relative">
+                                 <Lock className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-300" size={14} />
+                                 <input type="text" required value={formData.password} onChange={e => setFormData({...formData, password: e.target.value})} className="w-full bg-white dark:bg-slate-800 border rounded-xl pl-9 pr-4 py-3 font-bold text-xs outline-none" placeholder="Set Password" />
+                              </div>
+                           </div>
+                        </div>
+                     </div>
                   </div>
 
-                  <div className="flex-1 space-y-10">
-                     <div className="space-y-6">
+                  {/* Main Fields Grid */}
+                  <div className="lg:col-span-9 space-y-12">
+                     {/* ACADEMIC INFO */}
+                     <div className="space-y-8">
                         <div className="flex items-center gap-3 border-l-4 border-indigo-500 pl-4 py-1">
-                           <GraduationCap className="text-indigo-600" size={20} />
+                           <GraduationCap className="text-indigo-600" size={24} />
                            <h4 className="text-sm font-black text-slate-800 dark:text-white uppercase tracking-widest">Academic & Institutional Records</h4>
                         </div>
                         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                           <div className="space-y-1">
-                              <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest ml-1">Full Legal Name</label>
-                              <input type="text" required value={formData.fullName} onChange={e => setFormData({...formData, fullName: e.target.value})} className="w-full bg-slate-50 dark:bg-slate-800 border-2 rounded-2xl px-5 py-4 font-bold text-slate-800 dark:text-white outline-none focus:ring-2 focus:ring-indigo-500" placeholder="Full Name" />
+                           <div className="space-y-1 md:col-span-2">
+                              <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest ml-1">FULL NAME (Capital Letters)</label>
+                              <input type="text" required value={formData.fullName} onChange={e => setFormData({...formData, fullName: e.target.value})} className="w-full bg-slate-50 dark:bg-slate-800 border-2 rounded-2xl px-6 py-4 font-black text-slate-800 dark:text-white outline-none focus:ring-2 focus:ring-indigo-500 uppercase" placeholder="JOHN DOE" />
                            </div>
                            <div className="space-y-1">
-                              <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest ml-1">GR Registry Number</label>
-                              <input type="text" required value={formData.grNumber} onChange={e => setFormData({...formData, grNumber: e.target.value})} className="w-full bg-slate-50 dark:bg-slate-800 border-2 rounded-2xl px-5 py-4 font-bold text-slate-800 dark:text-white outline-none" placeholder="GR NO." />
+                              <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest ml-1">GR NO.</label>
+                              <input type="text" required value={formData.grNumber} onChange={e => setFormData({...formData, grNumber: e.target.value})} className="w-full bg-slate-50 dark:bg-slate-800 border-2 rounded-2xl px-6 py-4 font-black text-slate-800 dark:text-white outline-none" placeholder="GR-1001" />
                            </div>
                            <div className="space-y-1">
-                              <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest ml-1">Roll Number</label>
-                              <input type="text" value={formData.rollNo} onChange={e => setFormData({...formData, rollNo: e.target.value})} className="w-full bg-slate-50 dark:bg-slate-800 border-2 rounded-2xl px-5 py-4 font-bold text-slate-800 dark:text-white outline-none" placeholder="Roll No" />
+                              <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest ml-1">ROLL NO</label>
+                              <input type="text" value={formData.rollNo} onChange={e => setFormData({...formData, rollNo: e.target.value})} className="w-full bg-slate-50 dark:bg-slate-800 border-2 rounded-2xl px-6 py-4 font-black text-slate-800 dark:text-white outline-none" placeholder="101" />
                            </div>
                            <div className="space-y-1">
-                              <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest ml-1">Current Class</label>
-                              <select value={formData.class} onChange={e => setFormData({...formData, class: e.target.value})} className="w-full bg-slate-50 dark:bg-slate-800 border-2 rounded-2xl px-5 py-4 font-bold text-slate-800 dark:text-white outline-none">
-                                 {ALL_CLASSES.map(c => <option key={c} value={c}>{c}</option>)}
+                              <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest ml-1">GENDER</label>
+                              <select value={formData.gender} onChange={e => setFormData({...formData, gender: e.target.value})} className="w-full bg-slate-50 dark:bg-slate-800 border-2 rounded-2xl px-6 py-4 font-black text-slate-800 dark:text-white outline-none">
+                                 <option value="Male">Male</option>
+                                 <option value="Female">Female</option>
+                                 <option value="Other">Other</option>
                               </select>
                            </div>
                            <div className="space-y-1">
-                              <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest ml-1">Section</label>
-                              <select value={formData.section} onChange={e => setFormData({...formData, section: e.target.value})} className="w-full bg-slate-50 dark:bg-slate-800 border-2 rounded-2xl px-5 py-4 font-bold text-slate-800 dark:text-white outline-none">
+                              <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest ml-1">ADMISSION DATE</label>
+                              <input type="date" value={formData.admissionDate} onChange={e => setFormData({...formData, admissionDate: e.target.value})} className="w-full bg-slate-50 dark:bg-slate-800 border-2 rounded-2xl px-6 py-4 font-black text-slate-800 dark:text-white outline-none" />
+                           </div>
+                           <div className="space-y-1">
+                              <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest ml-1">CLASS</label>
+                              <select value={formData.class} onChange={e => setFormData({...formData, class: e.target.value})} className="w-full bg-slate-50 dark:bg-slate-800 border-2 rounded-2xl px-6 py-4 font-black text-slate-800 dark:text-white outline-none">
+                                 {ALL_CLASSES.map(c => <option key={c} value={c}>Std {c}</option>)}
+                              </select>
+                           </div>
+                           <div className="space-y-1">
+                              <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest ml-1">SECTION</label>
+                              <select value={formData.section} onChange={e => setFormData({...formData, section: e.target.value})} className="w-full bg-slate-50 dark:bg-slate-800 border-2 rounded-2xl px-6 py-4 font-black text-slate-800 dark:text-white outline-none">
                                  <option value="A">A</option><option value="B">B</option><option value="C">C</option>
                               </select>
                            </div>
                            <div className="space-y-1">
-                              <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest ml-1">Admission Date</label>
-                              <input type="date" value={formData.admissionDate} onChange={e => setFormData({...formData, admissionDate: e.target.value})} className="w-full bg-slate-50 dark:bg-slate-800 border-2 rounded-2xl px-5 py-4 font-bold text-slate-800 dark:text-white outline-none" />
+                              <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest ml-1">DATE OF BIRTH</label>
+                              <input type="date" value={formData.dob} onChange={e => setFormData({...formData, dob: e.target.value})} className="w-full bg-slate-50 dark:bg-slate-800 border-2 rounded-2xl px-6 py-4 font-black text-slate-800 dark:text-white outline-none" />
                            </div>
                         </div>
                      </div>
 
-                     <div className="space-y-6">
+                     {/* GOVT IDENTITIES */}
+                     <div className="space-y-8">
                         <div className="flex items-center gap-3 border-l-4 border-amber-500 pl-4 py-1">
-                           <Smartphone className="text-amber-600" size={20} />
-                           <h4 className="text-sm font-black text-slate-800 dark:text-white uppercase tracking-widest">Government Identity Verification</h4>
+                           <Smartphone className="text-amber-600" size={24} />
+                           <h4 className="text-sm font-black text-slate-800 dark:text-white uppercase tracking-widest">Government Identity Tokens</h4>
                         </div>
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                            <div className="space-y-1">
-                              <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest ml-1">Aadhar Number</label>
-                              <input type="text" value={formData.aadharNo} onChange={e => setFormData({...formData, aadharNo: e.target.value})} className="w-full bg-slate-50 dark:bg-slate-800 border-2 rounded-2xl px-5 py-4 font-bold text-slate-800 dark:text-white outline-none focus:ring-2 focus:ring-amber-500" placeholder="XXXX-XXXX-XXXX" />
+                              <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest ml-1">UID_ID</label>
+                              <input type="text" value={formData.uidId} onChange={e => setFormData({...formData, uidId: e.target.value})} className="w-full bg-slate-50 dark:bg-slate-800 border-2 rounded-2xl px-6 py-4 font-black" placeholder="Unique ID" />
                            </div>
                            <div className="space-y-1">
-                              <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest ml-1">PEN Number (Permanent Education)</label>
-                              <input type="text" value={formData.penNo} onChange={e => setFormData({...formData, penNo: e.target.value})} className="w-full bg-slate-50 dark:bg-slate-800 border-2 rounded-2xl px-5 py-4 font-bold text-slate-800 dark:text-white outline-none focus:ring-2 focus:ring-amber-500" placeholder="PEN REGISTRY" />
+                              <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest ml-1">PEN NO.</label>
+                              <input type="text" value={formData.penNo} onChange={e => setFormData({...formData, penNo: e.target.value})} className="w-full bg-slate-50 dark:bg-slate-800 border-2 rounded-2xl px-6 py-4 font-black" placeholder="Permanent Education No" />
                            </div>
                            <div className="space-y-1">
-                              <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest ml-1">UID / Unique ID</label>
-                              <input type="text" value={formData.uidId} onChange={e => setFormData({...formData, uidId: e.target.value})} className="w-full bg-slate-50 dark:bg-slate-800 border-2 rounded-2xl px-5 py-4 font-bold text-slate-800 dark:text-white outline-none focus:ring-2 focus:ring-amber-500" placeholder="UID REF" />
-                           </div>
-                           <div className="space-y-1">
-                              <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest ml-1">Date of Birth</label>
-                              <input type="date" value={formData.dob} onChange={e => setFormData({...formData, dob: e.target.value})} className="w-full bg-slate-50 dark:bg-slate-800 border-2 rounded-2xl px-5 py-4 font-bold text-slate-800 dark:text-white outline-none focus:ring-2 focus:ring-amber-500" />
+                              <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest ml-1">AADHAR CARD NO.</label>
+                              <input type="text" value={formData.aadharNo} onChange={e => setFormData({...formData, aadharNo: e.target.value})} className="w-full bg-slate-50 dark:bg-slate-800 border-2 rounded-2xl px-6 py-4 font-black" placeholder="XXXX-XXXX-XXXX" />
                            </div>
                         </div>
                      </div>
 
-                     <div className="space-y-6">
+                     {/* PARENTAL INFO */}
+                     <div className="space-y-8">
                         <div className="flex items-center gap-3 border-l-4 border-emerald-500 pl-4 py-1">
-                           <UserIcon className="text-emerald-600" size={20} />
+                           <UserCheck className="text-emerald-600" size={24} />
                            <h4 className="text-sm font-black text-slate-800 dark:text-white uppercase tracking-widest">Parental & Residence Registry</h4>
                         </div>
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-x-10 gap-y-6">
                            <div className="space-y-4">
-                              <input type="text" value={formData.fatherName} onChange={e => setFormData({...formData, fatherName: e.target.value})} className="w-full bg-slate-50 dark:bg-slate-800 border-2 rounded-2xl px-5 py-4 font-bold" placeholder="Father's Full Name" />
-                              <input type="tel" value={formData.fatherMobile} onChange={e => setFormData({...formData, fatherMobile: e.target.value})} className="w-full bg-slate-50 dark:bg-slate-800 border-2 rounded-2xl px-5 py-4 font-bold" placeholder="Father's Mobile" />
+                              <div className="space-y-1">
+                                 <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest ml-1">MOTHER NAME</label>
+                                 <input type="text" value={formData.motherName} onChange={e => setFormData({...formData, motherName: e.target.value})} className="w-full bg-slate-50 dark:bg-slate-800 border-2 rounded-2xl px-6 py-4 font-black" placeholder="Full Name" />
+                              </div>
+                              <div className="space-y-1">
+                                 <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest ml-1">MOTHER PHONE</label>
+                                 <input type="tel" value={formData.motherMobile} onChange={e => setFormData({...formData, motherMobile: e.target.value})} className="w-full bg-slate-50 dark:bg-slate-800 border-2 rounded-2xl px-6 py-4 font-black" placeholder="+91 XXXXX XXXXX" />
+                              </div>
                            </div>
                            <div className="space-y-4">
-                              <input type="text" value={formData.motherName} onChange={e => setFormData({...formData, motherName: e.target.value})} className="w-full bg-slate-50 dark:bg-slate-800 border-2 rounded-2xl px-5 py-4 font-bold" placeholder="Mother's Full Name" />
-                              <input type="tel" value={formData.motherMobile} onChange={e => setFormData({...formData, motherMobile: e.target.value})} className="w-full bg-slate-50 dark:bg-slate-800 border-2 rounded-2xl px-5 py-4 font-bold" placeholder="Mother's Mobile" />
+                              <div className="space-y-1">
+                                 <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest ml-1">FATHER NAME</label>
+                                 <input type="text" value={formData.fatherName} onChange={e => setFormData({...formData, fatherName: e.target.value})} className="w-full bg-slate-50 dark:bg-slate-800 border-2 rounded-2xl px-6 py-4 font-black" placeholder="Full Name" />
+                              </div>
+                              <div className="space-y-1">
+                                 <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest ml-1">FATHER NUMBER</label>
+                                 <input type="tel" value={formData.fatherMobile} onChange={e => setFormData({...formData, fatherMobile: e.target.value})} className="w-full bg-slate-50 dark:bg-slate-800 border-2 rounded-2xl px-6 py-4 font-black" placeholder="+91 XXXXX XXXXX" />
+                              </div>
                            </div>
-                           <div className="md:col-span-2">
-                              <textarea rows={3} value={formData.residenceAddress} onChange={e => setFormData({...formData, residenceAddress: e.target.value})} className="w-full bg-slate-50 dark:bg-slate-800 border-2 rounded-2xl px-6 py-4 font-bold text-slate-800 dark:text-white outline-none resize-none" placeholder="Complete Residential Address" />
+                           <div className="md:col-span-2 space-y-1">
+                              <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest ml-1">RESIDENCE ADDRESS</label>
+                              <textarea rows={3} value={formData.residenceAddress} onChange={e => setFormData({...formData, residenceAddress: e.target.value})} className="w-full bg-slate-50 dark:bg-slate-800 border-2 rounded-2xl px-8 py-6 font-bold text-slate-800 dark:text-white outline-none resize-none shadow-inner" placeholder="Complete Street Address, City, Pincode" />
                            </div>
                         </div>
                      </div>
                   </div>
                </div>
-               <div className="flex gap-4 pt-8 border-t border-slate-100 dark:border-slate-800">
-                  <button type="button" onClick={() => { setShowModal(false); stopCamera(); }} className="flex-1 py-5 bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 font-black rounded-3xl uppercase text-[10px] tracking-widest">Discard Entry</button>
+
+               {/* MODAL FOOTER */}
+               <div className="flex gap-4 pt-10 border-t border-slate-100 dark:border-slate-800 sticky bottom-0 bg-white dark:bg-slate-900 pb-2">
+                  <button type="button" onClick={() => setShowModal(false)} className="flex-1 py-5 bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 font-black rounded-3xl uppercase text-[10px] tracking-widest">Discard Entry</button>
                   <button type="submit" disabled={isSyncing} className="flex-[2] py-5 bg-indigo-600 text-white font-black rounded-3xl shadow-xl hover:bg-indigo-700 transition-all uppercase text-[10px] tracking-[0.2em] flex items-center justify-center gap-3 disabled:opacity-50">
                     {isSyncing ? <Loader2 className="animate-spin" size={20} /> : <ShieldCheck size={20} />}
-                    {isSyncing ? 'Synchronizing with Cloud...' : 'Commit Record to Global Registry'}
+                    {isSyncing ? 'Processing Transaction...' : 'Commit Profile to Education Cloud'}
                   </button>
                </div>
             </form>
@@ -458,10 +440,14 @@ const StudentsManager: React.FC<StudentsManagerProps> = ({ user }) => {
                  <Trash2 size={48} strokeWidth={2.5} />
               </div>
               <h3 className="text-3xl font-black text-slate-900 dark:text-white mb-3 uppercase tracking-tighter">Purge Data?</h3>
-              <p className="text-slate-500 dark:text-slate-400 mb-10 font-medium text-xs leading-relaxed uppercase tracking-widest">This identity will be permanently erased from all cloud connected devices.</p>
+              <p className="text-slate-500 dark:text-slate-400 mb-10 font-medium text-xs leading-relaxed uppercase tracking-widest">Identity erase is permanent across all cloud connected terminals.</p>
               <div className="grid grid-cols-2 gap-4">
                  <button onClick={() => setDeleteId(null)} className="py-5 bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 font-black rounded-3xl uppercase text-[10px] tracking-widest">Cancel</button>
-                 <button onClick={confirmDelete} className="py-5 bg-rose-600 text-white font-black rounded-3xl shadow-xl hover:bg-rose-700 transition-all uppercase text-[10px] tracking-widest">Confirm Purge</button>
+                 <button onClick={async () => {
+                    await db.students.delete(deleteId);
+                    setDeleteId(null);
+                    fetchCloudData();
+                 }} className="py-5 bg-rose-600 text-white font-black rounded-3xl shadow-xl hover:bg-rose-700 transition-all uppercase text-[10px] tracking-widest">Confirm Purge</button>
               </div>
            </div>
         </div>
