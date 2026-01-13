@@ -12,11 +12,12 @@ const MASTER_ACCOUNTS = [
   { username: 'student1', password: 'password123', role: 'STUDENT', full_name: 'Demo Student', id: 'student-master' }
 ];
 
-// Helper: Ensures dates are valid YYYY-MM-DD or NULL for SQL compatibility
+// Refined date handler for Supabase/PostgreSQL compatibility
 const safeDate = (d: any) => {
-  if (!d || d === "" || d === "-" || d === "undefined" || d === "null") return null;
-  // Supabase DATE columns expect YYYY-MM-DD. If it looks like a date string, use it.
-  return (typeof d === 'string' && d.includes('-')) ? d : null;
+  if (!d || d === "" || d === "null" || d === "undefined" || d === "-") return null;
+  // If it's already a valid ISO date or YYYY-MM-DD string
+  if (typeof d === 'string' && /^\d{4}-\d{2}-\d{2}/.test(d)) return d;
+  return null;
 };
 
 export const db = {
@@ -90,9 +91,9 @@ export const db = {
       return data;
     },
     async upsert(student: any) {
-      // Create clean payload for SQL
+      // 1. Build a strict payload with exact SQL column names
       const payload: any = {
-        full_name: student.fullName || student.name || 'Unknown Student',
+        full_name: student.fullName || student.name || 'Unnamed Student',
         email: student.email || null,
         roll_no: student.rollNo || null,
         class: student.class || '1st',
@@ -112,19 +113,26 @@ export const db = {
         pen_no: student.penNo || null
       };
 
-      // Only add ID if we are updating an existing cloud record
+      // 2. Only include ID if we are updating an existing record
       if (student.id && student.id.length > 20 && !student.id.includes('-master')) {
         payload.id = student.id;
       }
 
+      // 3. Perform upsert with conflict check on gr_number
       const { data, error } = await supabase
         .from('students')
         .upsert(payload, { onConflict: 'gr_number' })
         .select();
 
       if (error) {
-        // If error persists, log it clearly but don't show the hardcoded prompt
-        console.error("Supabase Save Error:", error.message);
+        // Clearer logging for debugging
+        console.error("Supabase Operation Failed:", error.message);
+        
+        // Custom message for the 'dob' cache issue
+        if (error.message.includes("'dob'")) {
+          throw new Error("Column 'dob' not found in database cache. Please go to Supabase SQL Editor and run: NOTIFY pgrst, 'reload schema';");
+        }
+        
         throw new Error(error.message);
       }
       return data;
