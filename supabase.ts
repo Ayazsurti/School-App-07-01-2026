@@ -12,11 +12,11 @@ const MASTER_ACCOUNTS = [
   { username: 'student1', password: 'password123', role: 'STUDENT', full_name: 'Demo Student', id: 'student-master' }
 ];
 
-// Refined Helper: Ensures dates are either valid strings or null for Supabase DATE columns
+// Helper: Ensures dates are valid YYYY-MM-DD or NULL for SQL compatibility
 const safeDate = (d: any) => {
   if (!d || d === "" || d === "-" || d === "undefined" || d === "null") return null;
-  // If the date is already in YYYY-MM-DD, return it. Otherwise, return null to avoid DB crash.
-  return typeof d === 'string' && d.includes('-') ? d : null;
+  // Supabase DATE columns expect YYYY-MM-DD. If it looks like a date string, use it.
+  return (typeof d === 'string' && d.includes('-')) ? d : null;
 };
 
 export const db = {
@@ -90,10 +90,9 @@ export const db = {
       return data;
     },
     async upsert(student: any) {
-      const isNew = !student.id || student.id.includes('-master') || student.id.length < 20;
-      
+      // Create clean payload for SQL
       const payload: any = {
-        full_name: student.fullName || student.name || 'Unknown',
+        full_name: student.fullName || student.name || 'Unknown Student',
         email: student.email || null,
         roll_no: student.rollNo || null,
         class: student.class || '1st',
@@ -113,21 +112,19 @@ export const db = {
         pen_no: student.penNo || null
       };
 
-      if (!isNew) {
+      // Only add ID if we are updating an existing cloud record
+      if (student.id && student.id.length > 20 && !student.id.includes('-master')) {
         payload.id = student.id;
       }
 
-      // Using gr_number as conflict target to ensure updates work correctly even if ID is new
       const { data, error } = await supabase
         .from('students')
         .upsert(payload, { onConflict: 'gr_number' })
         .select();
 
       if (error) {
-        // Simplifed error handling: No scary JSON logs
-        if (error.code === 'PGRST204') {
-          throw new Error("Cloud Cache Error: Please run 'NOTIFY pgrst, reload schema' in your Supabase SQL Editor once.");
-        }
+        // If error persists, log it clearly but don't show the hardcoded prompt
+        console.error("Supabase Save Error:", error.message);
         throw new Error(error.message);
       }
       return data;
