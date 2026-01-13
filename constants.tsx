@@ -87,11 +87,8 @@ export const MOCK_STUDENTS: Partial<Student>[] = [
     id: 'S001', 
     name: 'John Quincy Doe', 
     fullName: 'John Quincy Doe',
-    // Fix: replaced panNumber with penNo to match Student interface
     penNo: 'ABCDE1234F',
-    // Fix: replaced aadharNumber with aadharNo to match Student interface
     aadharNo: '1234-5678-9012',
-    // Fix: replaced uidNumber with uidId to match Student interface
     uidId: 'UID-992211',
     grNumber: 'GR-1001',
     residenceAddress: '123, Green Street, City Center',
@@ -110,11 +107,8 @@ export const MOCK_STUDENTS: Partial<Student>[] = [
     id: 'S002', 
     name: 'Jane Maria Smith', 
     fullName: 'Jane Maria Smith',
-    // Fix: replaced panNumber with penNo to match Student interface
     penNo: 'FGHIJ5678K',
-    // Fix: replaced aadharNumber with aadharNo to match Student interface
     aadharNo: '5566-7788-9900',
-    // Fix: replaced uidNumber with uidId to match Student interface
     uidId: 'UID-992212',
     grNumber: 'GR-1002',
     residenceAddress: '45, Ocean Drive, Coastal Area',
