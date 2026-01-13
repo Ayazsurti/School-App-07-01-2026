@@ -5,27 +5,27 @@ import {
   Users, 
   GraduationCap, 
   Calendar, 
-  ChevronRight,
-  Clock,
-  CheckCircle2,
-  AlertCircle,
-  Image as ImageIcon,
-  Upload,
-  Check,
-  Shield,
-  Lock,
-  Sparkles,
-  HandCoins,
-  Star,
-  Pencil,
-  Book,
-  Rocket,
-  Megaphone,
-  X,
-  ArrowRight,
-  Loader2,
-  Stamp,
-  School
+  ChevronRight, 
+  Clock, 
+  CheckCircle2, 
+  AlertCircle, 
+  Image as ImageIcon, 
+  Upload, 
+  Check, 
+  Shield, 
+  Lock, 
+  Sparkles, 
+  HandCoins, 
+  Star, 
+  Pencil, 
+  Book, 
+  Rocket, 
+  Megaphone, 
+  X, 
+  ArrowRight, 
+  Loader2, 
+  Stamp, 
+  School 
 } from 'lucide-react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 import { db, supabase } from '../supabase';
@@ -189,7 +189,8 @@ const Dashboard: React.FC<DashboardProps> = ({ user, schoolLogo, onUpdateLogo })
           <h3 className="font-black text-slate-900 dark:text-white text-2xl tracking-tight flex items-center gap-3 mb-10">
             <Star className="text-amber-500 fill-amber-500" size={24} /> Learning Progress
           </h3>
-          <div className="h-80">
+          {/* Fix for width(-1) warning: Container must have explicit context */}
+          <div className="h-80 relative w-full min-h-[320px]">
             <ResponsiveContainer width="100%" height="100%">
               <BarChart data={chartData}>
                 <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="rgba(0,0,0,0.05)" />

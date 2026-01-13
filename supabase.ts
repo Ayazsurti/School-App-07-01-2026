@@ -79,11 +79,12 @@ export const db = {
       return data;
     },
     async upsert(student: any) {
-      // CRITICAL FIX: If ID is not a real UUID (length > 20) or if it's a master ID, we treat as NEW record.
+      // Logic for new vs update
       const isNew = !student.id || student.id.length < 20 || student.id.includes('-master');
       
+      // Strict mapping to DB columns
       const payload: any = {
-        full_name: student.fullName || '', 
+        full_name: student.fullName || student.name || '', 
         email: student.email || '', 
         roll_no: student.rollNo || '',
         class: student.class || '1st', 
@@ -98,23 +99,22 @@ export const db = {
         gender: student.gender || 'Male',
         dob: student.dob || null,
         admission_date: student.admissionDate || null,
-        aadhar_no: student.aadharNo || student.aadharNumber || '',
-        uid_id: student.uidId || student.uidNumber || '',
-        pen_no: student.penNo || student.panNumber || ''
+        aadhar_no: student.aadharNo || student.aadharNumber || null, // Map carefully
+        uid_id: student.uidId || student.uidNumber || null,
+        pen_no: student.penNo || student.panNumber || null
       };
 
-      // Only include ID if it's an update
       if (!isNew) {
         payload.id = student.id;
       }
       
       const { data, error } = await supabase
         .from('students')
-        .upsert(payload, { onConflict: 'id' })
+        .upsert(payload)
         .select();
 
       if (error) {
-        console.error("Supabase Students Error:", error);
+        console.error("Supabase Sync Error:", error.message, error.code);
         throw error;
       }
       return data;
