@@ -12,6 +12,12 @@ const MASTER_ACCOUNTS = [
   { username: 'student1', password: 'password123', role: 'STUDENT', full_name: 'Demo Student', id: 'student-master' }
 ];
 
+// Helper to handle dates safely for SQL
+const safeDate = (d: any) => {
+  if (!d || d === "" || d === "-") return null;
+  return d;
+};
+
 export const db = {
   auth: {
     async login(username: string, pass: string) {
@@ -49,7 +55,7 @@ export const db = {
       return settings;
     },
     async update(key: string, value: string | null) {
-      const { error } = await supabase.from('settings').upsert([{ key, value }]);
+      const { error } = await supabase.from('settings').upsert([{ key, value, updated_at: new Date().toISOString() }]);
       if (error) throw error;
     }
   },
@@ -60,7 +66,6 @@ export const db = {
       return data;
     },
     async insert(notice: any) {
-      // Fix: Add .select() to ensure inserted record is returned in Supabase v2
       const { data, error } = await supabase.from('notices').insert([{
         title: notice.title,
         content: notice.content,
@@ -84,12 +89,6 @@ export const db = {
       return data;
     },
     async upsert(student: any) {
-      // Helper function to sanitize dates for SQL
-      const formatDate = (dateStr: string | undefined | null) => {
-        if (!dateStr || dateStr.trim() === "") return null;
-        return dateStr;
-      };
-
       const isNew = !student.id || student.id.includes('-master') || student.id.length < 20;
       
       const payload: any = {
@@ -106,8 +105,8 @@ export const db = {
         mother_mobile: student.motherMobile || null,
         residence_address: student.residenceAddress || null,
         gender: student.gender || 'Male',
-        dob: formatDate(student.dob),
-        admission_date: formatDate(student.admissionDate),
+        dob: safeDate(student.dob),
+        admission_date: safeDate(student.admissionDate),
         aadhar_no: student.aadharNo || null,
         uid_id: student.uidId || null,
         pen_no: student.penNo || null
@@ -122,15 +121,7 @@ export const db = {
         .upsert(payload)
         .select();
 
-      if (error) {
-        // If error code is PGRST204, it means cache is stale. 
-        // Instructions for user to run reload notify are better than auto-retry in frontend.
-        console.error("Supabase Sync Error:", error);
-        if (error.message?.includes('admission_date')) {
-          throw new Error("Supabase Cache stale. Please run 'NOTIFY pgrst, reload schema' in SQL Editor.");
-        }
-        throw error;
-      }
+      if (error) throw error;
       return data;
     },
     async delete(id: string) {
@@ -153,7 +144,6 @@ export const db = {
         mobile: teacher.mobile
       };
       if (!isNew) payload.id = teacher.id;
-      // Fix: Add .select() to ensure result is returned
       const { data, error } = await supabase.from('teachers').upsert([payload]).select();
       if (error) throw error;
       return data;
@@ -170,8 +160,9 @@ export const db = {
       return data;
     },
     async bulkUpsert(records: any[]) {
-      // Fix: Add .select() to return updated records
-      const { data, error } = await supabase.from('attendance').upsert(records).select();
+      // Ensure student_id is valid UUID and clean data
+      const cleaned = records.filter(r => r.student_id && r.student_id.length > 20);
+      const { data, error } = await supabase.from('attendance').upsert(cleaned).select();
       if (error) throw error;
       return data;
     }
@@ -183,8 +174,8 @@ export const db = {
       return data;
     },
     async upsertMarks(records: any[]) {
-      // Fix: Add .select() to return updated records
-      const { data, error } = await supabase.from('marks').upsert(records).select();
+      const cleaned = records.filter(r => r.student_id && r.student_id.length > 20);
+      const { data, error } = await supabase.from('marks').upsert(cleaned).select();
       if (error) throw error;
       return data;
     }
@@ -195,14 +186,13 @@ export const db = {
       if (error) throw error;
       return data;
     },
-    async insertFolder(name: string, date: string) {
-      // Fix: Add .select() to return inserted folder
-      const { data, error } = await supabase.from('curriculum_folders').insert([{ name, date }]).select();
+    async insertFolder(name: string, timestamp: string) {
+      // SQL uses 'timestamp' column for folders
+      const { data, error } = await supabase.from('curriculum_folders').insert([{ name, timestamp }]).select();
       if (error) throw error;
       return data;
     },
     async insertFile(file: any) {
-      // Fix: Add .select() to return inserted file
       const { data, error } = await supabase.from('curriculum_files').insert([{
         folder_id: file.folderId,
         title: file.title,
@@ -226,7 +216,6 @@ export const db = {
       return data;
     },
     async insert(asset: any) {
-      // Fix: Add .select() to return inserted asset
       const { data, error } = await supabase.from('gallery').insert([{
         name: asset.name, url: asset.url, description: asset.description,
         type: asset.type, uploaded_by: asset.uploadedBy, date: asset.date
@@ -235,7 +224,6 @@ export const db = {
       return data;
     },
     async update(id: string, asset: any) {
-      // Fix: Destructured 'data' and added .select() to ensure 'data' is defined and returned
       const { data, error } = await supabase.from('gallery').update({
         name: asset.name, description: asset.description, url: asset.url
       }).eq('id', id).select();
@@ -254,7 +242,6 @@ export const db = {
       return data;
     },
     async insert(video: any) {
-      // Fix: Add .select() to return inserted video
       const { data, error } = await supabase.from('videos').insert([{
         name: video.name, url: video.url, description: video.description,
         uploaded_by: video.uploadedBy, date: video.date
@@ -283,7 +270,6 @@ export const db = {
         status: exam.status
       };
       if (!isNew) payload.id = exam.id;
-      // Fix: Add .select() to return result
       const { data, error } = await supabase.from('exams').upsert([payload]).select();
       if (error) throw error;
       return data;
@@ -305,7 +291,6 @@ export const db = {
       return data;
     },
     async upsertCategory(cat: any) {
-      // Fix: Add .select() to return record
       const { data, error } = await supabase.from('fee_categories').upsert([cat]).select();
       if (error) throw error;
       return data;
@@ -313,7 +298,8 @@ export const db = {
     async upsertStructure(struct: any) {
       const { error } = await supabase.from('fee_structures').upsert([{
         class_name: struct.className,
-        fees: struct.fees
+        fees: struct.fees,
+        updated_at: new Date().toISOString()
       }]);
       if (error) throw error;
       return true;
@@ -324,7 +310,6 @@ export const db = {
       return data;
     },
     async insertPayment(entry: any) {
-      // Fix: Add .select() to return inserted payment
       const { data, error } = await supabase.from('fee_ledger').insert([{
         student_id: entry.studentId,
         amount: entry.amount,
@@ -356,7 +341,6 @@ export const db = {
         attachment: hw.attachment
       };
       if (!isNew) payload.id = hw.id;
-      // Fix: Add .select() to return record
       const { data, error } = await supabase.from('homework').upsert([payload]).select();
       if (error) throw error;
       return data;
