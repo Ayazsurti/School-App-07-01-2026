@@ -79,10 +79,9 @@ export const db = {
       return data;
     },
     async upsert(student: any) {
-      // Logic for new vs update
       const isNew = !student.id || student.id.length < 20 || student.id.includes('-master');
       
-      // Strict mapping to DB columns
+      // Strict mapping to DB columns with specific checks for identity fields
       const payload: any = {
         full_name: student.fullName || student.name || '', 
         email: student.email || '', 
@@ -99,7 +98,7 @@ export const db = {
         gender: student.gender || 'Male',
         dob: student.dob || null,
         admission_date: student.admissionDate || null,
-        aadhar_no: student.aadharNo || student.aadharNumber || null, // Map carefully
+        aadhar_no: student.aadharNo || student.aadharNumber || null,
         uid_id: student.uidId || student.uidNumber || null,
         pen_no: student.penNo || student.panNumber || null
       };
@@ -115,6 +114,10 @@ export const db = {
 
       if (error) {
         console.error("Supabase Sync Error:", error.message, error.code);
+        // Explicitly check for column missing to help user debug
+        if (error.message.includes('aadhar_no')) {
+          throw new Error("Missing 'aadhar_no' column in Supabase 'students' table. Please run SQL migration.");
+        }
         throw error;
       }
       return data;
