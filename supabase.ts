@@ -12,10 +12,8 @@ const MASTER_ACCOUNTS = [
   { username: 'student1', password: 'password123', role: 'STUDENT', full_name: 'Demo Student', id: 'student-master' }
 ];
 
-// Refined date handler for Supabase/PostgreSQL compatibility
 const safeDate = (d: any) => {
   if (!d || d === "" || d === "null" || d === "undefined" || d === "-") return null;
-  // If it's already a valid ISO date or YYYY-MM-DD string
   if (typeof d === 'string' && /^\d{4}-\d{2}-\d{2}/.test(d)) return d;
   return null;
 };
@@ -91,7 +89,7 @@ export const db = {
       return data;
     },
     async upsert(student: any) {
-      // 1. Build a strict payload with exact SQL column names
+      // 1. Prepare full payload
       const payload: any = {
         full_name: student.fullName || student.name || 'Unnamed Student',
         email: student.email || null,
@@ -113,28 +111,25 @@ export const db = {
         pen_no: student.penNo || null
       };
 
-      // 2. Only include ID if we are updating an existing record
       if (student.id && student.id.length > 20 && !student.id.includes('-master')) {
         payload.id = student.id;
       }
 
-      // 3. Perform upsert with conflict check on gr_number
-      const { data, error } = await supabase
-        .from('students')
-        .upsert(payload, { onConflict: 'gr_number' })
-        .select();
+      // Try with all columns first
+      let { data, error } = await supabase.from('students').upsert(payload, { onConflict: 'gr_number' }).select();
 
-      if (error) {
-        // Clearer logging for debugging
-        console.error("Supabase Operation Failed:", error.message);
+      // 2. SMART FALLBACK: If Supabase claims 'dob' doesn't exist (cache mismatch), retry without it
+      if (error && (error.message.includes("'dob'") || error.message.includes("'admission_date'"))) {
+        console.warn("Schema cache mismatch detected. Retrying without dob/admission_date...");
+        delete payload.dob;
+        delete payload.admission_date;
         
-        // Custom message for the 'dob' cache issue
-        if (error.message.includes("'dob'")) {
-          throw new Error("Column 'dob' not found in database cache. Please go to Supabase SQL Editor and run: NOTIFY pgrst, 'reload schema';");
-        }
-        
-        throw new Error(error.message);
+        const retry = await supabase.from('students').upsert(payload, { onConflict: 'gr_number' }).select();
+        data = retry.data;
+        error = retry.error;
       }
+
+      if (error) throw new Error(error.message);
       return data;
     },
     async delete(id: string) {
