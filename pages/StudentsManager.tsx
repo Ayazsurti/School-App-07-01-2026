@@ -165,7 +165,6 @@ const StudentsManager: React.FC<StudentsManagerProps> = ({ user }) => {
 
     setIsSyncing(true);
     try {
-      // Pass the existing student ID if we're editing
       const studentToSync = {
         ...formData,
         id: editingStudent ? editingStudent.id : undefined
@@ -179,7 +178,6 @@ const StudentsManager: React.FC<StudentsManagerProps> = ({ user }) => {
       setTimeout(() => setShowSuccess(false), 3000);
       createAuditLog(user, editingStudent ? 'UPDATE' : 'CREATE', 'Registry', `Cloud Sync: ${formData.fullName}`);
       
-      // Reset form & state
       setEditingStudent(null);
       setFormData({
         fullName: '', email: '', grNumber: '', class: '1st', section: 'A', rollNo: '', profileImage: '',
@@ -187,11 +185,9 @@ const StudentsManager: React.FC<StudentsManagerProps> = ({ user }) => {
         fatherName: '', motherName: '', fatherMobile: '', motherMobile: '', residenceAddress: ''
       });
       
-      // Refresh local list
       await fetchCloudData();
     } catch (err: any) { 
       console.error("Enrollment Fail:", err);
-      // Detailed feedback for common errors (e.g., unique GR number constraint)
       if (err.message && err.message.includes('unique_violation')) {
         alert("Sync Failed: GR Number already exists in the cloud database. Use a unique GR No.");
       } else {

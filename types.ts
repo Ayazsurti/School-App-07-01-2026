@@ -22,13 +22,7 @@ export interface Student extends User {
   dob: string;
   admissionDate: string;
   aadharNo: string;
-  // Added aadharNumber to support IdCardGenerator and constants.tsx mock data
-  aadharNumber?: string;
   uidId: string;
-  // Added uidNumber to support constants.tsx mock data
-  uidNumber?: string;
-  // Added panNumber to resolve reported errors in constants.tsx
-  panNumber?: string;
   penNo: string;
   grNumber: string;
   residenceAddress: string;

@@ -27,7 +27,6 @@ import {
   CreditCard,
   Loader2,
   RefreshCw,
-  // Fix: Added missing Smartphone icon import from lucide-react
   Smartphone
 } from 'lucide-react';
 import { db, supabase } from '../supabase';
@@ -58,9 +57,9 @@ const IdCardGenerator: React.FC<IdCardGeneratorProps> = ({ user, schoolLogo }) =
         id: s.id, fullName: s.full_name, name: s.full_name, email: s.email, rollNo: s.roll_no,
         class: s.class, section: s.section, grNumber: s.gr_number, profileImage: s.profile_image,
         fatherName: s.father_name, motherName: s.mother_name, fatherMobile: s.father_mobile,
-        residenceAddress: s.residence_address, aadharNumber: s.aadhar_number || ''
+        residenceAddress: s.residence_address, aadharNo: s.aadhar_no || ''
       }));
-      setStudents(mapped);
+      setStudents(mapped as Student[]);
     } catch (err) { console.error("Identity Sync Error"); }
     finally { setIsLoading(false); }
   };
@@ -324,7 +323,7 @@ const IdCardComponent: React.FC<{ student: Student, schoolLogo: string | null, p
             </div>
             <div className="flex items-center justify-between">
                <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-2"><CreditCard size={12} className="text-amber-500" /> AADHAR NO</span>
-               <span className="text-xs font-black text-slate-800">{student.aadharNumber || 'Pending'}</span>
+               <span className="text-xs font-black text-slate-800">{student.aadharNo || 'Pending'}</span>
             </div>
             <div className="flex flex-col gap-2">
                <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-2"><MapPin size={12} className="text-rose-500" /> RESIDENTIAL ADDRESS</span>
