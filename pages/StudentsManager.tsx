@@ -3,11 +3,10 @@ import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { User, Student } from '../types';
 import { createAuditLog } from '../utils/auditLogger';
 import { supabase, db } from '../supabase';
-import jsQR from 'jsqr';
 import { 
   Plus, Search, Trash2, Edit2, X, UserPlus, User as UserIcon, Camera, Upload, 
   CheckCircle2, ShieldCheck, Smartphone, Loader2, QrCode, StopCircle, GraduationCap, RefreshCw,
-  Lock, Key, Phone, Mail, MapPin, UserCheck
+  Phone, Mail, MapPin, UserCheck, Trash
 } from 'lucide-react';
 
 interface StudentsManagerProps { user: User; }
@@ -92,13 +91,13 @@ const StudentsManager: React.FC<StudentsManagerProps> = ({ user }) => {
     try {
       const studentToSync = { ...formData, id: editingStudent ? editingStudent.id : undefined };
       
-      // Auto-generate username from GR Number if empty
-      if (!studentToSync.username) studentToSync.username = `student_${formData.grNumber}`;
+      // Auto-generate credentials if they are missing
+      if (!studentToSync.username) studentToSync.username = (formData.grNumber || '').toLowerCase().replace(/[^a-z0-9]/g, '');
       if (!studentToSync.password) studentToSync.password = '123456';
 
       await db.students.upsert(studentToSync);
       
-      // Sync Login Profile automatically
+      // Sync Login Profile automatically to profiles table
       await supabase.from('profiles').upsert([{
         username: studentToSync.username,
         password: studentToSync.password,
@@ -155,7 +154,7 @@ const StudentsManager: React.FC<StudentsManagerProps> = ({ user }) => {
               <CheckCircle2 size={24} strokeWidth={3} />
               <div>
                  <p className="font-black text-xs uppercase tracking-widest">Registry Updated</p>
-                 <p className="text-[10px] font-bold text-emerald-100 uppercase mt-0.5">Profile & Login Active</p>
+                 <p className="text-[10px] font-bold text-emerald-100 uppercase mt-0.5">Profile & Account Active</p>
               </div>
            </div>
         </div>
@@ -166,7 +165,7 @@ const StudentsManager: React.FC<StudentsManagerProps> = ({ user }) => {
           <h1 className="text-4xl font-black text-slate-900 dark:text-white tracking-tight uppercase flex items-center gap-3">
              Student Management <ShieldCheck className="text-indigo-600" />
           </h1>
-          <p className="text-slate-500 dark:text-slate-400 font-medium text-lg uppercase tracking-tight">Institutional Cloud Registry & Login Control</p>
+          <p className="text-slate-500 dark:text-slate-400 font-medium text-lg uppercase tracking-tight">Institutional Cloud Registry & Control</p>
         </div>
         <div className="flex gap-3">
           <button onClick={() => { 
@@ -177,11 +176,10 @@ const StudentsManager: React.FC<StudentsManagerProps> = ({ user }) => {
         </div>
       </div>
 
-      {/* SEARCH AND FILTERS */}
       <div className="bg-white dark:bg-slate-900 p-6 rounded-[2.5rem] shadow-sm border border-slate-100 dark:border-slate-800 flex flex-col md:flex-row gap-4 items-center">
           <div className="relative group w-full max-w-md">
               <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-300" size={18} />
-              <input type="text" placeholder="Search by Name, GR No or Roll No..." value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} className="w-full pl-12 pr-4 py-4 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl font-bold outline-none focus:ring-2 focus:ring-indigo-500 transition-all shadow-inner dark:text-white" />
+              <input type="text" placeholder="Search by Name or GR No..." value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} className="w-full pl-12 pr-4 py-4 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl font-bold outline-none focus:ring-2 focus:ring-indigo-500 transition-all shadow-inner dark:text-white" />
           </div>
           <div className="flex gap-2 overflow-x-auto w-full pb-2 md:pb-0 custom-scrollbar">
               <button onClick={() => setSelectedClass('All')} className={`whitespace-nowrap px-6 py-3 rounded-xl text-[10px] font-black uppercase transition-all ${selectedClass === 'All' ? 'bg-indigo-600 text-white shadow-lg' : 'bg-slate-100 dark:bg-slate-800 text-slate-400'}`}>All Grades</button>
@@ -191,7 +189,6 @@ const StudentsManager: React.FC<StudentsManagerProps> = ({ user }) => {
           </div>
       </div>
 
-      {/* DATA TABLE */}
       <div className="bg-white dark:bg-slate-900 rounded-[3rem] shadow-sm border border-slate-100 dark:border-slate-800 overflow-hidden min-h-[400px]">
         {isLoading ? (
           <div className="py-40 flex flex-col items-center justify-center text-slate-400 animate-pulse">
@@ -207,7 +204,7 @@ const StudentsManager: React.FC<StudentsManagerProps> = ({ user }) => {
                   <th className="px-8 py-6 text-left">Registry IDs</th>
                   <th className="px-8 py-6 text-left">Grade / Roll</th>
                   <th className="px-8 py-6 text-left">Parents / Mobile</th>
-                  <th className="px-8 py-6 text-left">Login Status</th>
+                  <th className="px-8 py-6 text-left">Sync Token</th>
                   <th className="px-8 py-6 text-right">Actions</th>
                 </tr>
               </thead>
@@ -229,7 +226,6 @@ const StudentsManager: React.FC<StudentsManagerProps> = ({ user }) => {
                        <div className="space-y-1">
                           <p className="text-[10px] font-black text-slate-700 dark:text-slate-300 uppercase">GR: {student.grNumber}</p>
                           <p className="text-[8px] font-bold text-slate-400 uppercase">Aadhar: {student.aadharNo || 'Pending'}</p>
-                          <p className="text-[8px] font-bold text-slate-400 uppercase">PEN: {student.penNo || 'N/A'}</p>
                        </div>
                     </td>
                     <td className="px-8 py-6">
@@ -243,8 +239,8 @@ const StudentsManager: React.FC<StudentsManagerProps> = ({ user }) => {
                     </td>
                     <td className="px-8 py-6">
                        <div className="flex items-center gap-2">
-                          <div className={`w-2 h-2 rounded-full ${student.username ? 'bg-emerald-500' : 'bg-slate-300 animate-pulse'}`}></div>
-                          <p className="text-[9px] font-black text-slate-500 uppercase tracking-widest">{student.username || 'System Ready'}</p>
+                          <div className="w-2 h-2 rounded-full bg-emerald-500"></div>
+                          <p className="text-[9px] font-black text-slate-500 uppercase tracking-widest">Cloud Active</p>
                        </div>
                     </td>
                     <td className="px-8 py-6 text-right">
@@ -261,14 +257,13 @@ const StudentsManager: React.FC<StudentsManagerProps> = ({ user }) => {
         )}
       </div>
 
-      {/* ENROLLMENT MODAL */}
       {showModal && (
         <div className="fixed inset-0 z-[1000] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-md animate-in fade-in">
           <div className="bg-white dark:bg-slate-900 rounded-[3rem] p-1 shadow-2xl max-w-6xl w-full max-h-[95vh] overflow-hidden flex flex-col border border-slate-100 dark:border-slate-800">
             <div className="p-8 border-b border-slate-100 dark:border-slate-800 flex justify-between items-center bg-slate-50/50 dark:bg-slate-800/30">
                <div>
                   <h3 className="text-2xl font-black text-slate-900 dark:text-white uppercase tracking-tight">Institutional Enrollment Portal</h3>
-                  <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-1">Session 2025-2026 • Official Cloud Registry</p>
+                  <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-1">Official Cloud Registry • Login will be auto-generated</p>
                </div>
                <button onClick={() => setShowModal(false)} className="p-3 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-full text-slate-400 transition-all"><X size={28} /></button>
             </div>
@@ -276,51 +271,35 @@ const StudentsManager: React.FC<StudentsManagerProps> = ({ user }) => {
             <form onSubmit={handleSave} className="flex-1 overflow-y-auto p-10 custom-scrollbar space-y-12 bg-white dark:bg-slate-900">
                <div className="grid grid-cols-1 lg:grid-cols-12 gap-12">
                   
-                  {/* Photo & Login Section */}
-                  <div className="lg:col-span-3 space-y-10">
-                     <div className="flex flex-col items-center gap-5 shrink-0">
-                        <div className="w-52 h-52 bg-slate-50 dark:bg-slate-800 rounded-[2.5rem] border-4 border-white dark:border-slate-700 shadow-xl overflow-hidden flex items-center justify-center relative group">
-                           {formData.profileImage ? <img src={formData.profileImage} className="w-full h-full object-cover" alt="Profile" /> : <UserIcon size={70} className="text-slate-200" />}
+                  {/* Photo Section Only (Login Control Removed) */}
+                  <div className="lg:col-span-3">
+                     <div className="flex flex-col items-center gap-5 sticky top-0">
+                        <div className="w-56 h-56 bg-slate-50 dark:bg-slate-800 rounded-[2.5rem] border-4 border-white dark:border-slate-700 shadow-xl overflow-hidden flex items-center justify-center relative group">
+                           {formData.profileImage ? <img src={formData.profileImage} className="w-full h-full object-cover" alt="Profile" /> : <UserIcon size={80} className="text-slate-200" />}
                            <div className="absolute inset-0 bg-black/40 text-white opacity-0 group-hover:opacity-100 transition-opacity flex flex-col items-center justify-center gap-3">
                               <button type="button" onClick={() => fileInputRef.current?.click()} className="flex items-center gap-2 font-bold uppercase text-[9px] tracking-widest bg-white/20 px-4 py-2 rounded-full hover:bg-white/40"><Upload size={16}/> Change Photo</button>
                            </div>
                         </div>
                         <input type="file" ref={fileInputRef} className="hidden" accept="image/*" onChange={handleFileUpload} />
-                        <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Student Avatar</h4>
-                     </div>
-
-                     <div className="space-y-6 bg-indigo-50/50 dark:bg-indigo-900/20 p-8 rounded-[2.5rem] border border-indigo-100 dark:border-indigo-800">
-                        <div className="flex items-center gap-2 mb-4">
-                           <Key className="text-indigo-600" size={18} />
-                           <h4 className="text-[10px] font-black text-slate-800 dark:text-white uppercase tracking-widest">Login Control</h4>
-                        </div>
-                        <div className="space-y-4">
-                           <div className="space-y-1">
-                              <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest ml-1">Username (GR Default)</label>
-                              <input type="text" value={formData.username} onChange={e => setFormData({...formData, username: e.target.value})} className="w-full bg-white dark:bg-slate-800 border rounded-xl px-4 py-3 font-bold text-xs outline-none" placeholder="auto-generated" />
-                           </div>
-                           <div className="space-y-1">
-                              <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest ml-1">Account Password</label>
-                              <div className="relative">
-                                 <Lock className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-300" size={14} />
-                                 <input type="text" required value={formData.password} onChange={e => setFormData({...formData, password: e.target.value})} className="w-full bg-white dark:bg-slate-800 border rounded-xl pl-9 pr-4 py-3 font-bold text-xs outline-none" placeholder="Set Password" />
-                              </div>
-                           </div>
+                        <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-widest mt-2">Identity Photograph</h4>
+                        
+                        <div className="mt-8 p-6 bg-indigo-50/50 dark:bg-indigo-900/20 rounded-3xl border border-indigo-100 dark:border-indigo-800 w-full">
+                           <p className="text-[9px] font-black text-indigo-600 dark:text-indigo-400 uppercase tracking-widest mb-1 text-center">Auto-Auth System</p>
+                           <p className="text-[8px] font-bold text-slate-500 dark:text-slate-400 leading-relaxed text-center uppercase">Student credentials will be automatically generated using the GR Number as the primary ID.</p>
                         </div>
                      </div>
                   </div>
 
                   {/* Main Fields Grid */}
                   <div className="lg:col-span-9 space-y-12">
-                     {/* ACADEMIC INFO */}
                      <div className="space-y-8">
                         <div className="flex items-center gap-3 border-l-4 border-indigo-500 pl-4 py-1">
                            <GraduationCap className="text-indigo-600" size={24} />
-                           <h4 className="text-sm font-black text-slate-800 dark:text-white uppercase tracking-widest">Academic & Institutional Records</h4>
+                           <h4 className="text-sm font-black text-slate-800 dark:text-white uppercase tracking-widest">Academic Records</h4>
                         </div>
                         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                            <div className="space-y-1 md:col-span-2">
-                              <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest ml-1">FULL NAME (Capital Letters)</label>
+                              <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest ml-1">FULL NAME</label>
                               <input type="text" required value={formData.fullName} onChange={e => setFormData({...formData, fullName: e.target.value})} className="w-full bg-slate-50 dark:bg-slate-800 border-2 rounded-2xl px-6 py-4 font-black text-slate-800 dark:text-white outline-none focus:ring-2 focus:ring-indigo-500 uppercase" placeholder="JOHN DOE" />
                            </div>
                            <div className="space-y-1">
@@ -362,11 +341,10 @@ const StudentsManager: React.FC<StudentsManagerProps> = ({ user }) => {
                         </div>
                      </div>
 
-                     {/* GOVT IDENTITIES */}
                      <div className="space-y-8">
                         <div className="flex items-center gap-3 border-l-4 border-amber-500 pl-4 py-1">
                            <Smartphone className="text-amber-600" size={24} />
-                           <h4 className="text-sm font-black text-slate-800 dark:text-white uppercase tracking-widest">Government Identity Tokens</h4>
+                           <h4 className="text-sm font-black text-slate-800 dark:text-white uppercase tracking-widest">Identity Details</h4>
                         </div>
                         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                            <div className="space-y-1">
@@ -384,7 +362,6 @@ const StudentsManager: React.FC<StudentsManagerProps> = ({ user }) => {
                         </div>
                      </div>
 
-                     {/* PARENTAL INFO */}
                      <div className="space-y-8">
                         <div className="flex items-center gap-3 border-l-4 border-emerald-500 pl-4 py-1">
                            <UserCheck className="text-emerald-600" size={24} />
@@ -420,7 +397,6 @@ const StudentsManager: React.FC<StudentsManagerProps> = ({ user }) => {
                   </div>
                </div>
 
-               {/* MODAL FOOTER */}
                <div className="flex gap-4 pt-10 border-t border-slate-100 dark:border-slate-800 sticky bottom-0 bg-white dark:bg-slate-900 pb-2">
                   <button type="button" onClick={() => setShowModal(false)} className="flex-1 py-5 bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 font-black rounded-3xl uppercase text-[10px] tracking-widest">Discard Entry</button>
                   <button type="submit" disabled={isSyncing} className="flex-[2] py-5 bg-indigo-600 text-white font-black rounded-3xl shadow-xl hover:bg-indigo-700 transition-all uppercase text-[10px] tracking-[0.2em] flex items-center justify-center gap-3 disabled:opacity-50">
