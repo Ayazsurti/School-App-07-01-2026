@@ -79,22 +79,22 @@ export const db = {
       return data;
     },
     async upsert(student: any) {
-      const isNew = !student.id || student.id.length < 20 || student.id.includes('-master');
+      // Clean ID for master accounts or invalid UUIDs
+      const isUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-5][0-9a-f]{3}-[089ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(student.id);
       
-      // Strict mapping to DB columns to prevent PGRST204
       const payload: any = {
-        full_name: student.fullName || student.name || '', 
-        email: student.email || '', 
-        roll_no: student.rollNo || '',
-        class: student.class || '1st', 
-        section: student.section || 'A', 
-        gr_number: student.grNumber || '',
-        profile_image: student.profileImage || '', 
-        father_name: student.fatherName || '',
-        mother_name: student.motherName || '', 
-        father_mobile: student.fatherMobile || '',
-        mother_mobile: student.motherMobile || '',
-        residence_address: student.residenceAddress || '',
+        full_name: student.fullName || student.name || 'Unknown Student',
+        email: student.email || null,
+        roll_no: student.rollNo || null,
+        class: student.class || '1st',
+        section: student.section || 'A',
+        gr_number: student.grNumber || null,
+        profile_image: student.profileImage || null,
+        father_name: student.fatherName || null,
+        mother_name: student.motherName || null,
+        father_mobile: student.fatherMobile || null,
+        mother_mobile: student.motherMobile || null,
+        residence_address: student.residenceAddress || null,
         gender: student.gender || 'Male',
         dob: student.dob || null,
         admission_date: student.admissionDate || null,
@@ -103,19 +103,19 @@ export const db = {
         pen_no: student.penNo || null
       };
 
-      if (!isNew) {
+      if (isUUID) {
         payload.id = student.id;
       }
-      
+
       const { data, error } = await supabase
         .from('students')
         .upsert(payload)
         .select();
 
       if (error) {
-        console.error("Supabase Sync Error:", error.message, error.code);
+        console.error("Supabase Error Code:", error.code);
         if (error.code === 'PGRST204') {
-          throw new Error("Column 'aadhar_no' not found in database. Please run the SQL migration in Supabase Dashboard.");
+          throw new Error("Column 'aadhar_no' is not active in Supabase cache. Please run: NOTIFY pgrst, 'reload schema'; in SQL Editor.");
         }
         throw error;
       }
@@ -133,12 +133,16 @@ export const db = {
       return data;
     },
     async upsert(teacher: any) {
-      const cleanId = (teacher.id && teacher.id.length > 20) ? teacher.id : undefined;
-      const { data, error } = await supabase.from('teachers').upsert([{
-        id: cleanId,
-        name: teacher.name, staff_id: teacher.staffId, subject: teacher.subject,
+      const isUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-5][0-9a-f]{3}-[089ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(teacher.id);
+      const payload: any = {
+        name: teacher.name,
+        staff_id: teacher.staffId,
+        subject: teacher.subject,
         mobile: teacher.mobile
-      }]);
+      };
+      if (isUUID) payload.id = teacher.id;
+
+      const { data, error } = await supabase.from('teachers').upsert([payload]);
       if (error) throw error;
       return data;
     },
@@ -154,13 +158,20 @@ export const db = {
       return data;
     },
     async upsert(hw: any) {
-      const cleanId = (hw.id && hw.id.length > 20) ? hw.id : undefined;
-      const { data, error } = await supabase.from('homework').upsert([{
-        id: cleanId,
-        title: hw.title, description: hw.description, subject: hw.subject,
-        class_name: hw.className, section: hw.section, due_date: hw.dueDate,
-        created_by: hw.createdBy, attachment: hw.attachment
-      }]);
+      const isUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-5][0-9a-f]{3}-[089ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(hw.id);
+      const payload: any = {
+        title: hw.title,
+        description: hw.description,
+        subject: hw.subject,
+        class_name: hw.className,
+        section: hw.section,
+        due_date: hw.dueDate,
+        created_by: hw.createdBy,
+        attachment: hw.attachment
+      };
+      if (isUUID) payload.id = hw.id;
+
+      const { data, error } = await supabase.from('homework').upsert([payload]);
       if (error) throw error;
       return data;
     },
@@ -176,12 +187,17 @@ export const db = {
       return data;
     },
     async upsert(exam: any) {
-      const cleanId = (exam.id && exam.id.length > 20) ? exam.id : undefined;
-      const { data, error } = await supabase.from('exams').upsert([{
-        id: cleanId,
-        name: exam.name, academic_year: exam.academicYear, class_name: exam.className,
-        subjects: exam.subjects, status: exam.status
-      }]);
+      const isUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-5][0-9a-f]{3}-[089ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(exam.id);
+      const payload: any = {
+        name: exam.name,
+        academic_year: exam.academicYear,
+        class_name: exam.className,
+        subjects: exam.subjects,
+        status: exam.status
+      };
+      if (isUUID) payload.id = exam.id;
+
+      const { data, error } = await supabase.from('exams').upsert([payload]);
       if (error) throw error;
       return data;
     },
@@ -198,8 +214,12 @@ export const db = {
     },
     async insertPayment(payment: any) {
       const { data, error } = await supabase.from('fee_ledger').insert([{
-        student_id: payment.studentId, amount: payment.amount, date: payment.date,
-        status: payment.status, type: payment.type, receipt_no: payment.receipt_no
+        student_id: payment.studentId,
+        amount: payment.amount,
+        date: payment.date,
+        status: payment.status,
+        type: payment.type,
+        receipt_no: payment.receiptNo
       }]);
       if (error) throw error;
       return data;
@@ -210,15 +230,10 @@ export const db = {
       return data;
     },
     async upsertCategory(cat: any) {
-      const cleanId = (cat.id && cat.id.length > 20) ? cat.id : undefined;
-      const { error } = await supabase.from('fee_categories').upsert([{
-        id: cleanId,
-        name: cat.name, frequency: cat.frequency
-      }]);
-      if (error) throw error;
-    },
-    async deleteCategory(id: string) {
-      const { error } = await supabase.from('fee_categories').delete().eq('id', id);
+      const isUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-5][0-9a-f]{3}-[089ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(cat.id);
+      const payload: any = { name: cat.name, frequency: cat.frequency };
+      if (isUUID) payload.id = cat.id;
+      const { error } = await supabase.from('fee_categories').upsert([payload]);
       if (error) throw error;
     },
     async getStructures() {
@@ -228,7 +243,8 @@ export const db = {
     },
     async upsertStructure(struct: any) {
       const { error } = await supabase.from('fee_structures').upsert([{
-        class_name: struct.className, fees: struct.fees
+        class_name: struct.className,
+        fees: struct.fees
       }]);
       if (error) throw error;
     }
@@ -265,8 +281,12 @@ export const db = {
     },
     async insert(log: any) {
       const { error } = await supabase.from('audit_logs').insert([{
-        username: log.user, role: log.role, action: log.action,
-        module: log.module, details: log.details, timestamp: log.timestamp
+        username: log.user,
+        role: log.role,
+        action: log.action,
+        module: log.module,
+        details: log.details,
+        timestamp: log.timestamp
       }]);
       if (error) throw error;
     },
