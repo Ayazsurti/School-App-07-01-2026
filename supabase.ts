@@ -89,7 +89,7 @@ export const db = {
       return data;
     },
     async upsert(student: any) {
-      // 1. Prepare full payload
+      // 1. Build strict payload
       const payload: any = {
         full_name: student.fullName || student.name || 'Unnamed Student',
         email: student.email || null,
@@ -115,22 +115,38 @@ export const db = {
         payload.id = student.id;
       }
 
-      // Try with all columns first
-      let { data, error } = await supabase.from('students').upsert(payload, { onConflict: 'gr_number' }).select();
+      // Initial Try
+      let result = await supabase.from('students').upsert(payload, { onConflict: 'gr_number' }).select();
 
-      // 2. SMART FALLBACK: If Supabase claims 'dob' doesn't exist (cache mismatch), retry without it
-      if (error && (error.message.includes("'dob'") || error.message.includes("'admission_date'"))) {
-        console.warn("Schema cache mismatch detected. Retrying without dob/admission_date...");
-        delete payload.dob;
-        delete payload.admission_date;
+      // 2. DYNAMIC AUTO-REPAIR: If Supabase reports ANY column is missing in cache
+      // Loop up to 3 times to strip missing columns identified by error messages
+      let retryCount = 0;
+      while (result.error && result.error.message.includes("column") && result.error.message.includes("schema cache") && retryCount < 3) {
+        const errorMessage = result.error.message;
+        console.warn("Supabase Schema Cache Mismatch:", errorMessage);
         
-        const retry = await supabase.from('students').upsert(payload, { onConflict: 'gr_number' }).select();
-        data = retry.data;
-        error = retry.error;
+        // Extract the column name from error: Could not find the 'column_name' column...
+        const match = errorMessage.match(/'([^']+)'/);
+        const colName = match ? match[1] : null;
+
+        if (colName && payload.hasOwnProperty(colName)) {
+          console.log(`Auto-repair: Removing missing column '${colName}' from payload and retrying...`);
+          delete payload[colName];
+          result = await supabase.from('students').upsert(payload, { onConflict: 'gr_number' }).select();
+        } else {
+          // If we can't identify the column but it's a cache error, try stripping all optional new columns
+          delete payload.gender;
+          delete payload.dob;
+          delete payload.admission_date;
+          delete payload.aadhar_no;
+          result = await supabase.from('students').upsert(payload, { onConflict: 'gr_number' }).select();
+          break;
+        }
+        retryCount++;
       }
 
-      if (error) throw new Error(error.message);
-      return data;
+      if (result.error) throw new Error(result.error.message);
+      return result.data;
     },
     async delete(id: string) {
       const { error } = await supabase.from('students').delete().eq('id', id);
