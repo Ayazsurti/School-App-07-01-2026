@@ -48,6 +48,8 @@ export interface Student extends User {
   class: string;
   section: string;
   remarks?: string;
+  fatherPhoto?: string;
+  motherPhoto?: string;
 }
 
 export interface Teacher extends User {
@@ -209,7 +211,7 @@ export interface Homework {
   subject: string;
   className: string;
   section: string;
-  dueDate: string;
+  due_date: string;
   createdAt: string;
   createdBy: string;
   attachment?: NoticeMedia;

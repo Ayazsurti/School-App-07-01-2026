@@ -7,7 +7,8 @@ import {
   Plus, Search, Trash2, Edit2, X, UserPlus, User as UserIcon, Camera, Upload, 
   CheckCircle2, ShieldCheck, Smartphone, Loader2, RefreshCw,
   GraduationCap, FileSpreadsheet, FileDown, FileSearch, MapPin, 
-  CreditCard, Calendar, Eye, StopCircle, Mail, Fingerprint, Tags
+  CreditCard, Calendar, Eye, StopCircle, Mail, Fingerprint, Tags,
+  Users, Check
 } from 'lucide-react';
 import { APP_NAME } from '../constants';
 
@@ -28,6 +29,7 @@ const StudentsManager: React.FC<StudentsManagerProps> = ({ user }) => {
   
   // Camera & File States
   const [isCameraActive, setIsCameraActive] = useState(false);
+  const [captureTarget, setCaptureTarget] = useState<'profileImage' | 'fatherPhoto' | 'motherPhoto'>('profileImage');
   const fileInputRef = useRef<HTMLInputElement>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -37,6 +39,7 @@ const StudentsManager: React.FC<StudentsManagerProps> = ({ user }) => {
     gender: 'Male', dob: '', admissionDate: '', aadharNo: '', panNo: '', uidId: '', penNo: '',
     studentType: '', birthPlace: '',
     fatherName: '', motherName: '', fatherMobile: '', motherMobile: '', residenceAddress: '',
+    fatherPhoto: '', motherPhoto: ''
   };
 
   const [formData, setFormData] = useState<Partial<Student>>(initialFormData);
@@ -68,7 +71,9 @@ const StudentsManager: React.FC<StudentsManagerProps> = ({ user }) => {
         uidId: s.uid_id,
         penNo: s.pen_no,
         studentType: s.student_type,
-        birthPlace: s.birth_place
+        birth_place: s.birth_place,
+        fatherPhoto: s.father_photo,
+        motherPhoto: s.mother_photo
       }));
       setStudents(mapped);
     } catch (err: any) { 
@@ -88,10 +93,7 @@ const StudentsManager: React.FC<StudentsManagerProps> = ({ user }) => {
     return () => { supabase.removeChannel(channel); };
   }, []);
 
-  // --- EXCEL/CSV LOGIC ---
-
   const exportToExcel = () => {
-    // Headers in UPPERCASE
     const headers = [
       "FULL NAME", "GR NUMBER", "ROLL NO", "CLASS", "SECTION", "GENDER", 
       "DATE OF BIRTH", "ADMISSION DATE", "AADHAR NO", "PAN NO", "STUDENT TYPE", 
@@ -101,7 +103,6 @@ const StudentsManager: React.FC<StudentsManagerProps> = ({ user }) => {
 
     const dataToExport = filteredStudents.length > 0 ? filteredStudents : students;
 
-    // Convert all values to UPPERCASE for the export
     const rows = dataToExport.map(s => {
       const rowData = [
         s.fullName || '',
@@ -138,12 +139,11 @@ const StudentsManager: React.FC<StudentsManagerProps> = ({ user }) => {
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
-    createAuditLog(user, 'EXPORT', 'Registry', `Exported student list for ${selectedClass} in UPPERCASE`);
+    createAuditLog(user, 'EXPORT', 'Registry', `Exported student list for ${selectedClass}`);
   };
 
-  // --- CAMERA & CRUD LOGIC ---
-
-  const startCamera = async () => {
+  const startCamera = async (target: typeof captureTarget) => {
+    setCaptureTarget(target);
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ 
         video: { facingMode: 'user', width: { ideal: 480 }, height: { ideal: 480 } }, 
@@ -151,10 +151,13 @@ const StudentsManager: React.FC<StudentsManagerProps> = ({ user }) => {
       });
       if (videoRef.current) {
         videoRef.current.srcObject = stream;
+        videoRef.current.setAttribute('playsinline', 'true');
+        videoRef.current.setAttribute('muted', 'true');
+        videoRef.current.play();
         setIsCameraActive(true);
       }
     } catch (err) {
-      alert("Camera Access Denied.");
+      alert("Camera Access Denied or not supported.");
     }
   };
 
@@ -174,18 +177,18 @@ const StudentsManager: React.FC<StudentsManagerProps> = ({ user }) => {
         canvasRef.current.width = videoRef.current.videoWidth;
         canvasRef.current.height = videoRef.current.videoHeight;
         context.drawImage(videoRef.current, 0, 0);
-        const dataUrl = canvasRef.current.toDataURL('image/jpeg', 0.7);
-        setFormData(prev => ({ ...prev, profileImage: dataUrl }));
+        const dataUrl = canvasRef.current.toDataURL('image/jpeg', 0.6);
+        setFormData(prev => ({ ...prev, [captureTarget]: dataUrl }));
         stopCamera();
       }
     }
   };
 
-  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>, target: typeof captureTarget) => {
     const file = e.target.files?.[0];
     if (file) {
       const reader = new FileReader();
-      reader.onload = (ev) => setFormData(prev => ({ ...prev, profileImage: ev.target?.result as string }));
+      reader.onload = (ev) => setFormData(prev => ({ ...prev, [target]: ev.target?.result as string }));
       reader.readAsDataURL(file);
     }
   };
@@ -198,17 +201,23 @@ const StudentsManager: React.FC<StudentsManagerProps> = ({ user }) => {
     }
     setIsSyncing(true);
     try {
-      const studentToSync = { ...formData, id: editingStudent ? editingStudent.id : undefined };
+      const studentToSync = { 
+        ...formData, 
+        id: editingStudent ? editingStudent.id : undefined,
+        grNumber: String(formData.grNumber).trim() 
+      };
+      
       await db.students.upsert(studentToSync);
+      
       setShowModal(false);
       setShowSuccess(true);
       setTimeout(() => setShowSuccess(false), 3000);
-      createAuditLog(user, editingStudent ? 'UPDATE' : 'CREATE', 'Registry', `Sync: ${formData.fullName}`);
+      createAuditLog(user, editingStudent ? 'UPDATE' : 'CREATE', 'Registry', `Cloud Sync: ${formData.fullName} (GR: ${formData.grNumber})`);
       setEditingStudent(null);
       setFormData(initialFormData);
       fetchCloudData();
     } catch (err: any) { 
-      alert(`Sync Error: ${err.message}`); 
+      alert(`Cloud Sync Error: ${err.message}`); 
     } finally { 
       setIsSyncing(false); 
     }
@@ -343,16 +352,22 @@ const StudentsManager: React.FC<StudentsManagerProps> = ({ user }) => {
                   <div className="lg:col-span-3">
                      <div className="flex flex-col items-center gap-5 sticky top-0">
                         <div className="w-56 h-56 bg-slate-50 dark:bg-slate-800 rounded-[2.5rem] border-4 border-white dark:border-slate-700 shadow-xl overflow-hidden flex items-center justify-center relative group">
-                           {isCameraActive ? (
-                             <video ref={videoRef} autoPlay playsInline className="w-full h-full object-cover scale-x-[-1]" />
+                           {isCameraActive && captureTarget === 'profileImage' ? (
+                             <video 
+                              ref={videoRef} 
+                              autoPlay 
+                              playsInline 
+                              muted 
+                              className="w-full h-full object-cover scale-x-[-1]" 
+                             />
                            ) : (
                              formData.profileImage ? <img src={formData.profileImage} className="w-full h-full object-cover" alt="Profile" /> : <UserIcon size={80} className="text-slate-200" />
                            )}
                            <div className="absolute inset-0 bg-black/40 text-white opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-3">
                               {!isCameraActive ? (
                                 <>
-                                  <button type="button" onClick={startCamera} className="flex flex-col items-center gap-1 font-bold uppercase text-[8px] tracking-widest bg-white/20 p-4 rounded-2xl hover:bg-indigo-600 transition-all"><Camera size={20}/> Camera</button>
-                                  <button type="button" onClick={() => fileInputRef.current?.click()} className="flex flex-col items-center gap-1 font-bold uppercase text-[8px] tracking-widest bg-white/20 p-4 rounded-2xl hover:bg-indigo-600 transition-all"><Upload size={20}/> Upload</button>
+                                  <button type="button" onClick={() => startCamera('profileImage')} className="flex flex-col items-center gap-1 font-bold uppercase text-[8px] tracking-widest bg-white/20 p-4 rounded-2xl hover:bg-indigo-600 transition-all"><Camera size={20}/> Camera</button>
+                                  <button type="button" onClick={() => { setCaptureTarget('profileImage'); fileInputRef.current?.click(); }} className="flex flex-col items-center gap-1 font-bold uppercase text-[8px] tracking-widest bg-white/20 p-4 rounded-2xl hover:bg-indigo-600 transition-all"><Upload size={20}/> Upload</button>
                                 </>
                               ) : (
                                 <>
@@ -362,8 +377,9 @@ const StudentsManager: React.FC<StudentsManagerProps> = ({ user }) => {
                               )}
                            </div>
                         </div>
-                        <input type="file" ref={fileInputRef} className="hidden" accept="image/*" onChange={handleFileUpload} />
+                        <input type="file" ref={fileInputRef} className="hidden" accept="image/*" onChange={(e) => handleFileUpload(e, captureTarget)} />
                         <canvas ref={canvasRef} className="hidden" />
+                        <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Student Photograph</p>
                      </div>
                   </div>
 
@@ -443,21 +459,92 @@ const StudentsManager: React.FC<StudentsManagerProps> = ({ user }) => {
                         </div>
                      </div>
 
-                     <div className="space-y-6">
+                     <div className="space-y-10">
                         <h4 className="text-xs font-black text-indigo-600 uppercase tracking-widest flex items-center gap-2 border-b border-indigo-50 pb-2">Parental & Residence</h4>
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                           <div className="space-y-1">
-                              <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Father's Name</label>
-                              <input type="text" value={formData.fatherName} onChange={e => setFormData({...formData, fatherName: e.target.value})} className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl px-4 py-3 font-bold text-slate-800 dark:text-white outline-none uppercase" />
+                        
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-10">
+                           {/* Father Details */}
+                           <div className="space-y-6 bg-slate-50/50 dark:bg-slate-800/30 p-8 rounded-[2rem] border border-slate-100 dark:border-slate-700">
+                              <div className="flex items-center gap-4 mb-4">
+                                 <div className="w-16 h-16 bg-white dark:bg-slate-800 rounded-2xl border-2 border-slate-100 dark:border-slate-700 flex items-center justify-center overflow-hidden relative group">
+                                    {isCameraActive && captureTarget === 'fatherPhoto' ? (
+                                      <video ref={videoRef} autoPlay playsInline muted className="w-full h-full object-cover scale-x-[-1]" />
+                                    ) : (
+                                      formData.fatherPhoto ? <img src={formData.fatherPhoto} className="w-full h-full object-cover" /> : <UserIcon size={24} className="text-slate-200" />
+                                    )}
+                                    <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 flex items-center justify-center gap-1 transition-opacity">
+                                       {!isCameraActive ? (
+                                         <>
+                                           <button type="button" onClick={() => startCamera('fatherPhoto')} className="p-1.5 bg-indigo-600 text-white rounded-lg"><Camera size={14}/></button>
+                                           <button type="button" onClick={() => { setCaptureTarget('fatherPhoto'); fileInputRef.current?.click(); }} className="p-1.5 bg-white text-indigo-600 rounded-lg"><Upload size={14}/></button>
+                                         </>
+                                       ) : (
+                                         <>
+                                           {/* Fix: Added Check icon from lucide-react */}
+                                           <button type="button" onClick={capturePhoto} className="p-1.5 bg-emerald-600 text-white rounded-lg"><Check size={14}/></button>
+                                           <button type="button" onClick={stopCamera} className="p-1.5 bg-rose-600 text-white rounded-lg"><X size={14}/></button>
+                                         </>
+                                       )}
+                                    </div>
+                                 </div>
+                                 <div>
+                                    <p className="text-[10px] font-black text-indigo-600 uppercase tracking-widest">Father's Profile</p>
+                                    <p className="text-[8px] font-bold text-slate-400 uppercase">Biometric Link Status: {formData.fatherPhoto ? 'LINKED' : 'PENDING'}</p>
+                                 </div>
+                              </div>
+                              <div className="space-y-1">
+                                 <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Father's Name</label>
+                                 <input type="text" value={formData.fatherName} onChange={e => setFormData({...formData, fatherName: e.target.value})} className="w-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl px-4 py-3 font-bold text-slate-800 dark:text-white outline-none uppercase shadow-sm" />
+                              </div>
+                              <div className="space-y-1">
+                                 <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Father's Mobile</label>
+                                 <input type="tel" value={formData.fatherMobile} onChange={e => setFormData({...formData, fatherMobile: e.target.value})} className="w-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl px-4 py-3 font-bold text-slate-800 dark:text-white outline-none shadow-sm" />
+                              </div>
                            </div>
-                           <div className="space-y-1">
-                              <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Father's Mobile</label>
-                              <input type="tel" value={formData.fatherMobile} onChange={e => setFormData({...formData, fatherMobile: e.target.value})} className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl px-4 py-3 font-bold text-slate-800 dark:text-white outline-none" />
+
+                           {/* Mother Details */}
+                           <div className="space-y-6 bg-slate-50/50 dark:bg-slate-800/30 p-8 rounded-[2rem] border border-slate-100 dark:border-slate-700">
+                              <div className="flex items-center gap-4 mb-4">
+                                 <div className="w-16 h-16 bg-white dark:bg-slate-800 rounded-2xl border-2 border-slate-100 dark:border-slate-700 flex items-center justify-center overflow-hidden relative group">
+                                    {isCameraActive && captureTarget === 'motherPhoto' ? (
+                                      <video ref={videoRef} autoPlay playsInline muted className="w-full h-full object-cover scale-x-[-1]" />
+                                    ) : (
+                                      formData.motherPhoto ? <img src={formData.motherPhoto} className="w-full h-full object-cover" /> : <UserIcon size={24} className="text-slate-200" />
+                                    )}
+                                    <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 flex items-center justify-center gap-1 transition-opacity">
+                                       {!isCameraActive ? (
+                                         <>
+                                           <button type="button" onClick={() => startCamera('motherPhoto')} className="p-1.5 bg-indigo-600 text-white rounded-lg"><Camera size={14}/></button>
+                                           <button type="button" onClick={() => { setCaptureTarget('motherPhoto'); fileInputRef.current?.click(); }} className="p-1.5 bg-white text-indigo-600 rounded-lg"><Upload size={14}/></button>
+                                         </>
+                                       ) : (
+                                         <>
+                                           {/* Fix: Added Check icon from lucide-react */}
+                                           <button type="button" onClick={capturePhoto} className="p-1.5 bg-emerald-600 text-white rounded-lg"><Check size={14}/></button>
+                                           <button type="button" onClick={stopCamera} className="p-1.5 bg-rose-600 text-white rounded-lg"><X size={14}/></button>
+                                         </>
+                                       )}
+                                    </div>
+                                 </div>
+                                 <div>
+                                    <p className="text-[10px] font-black text-indigo-600 uppercase tracking-widest">Mother's Profile</p>
+                                    <p className="text-[8px] font-bold text-slate-400 uppercase">Biometric Link Status: {formData.motherPhoto ? 'LINKED' : 'PENDING'}</p>
+                                 </div>
+                              </div>
+                              <div className="space-y-1">
+                                 <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Mother's Name</label>
+                                 <input type="text" value={formData.motherName} onChange={e => setFormData({...formData, motherName: e.target.value})} className="w-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl px-4 py-3 font-bold text-slate-800 dark:text-white outline-none uppercase shadow-sm" />
+                              </div>
+                              <div className="space-y-1">
+                                 <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Mother's Mobile</label>
+                                 <input type="tel" value={formData.motherMobile} onChange={e => setFormData({...formData, motherMobile: e.target.value})} className="w-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl px-4 py-3 font-bold text-slate-800 dark:text-white outline-none shadow-sm" />
+                              </div>
                            </div>
-                           <div className="md:col-span-2 space-y-1">
-                              <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Full Residence Address</label>
-                              <textarea rows={2} value={formData.residenceAddress} onChange={e => setFormData({...formData, residenceAddress: e.target.value})} className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl px-4 py-3 font-bold text-slate-800 dark:text-white outline-none resize-none" />
-                           </div>
+                        </div>
+
+                        <div className="space-y-1">
+                           <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Full Residence Address</label>
+                           <textarea rows={2} value={formData.residenceAddress} onChange={e => setFormData({...formData, residenceAddress: e.target.value})} className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl px-4 py-3 font-bold text-slate-800 dark:text-white outline-none resize-none shadow-inner" />
                         </div>
                      </div>
                   </div>

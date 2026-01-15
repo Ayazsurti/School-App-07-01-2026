@@ -90,14 +90,14 @@ export const db = {
       return data;
     },
     async upsert(student: any) {
-      // Clean and Map Payload
+      // Clean and Map Payload for Database (snake_case)
       const payload: any = {
         full_name: student.fullName || student.name || 'Unnamed Student',
         email: student.email || null,
         roll_no: student.rollNo || student.roll_no || null,
         class: student.class || '1st',
         section: student.section || 'A',
-        gr_number: student.grNumber || student.gr_number || '',
+        gr_number: String(student.grNumber || student.gr_number || '').trim(),
         profile_image: student.profileImage || null,
         father_name: student.fatherName || null,
         mother_name: student.motherName || null,
@@ -112,25 +112,27 @@ export const db = {
         student_type: student.studentType || student.student_type || '',
         birth_place: student.birthPlace || student.birth_place || null,
         uid_id: student.uidId || student.uid_id || null,
-        pen_no: student.penNo || student.pen_no || null
+        pen_no: student.penNo || student.pen_no || null,
+        father_photo: student.fatherPhoto || null,
+        mother_photo: student.motherPhoto || null
       };
 
-      // Check if updating an existing record by ID
+      // Ensure primary key is included only if it exists and is valid
       if (student.id && student.id.length > 20 && !student.id.includes('-master')) {
         payload.id = student.id;
       }
 
-      // If we have an ID, we upsert based on the Primary Key.
-      // If we don't have an ID (like in imports), we use gr_number as the resolution target.
-      const upsertOptions = payload.id ? {} : { onConflict: 'gr_number' };
-
+      // Robust Upsert: If ID matches, update ID. If ID doesn't exist but gr_number matches, update gr_number.
       const { data, error } = await supabase
         .from('students')
-        .upsert(payload, upsertOptions)
+        .upsert(payload, { 
+          onConflict: 'gr_number', // Priority: resolve conflicts on GR Number if no valid PKEY ID
+          ignoreDuplicates: false 
+        })
         .select();
         
       if (error) {
-        console.error("Supabase Students Upsert Error:", error);
+        console.error("Database Student Sync Error:", error);
         throw error;
       }
       return data;
@@ -166,14 +168,14 @@ export const db = {
         assigned_section: teacher.assignedSection || null,
         aadhar_no: teacher.aadharNo || null,
         pan_no: teacher.panNo || null,
-        account_no: teacher.accountNo || null,
-        account_type: teacher.accountType || null,
-        bank_name: teacher.bankName || null,
-        ifsc_code: teacher.ifscCode || null,
-        branch_name: teacher.branchName || null,
-        branch_address: teacher.branchAddress || null,
-        branch_code: teacher.branchCode || null,
-        branch_phone: teacher.branchPhone || null,
+        account_no: teacher.account_no || null,
+        account_type: teacher.account_type || null,
+        bank_name: teacher.bank_name || null,
+        ifsc_code: teacher.ifsc_code || null,
+        branch_name: teacher.branch_name || null,
+        branch_address: teacher.branch_address || null,
+        branch_code: teacher.branch_code || null,
+        branch_phone: teacher.branch_phone || null,
         username: teacher.username || teacher.staffId.toLowerCase().replace(/[^a-z0-9]/g, ''),
         password: teacher.password || 'school123'
       };
