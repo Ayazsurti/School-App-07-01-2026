@@ -51,11 +51,13 @@ export interface Teacher extends User {
   fullName: string;
   staffId: string;
   mobile: string;
+  alternateMobile?: string;
   email: string;
   qualification: string;
   subjects: string[];
   classes: string[];
   joiningDate: string;
+  dob?: string;
   residenceAddress: string;
   status: 'ACTIVE' | 'INACTIVE' | 'BLOCKED';
   gender: string;
@@ -63,6 +65,17 @@ export interface Teacher extends User {
   assignedClass?: string;
   assignedSection?: string;
   lastLogin?: string;
+  // New Fields
+  aadharNo?: string;
+  panNo?: string;
+  accountNo?: string;
+  accountType?: 'SAVINGS' | 'CURRENT';
+  bankName?: string;
+  ifscCode?: string;
+  branchName?: string;
+  branchAddress?: string;
+  branchCode?: string;
+  branchPhone?: string;
 }
 
 export interface ExamSubject {

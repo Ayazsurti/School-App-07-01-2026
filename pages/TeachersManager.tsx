@@ -8,7 +8,8 @@ import {
   CheckCircle2, ShieldCheck, Loader2, RefreshCw, RotateCcw,
   Contact, FileDown, Smartphone, Phone, Mail, MapPin, 
   Award, BookOpen, UserCheck, Calendar, Info, StopCircle,
-  Printer, Lock, ShieldAlert, Key, Eye, EyeOff, Activity, AlertTriangle, UserMinus, UserCheck as UserActiveIcon
+  Printer, Lock, ShieldAlert, Key, Eye, EyeOff, Activity, AlertTriangle, UserMinus, UserCheck as UserActiveIcon,
+  CreditCard, Banknote, Building2
 } from 'lucide-react';
 import { APP_NAME, MOCK_SUBJECTS } from '../constants';
 
@@ -35,11 +36,15 @@ const TeachersManager: React.FC<TeachersManagerProps> = ({ user }) => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
 
   const initialFormData: Partial<Teacher> = {
-    fullName: '', email: '', staffId: '', mobile: '', profileImage: '',
+    fullName: '', email: '', staffId: '', mobile: '', alternateMobile: '', profileImage: '',
     qualification: '', subjects: [], status: 'ACTIVE', gender: 'Male',
     joiningDate: new Date().toISOString().split('T')[0],
+    dob: '',
     residenceAddress: '', assignedRole: 'SUBJECT_TEACHER',
     assignedClass: '1st', assignedSection: 'A',
+    aadharNo: '', panNo: '',
+    accountNo: '', accountType: 'SAVINGS', bankName: '', ifscCode: '',
+    branchName: '', branchAddress: '', branchCode: '', branchPhone: '',
     username: '', password: ''
   };
 
@@ -54,6 +59,7 @@ const TeachersManager: React.FC<TeachersManagerProps> = ({ user }) => {
         name: t.name,
         staffId: t.staff_id,
         mobile: t.mobile,
+        alternateMobile: t.alternate_mobile,
         email: t.email,
         qualification: t.qualification,
         residenceAddress: t.residence_address,
@@ -61,10 +67,21 @@ const TeachersManager: React.FC<TeachersManagerProps> = ({ user }) => {
         status: t.status,
         profileImage: t.profile_image,
         joiningDate: t.joining_date,
+        dob: t.dob,
         subjects: t.subject ? t.subject.split(', ') : [],
         assignedRole: t.assigned_role || 'SUBJECT_TEACHER',
         assignedClass: t.assigned_class,
         assignedSection: t.assigned_section,
+        aadharNo: t.aadhar_no,
+        panNo: t.pan_no,
+        accountNo: t.account_no,
+        accountType: t.account_type,
+        bankName: t.bank_name,
+        ifscCode: t.ifsc_code,
+        branchName: t.branch_name,
+        branchAddress: t.branch_address,
+        branchCode: t.branch_code,
+        branchPhone: t.branch_phone,
         username: t.username,
         password: t.password
       }));
@@ -160,6 +177,7 @@ const TeachersManager: React.FC<TeachersManagerProps> = ({ user }) => {
       createAuditLog(user, editingTeacher ? 'UPDATE' : 'CREATE', 'Registry', `Cloud Sync Complete: ${formData.fullName}`);
       setEditingTeacher(null);
       setFormData(initialFormData);
+      fetchCloudData();
     } catch (err: any) { alert(`Sync Error: ${err.message}`); }
     finally { setIsSyncing(false); }
   };
@@ -167,7 +185,7 @@ const TeachersManager: React.FC<TeachersManagerProps> = ({ user }) => {
   const filteredTeachers = useMemo(() => {
     return teachers.filter(t => {
       const query = searchQuery.toLowerCase();
-      return (t.fullName || '').toLowerCase().includes(query) || (t.staffId || '').toLowerCase().includes(query);
+      return (t.fullName || t.name || '').toLowerCase().includes(query) || (t.staffId || '').toLowerCase().includes(query);
     });
   }, [teachers, searchQuery]);
 
@@ -203,7 +221,7 @@ const TeachersManager: React.FC<TeachersManagerProps> = ({ user }) => {
           <button onClick={() => window.print()} className="px-6 py-4 bg-slate-900 dark:bg-slate-800 text-white font-black rounded-2xl shadow-xl hover:bg-slate-700 transition-all flex items-center gap-3 uppercase text-[10px] tracking-widest">
             <Printer size={18} /> Print Directory
           </button>
-          <button onClick={() => { setEditingTeacher(null); setFormData(initialFormData); setActiveTab('profile'); setShowModal(true); stopCamera(); }} className="px-8 py-4 bg-indigo-600 text-white font-black rounded-2xl shadow-xl flex items-center gap-3 hover:-translate-y-1 transition-all uppercase text-xs tracking-widest"><UserPlus size={20} strokeWidth={3} /> Register Faculty</button>
+          <button onClick={() => { setEditingTeacher(null); setFormData(initialFormData); setActiveTab('profile'); setShowModal(true); stopCamera(); }} className="px-8 py-4 bg-indigo-600 text-white font-black rounded-2xl shadow-xl flex items-center gap-3 hover:-translate-y-1 transition-all uppercase text-xs tracking-widest"><UserPlus size={20} strokeWidth={3} /> Teacher Registration</button>
         </div>
       </div>
 
@@ -293,8 +311,8 @@ const TeachersManager: React.FC<TeachersManagerProps> = ({ user }) => {
             <div className="p-8 border-b border-slate-100 dark:border-slate-800 flex justify-between items-center bg-slate-50/50 dark:bg-slate-800/30">
                <div className="flex items-center gap-6">
                   <div>
-                    <h3 className="text-2xl font-black text-slate-900 dark:text-white uppercase tracking-tight">{editingTeacher ? 'Update Faculty Profile' : 'Faculty Registration'}</h3>
-                    <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-1">Institutional Cloud Identity Portal</p>
+                    <h3 className="text-2xl font-black text-slate-900 dark:text-white uppercase tracking-tight">{editingTeacher ? 'Update Teacher Record' : 'Teacher Registration'}</h3>
+                    <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-1">Official Institutional Cloud Identity Portal</p>
                   </div>
                   <div className="h-8 w-px bg-slate-200 dark:bg-slate-700 hidden sm:block" />
                   <div className="flex bg-slate-100 dark:bg-slate-800 p-1.5 rounded-2xl">
@@ -342,12 +360,12 @@ const TeachersManager: React.FC<TeachersManagerProps> = ({ user }) => {
                           <input type="file" ref={fileInputRef} className="hidden" accept="image/*" onChange={handleFileUpload} />
                           <canvas ref={canvasRef} className="hidden" />
                           <div className="text-center">
-                            <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-widest mt-2">Professional Identity Photo</h4>
+                            <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-widest mt-2">Identity Photograph</h4>
                           </div>
                        </div>
                     </div>
 
-                    <div className="lg:col-span-9 space-y-10">
+                    <div className="lg:col-span-9 space-y-12">
                        <div className="space-y-6">
                           <h4 className="text-xs font-black text-indigo-600 uppercase tracking-widest flex items-center gap-2 border-b border-indigo-50 pb-2">Employment Information</h4>
                           <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
@@ -361,11 +379,15 @@ const TeachersManager: React.FC<TeachersManagerProps> = ({ user }) => {
                              </div>
                              <div className="space-y-1 md:col-span-2">
                                 <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Highest Qualification</label>
-                                <input type="text" value={formData.qualification} onChange={e => setFormData({...formData, qualification: e.target.value})} className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl px-4 py-3 font-bold text-slate-800 dark:text-white outline-none" placeholder="PhD in Theoretical Physics" />
+                                <input type="text" value={formData.qualification} onChange={e => setFormData({...formData, qualification: e.target.value})} className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl px-4 py-3 font-bold text-slate-800 dark:text-white outline-none" placeholder="MA / BEd / PhD" />
                              </div>
                              <div className="space-y-1">
                                 <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Joining Date</label>
                                 <input type="date" value={formData.joiningDate} onChange={e => setFormData({...formData, joiningDate: e.target.value})} className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl px-4 py-3 font-bold text-slate-800 dark:text-white outline-none" />
+                             </div>
+                             <div className="space-y-1">
+                                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Date of Birth</label>
+                                <input type="date" value={formData.dob} onChange={e => setFormData({...formData, dob: e.target.value})} className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl px-4 py-3 font-bold text-slate-800 dark:text-white outline-none" />
                              </div>
                              <div className="space-y-1">
                                 <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Gender</label>
@@ -378,7 +400,37 @@ const TeachersManager: React.FC<TeachersManagerProps> = ({ user }) => {
                        </div>
 
                        <div className="space-y-6">
-                          <h4 className="text-xs font-black text-emerald-600 uppercase tracking-widest flex items-center gap-2 border-b border-emerald-50 pb-2">Institutional Hierarchy</h4>
+                          <h4 className="text-xs font-black text-emerald-600 uppercase tracking-widest flex items-center gap-2 border-b border-emerald-50 pb-2">Identity & Contact Details</h4>
+                          <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+                             <div className="space-y-1">
+                                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Mobile No</label>
+                                <input type="tel" value={formData.mobile} onChange={e => setFormData({...formData, mobile: e.target.value})} className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl px-4 py-3 font-bold text-slate-800 dark:text-white outline-none" />
+                             </div>
+                             <div className="space-y-1">
+                                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Alternate Mobile</label>
+                                <input type="tel" value={formData.alternateMobile} onChange={e => setFormData({...formData, alternateMobile: e.target.value})} className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl px-4 py-3 font-bold text-slate-800 dark:text-white outline-none" />
+                             </div>
+                             <div className="space-y-1 md:col-span-2">
+                                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Email Address</label>
+                                <input type="email" value={formData.email} onChange={e => setFormData({...formData, email: e.target.value})} className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl px-4 py-3 font-bold text-slate-800 dark:text-white outline-none" />
+                             </div>
+                             <div className="space-y-1 md:col-span-2">
+                                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Aadhar Number</label>
+                                <input type="text" value={formData.aadharNo} onChange={e => setFormData({...formData, aadharNo: e.target.value})} className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl px-4 py-3 font-bold text-slate-800 dark:text-white outline-none" placeholder="XXXX XXXX XXXX" />
+                             </div>
+                             <div className="space-y-1 md:col-span-2">
+                                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">PAN Number</label>
+                                <input type="text" value={formData.panNo} onChange={e => setFormData({...formData, panNo: e.target.value})} className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl px-4 py-3 font-bold text-slate-800 dark:text-white outline-none uppercase" placeholder="ABCDE1234F" />
+                             </div>
+                             <div className="space-y-1 md:col-span-4">
+                                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Full Residence Address</label>
+                                <textarea rows={2} value={formData.residenceAddress} onChange={e => setFormData({...formData, residenceAddress: e.target.value})} className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl px-4 py-3 font-bold text-slate-800 dark:text-white outline-none resize-none" />
+                             </div>
+                          </div>
+                       </div>
+
+                       <div className="space-y-6">
+                          <h4 className="text-xs font-black text-indigo-600 uppercase tracking-widest flex items-center gap-2 border-b border-indigo-50 pb-2">Institutional Hierarchy</h4>
                           <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
                              <div className="space-y-1 md:col-span-2">
                                 <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Assigned Designation Role</label>
@@ -413,26 +465,42 @@ const TeachersManager: React.FC<TeachersManagerProps> = ({ user }) => {
                        </div>
 
                        <div className="space-y-6">
-                          <h4 className="text-xs font-black text-amber-600 uppercase tracking-widest flex items-center gap-2 border-b border-amber-50 pb-2">Academic Alignment</h4>
-                          <div className="p-6 bg-slate-50 dark:bg-slate-800 rounded-[2rem] border border-slate-100 dark:border-slate-700">
-                             <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-4 ml-1">Select Specialized Subjects</label>
-                             <div className="flex flex-wrap gap-2">
-                                {MOCK_SUBJECTS.map(sub => {
-                                  const isSelected = formData.subjects?.includes(sub);
-                                  return (
-                                    <button 
-                                      key={sub} 
-                                      type="button"
-                                      onClick={() => {
-                                        const current = formData.subjects || [];
-                                        setFormData({...formData, subjects: isSelected ? current.filter(s => s !== sub) : [...current, sub]});
-                                      }}
-                                      className={`px-4 py-2 rounded-xl text-[9px] font-black uppercase tracking-widest transition-all border-2 ${isSelected ? 'bg-indigo-600 border-indigo-600 text-white shadow-lg' : 'bg-white dark:bg-slate-700 border-slate-100 dark:border-slate-600 text-slate-400 hover:border-indigo-200'}`}
-                                    >
-                                      {sub}
-                                    </button>
-                                  );
-                                })}
+                          <h4 className="text-xs font-black text-slate-900 dark:text-white uppercase tracking-widest flex items-center gap-2 border-b border-indigo-600/20 pb-2"><Building2 size={18} className="text-indigo-600" /> Bank Account Details</h4>
+                          <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+                             <div className="space-y-1 md:col-span-2">
+                                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Account No</label>
+                                <input type="text" value={formData.accountNo} onChange={e => setFormData({...formData, accountNo: e.target.value})} className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl px-4 py-3 font-bold text-slate-800 dark:text-white outline-none" />
+                             </div>
+                             <div className="space-y-1 md:col-span-2">
+                                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Account Type</label>
+                                <select value={formData.accountType} onChange={e => setFormData({...formData, accountType: e.target.value as any})} className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl px-4 py-3 font-bold text-slate-800 dark:text-white outline-none">
+                                   <option value="SAVINGS">Savings Account</option>
+                                   <option value="CURRENT">Current Account</option>
+                                </select>
+                             </div>
+                             <div className="space-y-1 md:col-span-2">
+                                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Bank Name</label>
+                                <input type="text" value={formData.bankName} onChange={e => setFormData({...formData, bankName: e.target.value})} className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl px-4 py-3 font-bold text-slate-800 dark:text-white outline-none uppercase" />
+                             </div>
+                             <div className="space-y-1 md:col-span-2">
+                                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">IFSC Code</label>
+                                <input type="text" value={formData.ifscCode} onChange={e => setFormData({...formData, ifscCode: e.target.value})} className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl px-4 py-3 font-bold text-slate-800 dark:text-white outline-none uppercase" />
+                             </div>
+                             <div className="space-y-1 md:col-span-2">
+                                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Branch Name</label>
+                                <input type="text" value={formData.branchName} onChange={e => setFormData({...formData, branchName: e.target.value})} className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl px-4 py-3 font-bold text-slate-800 dark:text-white outline-none uppercase" />
+                             </div>
+                             <div className="space-y-1 md:col-span-2">
+                                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Branch Address</label>
+                                <input type="text" value={formData.branchAddress} onChange={e => setFormData({...formData, branchAddress: e.target.value})} className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl px-4 py-3 font-bold text-slate-800 dark:text-white outline-none uppercase" />
+                             </div>
+                             <div className="space-y-1 md:col-span-2">
+                                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Branch Code</label>
+                                <input type="text" value={formData.branchCode} onChange={e => setFormData({...formData, branchCode: e.target.value})} className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl px-4 py-3 font-bold text-slate-800 dark:text-white outline-none uppercase" />
+                             </div>
+                             <div className="space-y-1 md:col-span-2">
+                                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Branch Phone</label>
+                                <input type="tel" value={formData.branchPhone} onChange={e => setFormData({...formData, branchPhone: e.target.value})} className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl px-4 py-3 font-bold text-slate-800 dark:text-white outline-none" />
                              </div>
                           </div>
                        </div>
@@ -506,7 +574,7 @@ const TeachersManager: React.FC<TeachersManagerProps> = ({ user }) => {
                     </div>
 
                     <div className="bg-slate-900 rounded-[3rem] p-10 text-white relative overflow-hidden group">
-                       <div className="absolute top-0 right-0 w-32 h-32 bg-indigo-500/10 rounded-full -mr-16 -mt-16"></div>
+                       <div className="absolute top-0 right-0 w-32 h-32 bg-indigo-500/10 rounded-full -mr-16 -mt-16 group-hover:scale-110 transition-transform"></div>
                        <div className="flex items-center justify-between mb-8">
                           <div className="flex items-center gap-4">
                              <Activity size={24} className="text-indigo-400 animate-pulse" />
