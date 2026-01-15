@@ -27,7 +27,9 @@ import {
   SlidersHorizontal,
   FileClock,
   Banknote,
-  Stamp
+  Stamp,
+  Palette,
+  BarChart3
 } from 'lucide-react';
 import { TimetableEntry, Student } from './types';
 
@@ -37,9 +39,11 @@ export const NAVIGATION = {
   ADMIN: [
     { name: 'Dashboard', icon: <LayoutDashboard size={20} />, path: '/admin/dashboard' },
     { name: 'School Branding', icon: <Stamp size={20} />, path: '/admin/branding' },
-    { name: 'Students', icon: <Users size={20} />, path: '/admin/students' },
+    { name: 'Display Configure', icon: <Palette size={20} />, path: '/admin/display-config' },
+    { name: 'Student Management', icon: <Users size={20} />, path: '/admin/students' },
+    { name: 'Students Reports', icon: <BarChart3 size={20} />, path: '/admin/reports' },
     { name: 'ID Card Gen', icon: <CreditCard size={20} />, path: '/admin/id-cards' },
-    { name: 'Teachers', icon: <UserCheck size={20} />, path: '/admin/teachers' },
+    { name: 'Teacher Management', icon: <UserCheck size={20} />, path: '/admin/teachers' },
     { name: 'Homework', icon: <PencilRuler size={20} />, path: '/admin/homework' },
     { name: 'Curriculum', icon: <BookOpen size={20} />, path: '/admin/curriculum' },
     { name: 'Attendance', icon: <CalendarCheck size={20} />, path: '/admin/attendance' },

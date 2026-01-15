@@ -1,6 +1,16 @@
 
 export type UserRole = 'ADMIN' | 'TEACHER' | 'STUDENT';
 
+export interface DisplaySettings {
+  fontFamily: string;
+  fontColor: string;
+  accentColor: string;
+  backgroundImage: string | null;
+  bgOpacity: number;
+  cardOpacity: number;
+  glassBlur: number;
+}
+
 export interface User {
   id: string;
   name: string;
@@ -18,7 +28,6 @@ export interface User {
 }
 
 export interface Student extends User {
-  // Personal & Identity Fields (Requested)
   fullName: string;
   grNumber: string;
   rollNo: string;
@@ -28,30 +37,60 @@ export interface Student extends User {
   uidId: string;
   penNo: string;
   aadharNo: string;
-  
-  // Parental Information (Requested)
   motherName: string;
   motherMobile: string;
   fatherName: string;
   fatherMobile: string;
   residenceAddress: string;
-
-  // System Essentials
   class: string;
   section: string;
   remarks?: string;
 }
 
 export interface Teacher extends User {
-  subject: string;
-  classes: string[];
+  fullName: string;
+  staffId: string;
   mobile: string;
+  email: string;
+  qualification: string;
+  subjects: string[];
+  classes: string[];
+  joiningDate: string;
+  residenceAddress: string;
+  status: 'ACTIVE' | 'INACTIVE' | 'BLOCKED';
+  gender: string;
+  assignedRole: 'SUBJECT_TEACHER' | 'CLASS_TEACHER';
+  assignedClass?: string;
+  assignedSection?: string;
+  lastLogin?: string;
 }
 
 export interface ExamSubject {
   subjectName: string;
   maxTheory: number;
   maxPractical: number;
+  maxOral?: number;
+  weightage?: number;
+}
+
+export interface ExamSchedule {
+  id: string;
+  examId: string;
+  subject: string;
+  date: string;
+  startTime: string;
+  endTime: string;
+  room?: string;
+  invigilator?: string;
+}
+
+export interface GradeRule {
+  id: string;
+  grade: string;
+  minPercent: number;
+  maxPercent: number;
+  point: number;
+  remark: string;
 }
 
 export interface Exam {
@@ -59,8 +98,12 @@ export interface Exam {
   name: string;
   academicYear: string;
   className: string;
+  startDate: string;
+  endDate: string;
+  examType: 'WRITTEN' | 'ORAL' | 'PRACTICAL' | 'MCQ';
+  mode: 'ONLINE' | 'OFFLINE';
+  status: 'DRAFT' | 'PUBLISHED' | 'COMPLETED';
   subjects: ExamSubject[];
-  status: 'DRAFT' | 'ACTIVE' | 'COMPLETED';
 }
 
 export interface FeeCategory {
@@ -91,6 +134,7 @@ export interface SubjectMarks {
   practicalMarks: number;
   totalMarks: number;
   grade: string;
+  isLocked: boolean;
 }
 
 export interface Marksheet {
@@ -100,7 +144,9 @@ export interface Marksheet {
   marks: SubjectMarks[];
   totalPercentage: number;
   overallGrade: string;
+  rank: number;
   remarks: string;
+  isResultPublished: boolean;
 }
 
 export interface FeeRecord {

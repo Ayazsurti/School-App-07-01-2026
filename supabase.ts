@@ -7,7 +7,10 @@ const supabaseAnonKey = (import.meta as any).env?.VITE_SUPABASE_ANON_KEY || 'sb_
 export const supabase = createClient(supabaseUrl, supabaseAnonKey);
 
 const MASTER_ACCOUNTS = [
-  { username: 'ayazsurti', password: 'password123', role: 'ADMIN', full_name: 'Ayaz Surti', id: 'admin-master' }
+  { username: 'admin', password: 'admin786', role: 'ADMIN', full_name: 'Administrator', id: 'admin-master' },
+  { username: 'teacher', password: 'teacher786', role: 'TEACHER', full_name: 'Lead Instructor', id: 'teacher-master' },
+  { username: 'student', password: 'student786', role: 'STUDENT', full_name: 'Star Student', id: 'student-master' },
+  { username: 'ayazsurti', password: 'password123', role: 'ADMIN', full_name: 'Ayaz Surti', id: 'ayaz-master' }
 ];
 
 const safeDate = (d: any) => {
@@ -90,22 +93,22 @@ export const db = {
       const payload: any = {
         full_name: student.fullName || student.name || 'Unnamed Student',
         email: student.email || null,
-        roll_no: student.rollNo || null,
+        roll_no: student.roll_no || null,
         class: student.class || '1st',
         section: student.section || 'A',
-        gr_number: student.grNumber || '',
+        gr_number: student.gr_number || '',
         profile_image: student.profileImage || null,
-        father_name: student.fatherName || null,
-        mother_name: student.motherName || null,
-        father_mobile: student.fatherMobile || null,
-        mother_mobile: student.motherMobile || null,
-        residence_address: student.residenceAddress || null,
+        father_name: student.father_name || null,
+        mother_name: student.mother_name || null,
+        father_mobile: student.father_mobile || null,
+        mother_mobile: student.mother_mobile || null,
+        residence_address: student.residence_address || null,
         gender: student.gender || 'Male',
         dob: safeDate(student.dob),
         admission_date: safeDate(student.admissionDate),
-        aadhar_no: student.aadharNo || null,
-        uid_id: student.uidId || null,
-        pen_no: student.penNo || null
+        aadhar_no: student.aadhar_no || null,
+        uid_id: student.uid_id || null,
+        pen_no: student.pen_no || null
       };
 
       if (student.id && student.id.length > 20 && !student.id.includes('-master')) {
@@ -128,14 +131,29 @@ export const db = {
       return data;
     },
     async upsert(teacher: any) {
-      const isNew = !teacher.id || teacher.id.length < 20;
       const payload: any = {
-        name: teacher.name,
+        name: teacher.fullName || teacher.name,
         staff_id: teacher.staffId,
-        subject: teacher.subject,
-        mobile: teacher.mobile
+        subject: teacher.subject || (teacher.subjects ? teacher.subjects.join(', ') : 'General'),
+        mobile: teacher.mobile,
+        email: teacher.email,
+        qualification: teacher.qualification,
+        residence_address: teacher.residenceAddress,
+        gender: teacher.gender || 'Male',
+        status: teacher.status || 'ACTIVE',
+        profile_image: teacher.profileImage,
+        joining_date: safeDate(teacher.joiningDate),
+        assigned_role: teacher.assigned_role || 'SUBJECT_TEACHER',
+        assigned_class: teacher.assigned_class || null,
+        assigned_section: teacher.assigned_section || null,
+        username: teacher.username || teacher.staffId.toLowerCase().replace(/[^a-z0-9]/g, ''),
+        password: teacher.password || 'school123'
       };
-      if (!isNew) payload.id = teacher.id;
+
+      if (teacher.id && teacher.id.length > 20 && !teacher.id.includes('-master')) {
+        payload.id = teacher.id;
+      }
+
       const { data, error } = await supabase.from('teachers').upsert([payload]).select();
       if (error) throw error;
       return data;
@@ -257,6 +275,10 @@ export const db = {
         academic_year: exam.academicYear,
         class_name: exam.className,
         subjects: exam.subjects,
+        start_date: exam.startDate,
+        end_date: exam.endDate,
+        exam_type: exam.examType,
+        mode: exam.mode,
         status: exam.status
       };
       if (!isNew) payload.id = exam.id;
@@ -264,8 +286,34 @@ export const db = {
       if (error) throw error;
       return data;
     },
+    async getSchedules(examId: string) {
+      const { data, error } = await supabase.from('exam_schedules').select('*').eq('exam_id', examId);
+      if (error) throw error;
+      return data;
+    },
+    async upsertSchedules(schedules: any[]) {
+      const { data, error } = await supabase.from('exam_schedules').upsert(schedules).select();
+      if (error) throw error;
+      return data;
+    },
     async delete(id: string) {
       const { error } = await supabase.from('exams').delete().eq('id', id);
+      if (error) throw error;
+    }
+  },
+  grading: {
+    async getAll() {
+      const { data, error } = await supabase.from('grading_rules').select('*').order('min_percent', { ascending: false });
+      if (error) throw error;
+      return data;
+    },
+    async upsert(rule: any) {
+      const { data, error } = await supabase.from('grading_rules').upsert([rule]).select();
+      if (error) throw error;
+      return data;
+    },
+    async delete(id: string) {
+      const { error } = await supabase.from('grading_rules').delete().eq('id', id);
       if (error) throw error;
     }
   },
