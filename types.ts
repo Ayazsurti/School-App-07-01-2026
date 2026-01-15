@@ -37,6 +37,9 @@ export interface Student extends User {
   uidId: string;
   penNo: string;
   aadharNo: string;
+  panNo?: string;
+  studentType?: string;
+  birthPlace?: string;
   motherName: string;
   motherMobile: string;
   fatherName: string;

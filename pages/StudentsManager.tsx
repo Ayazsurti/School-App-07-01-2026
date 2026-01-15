@@ -1,3 +1,4 @@
+
 import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { User, Student } from '../types';
 import { createAuditLog } from '../utils/auditLogger';
@@ -6,13 +7,14 @@ import {
   Plus, Search, Trash2, Edit2, X, UserPlus, User as UserIcon, Camera, Upload, 
   CheckCircle2, ShieldCheck, Smartphone, Loader2, QrCode, RefreshCw,
   GraduationCap, FileSpreadsheet, FileDown, Printer, FileSearch, MapPin, 
-  UserCheck, CreditCard, Calendar, Eye, FileText, StopCircle, AlertCircle
+  UserCheck, CreditCard, Calendar, Eye, FileText, StopCircle, AlertCircle, Mail, Fingerprint
 } from 'lucide-react';
 import { APP_NAME } from '../constants';
 
 interface StudentsManagerProps { user: User; }
 const ALL_CLASSES = ['Nursery', 'LKG', 'UKG', '1st', '2nd', '3rd', '4th', '5th', '6th', '7th', '8th', '9th', '10th', '11th', '12th'];
 const ALL_SECTIONS = ['A', 'B', 'C', 'D', 'E'];
+const STUDENT_TYPES = ['REGULAR', 'EXTERNAL', 'DAY SCHOLAR', 'HOSTELLER'];
 
 const StudentsManager: React.FC<StudentsManagerProps> = ({ user }) => {
   const [students, setStudents] = useState<Student[]>([]);
@@ -34,7 +36,8 @@ const StudentsManager: React.FC<StudentsManagerProps> = ({ user }) => {
 
   const initialFormData: Partial<Student> = {
     fullName: '', email: '', grNumber: '', class: '1st', section: 'A', rollNo: '', profileImage: '',
-    gender: 'Male', dob: '', admissionDate: '', aadharNo: '', uidId: '', penNo: '',
+    gender: 'Male', dob: '', admissionDate: '', aadharNo: '', panNo: '', uidId: '', penNo: '',
+    studentType: 'REGULAR', birthPlace: '',
     fatherName: '', motherName: '', fatherMobile: '', motherMobile: '', residenceAddress: '',
   };
 
@@ -60,10 +63,13 @@ const StudentsManager: React.FC<StudentsManagerProps> = ({ user }) => {
         residenceAddress: s.residence_address,
         gender: s.gender,
         dob: s.dob,
-        admission_date: s.admission_date,
+        admissionDate: s.admission_date,
         aadharNo: s.aadhar_no,
+        panNo: s.pan_no,
         uidId: s.uid_id,
         penNo: s.pen_no,
+        studentType: s.student_type,
+        birthPlace: s.birth_place,
         username: s.username,
         password: s.password
       }));
@@ -440,18 +446,57 @@ const StudentsManager: React.FC<StudentsManagerProps> = ({ user }) => {
                               <input type="text" value={formData.rollNo} onChange={e => setFormData({...formData, rollNo: e.target.value})} className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl px-4 py-3 font-bold text-slate-800 dark:text-white outline-none" placeholder="101" />
                            </div>
                            <div className="space-y-1">
-                              <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Gender</label>
-                              <select value={formData.gender} onChange={e => setFormData({...formData, gender: e.target.value})} className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl px-4 py-3 font-bold text-slate-800 dark:text-white outline-none">
-                                 <option value="Male">Male</option>
-                                 <option value="Female">Female</option>
-                                 <option value="Other">Other</option>
+                              <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Student Type</label>
+                              <select value={formData.studentType} onChange={e => setFormData({...formData, studentType: e.target.value})} className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl px-4 py-3 font-bold text-slate-800 dark:text-white outline-none">
+                                 {STUDENT_TYPES.map(t => <option key={t} value={t}>{t}</option>)}
                               </select>
                            </div>
                         </div>
                      </div>
 
                      <div className="space-y-6">
-                        <h4 className="text-xs font-black text-emerald-600 uppercase tracking-widest flex items-center gap-2 border-b border-emerald-50 pb-2">Parental & Residency</h4>
+                        <h4 className="text-xs font-black text-emerald-600 uppercase tracking-widest flex items-center gap-2 border-b border-emerald-50 pb-2">Identity & Contact Information</h4>
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                           <div className="space-y-1">
+                              <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Aadhar Number</label>
+                              <div className="relative">
+                                 <Fingerprint className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-300" size={16} />
+                                 <input type="text" value={formData.aadharNo} onChange={e => setFormData({...formData, aadharNo: e.target.value})} className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl pl-12 pr-4 py-3 font-bold text-slate-800 dark:text-white outline-none focus:ring-2 focus:ring-emerald-500" placeholder="XXXX XXXX XXXX" />
+                              </div>
+                           </div>
+                           <div className="space-y-1">
+                              <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">PAN Number</label>
+                              <div className="relative">
+                                 <CreditCard className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-300" size={16} />
+                                 <input type="text" value={formData.panNo} onChange={e => setFormData({...formData, panNo: e.target.value.toUpperCase()})} className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl pl-12 pr-4 py-3 font-bold text-slate-800 dark:text-white outline-none focus:ring-2 focus:ring-emerald-500 uppercase" placeholder="ABCDE1234F" />
+                              </div>
+                           </div>
+                           <div className="space-y-1">
+                              <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">UID ID Number</label>
+                              <div className="relative">
+                                 <Fingerprint className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-300" size={16} />
+                                 <input type="text" value={formData.uidId} onChange={e => setFormData({...formData, uidId: e.target.value})} className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl pl-12 pr-4 py-3 font-bold text-slate-800 dark:text-white outline-none focus:ring-2 focus:ring-emerald-500" placeholder="UID-XXXXXX" />
+                              </div>
+                           </div>
+                           <div className="space-y-1 md:col-span-2">
+                              <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Email Address</label>
+                              <div className="relative">
+                                 <Mail className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-300" size={16} />
+                                 <input type="email" value={formData.email} onChange={e => setFormData({...formData, email: e.target.value})} className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl pl-12 pr-4 py-3 font-bold text-slate-800 dark:text-white outline-none focus:ring-2 focus:ring-emerald-500" placeholder="student@email.com" />
+                              </div>
+                           </div>
+                           <div className="space-y-1">
+                              <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Birth Place</label>
+                              <div className="relative">
+                                 <MapPin className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-300" size={16} />
+                                 <input type="text" value={formData.birthPlace} onChange={e => setFormData({...formData, birthPlace: e.target.value})} className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl pl-12 pr-4 py-3 font-bold text-slate-800 dark:text-white outline-none focus:ring-2 focus:ring-emerald-500" placeholder="City Name" />
+                              </div>
+                           </div>
+                        </div>
+                     </div>
+
+                     <div className="space-y-6">
+                        <h4 className="text-xs font-black text-indigo-600 uppercase tracking-widest flex items-center gap-2 border-b border-indigo-50 pb-2">Parental & Residency</h4>
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                            <div className="space-y-1">
                               <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Father's Name</label>

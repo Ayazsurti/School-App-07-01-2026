@@ -106,9 +106,12 @@ export const db = {
         gender: student.gender || 'Male',
         dob: safeDate(student.dob),
         admission_date: safeDate(student.admissionDate),
-        aadhar_no: student.aadhar_no || null,
-        uid_id: student.uid_id || null,
-        pen_no: student.pen_no || null
+        aadhar_no: student.aadharNo || null,
+        pan_no: student.panNo || null,
+        student_type: student.studentType || 'REGULAR',
+        birth_place: student.birthPlace || null,
+        uid_id: student.uidId || null,
+        pen_no: student.penNo || null
       };
 
       if (student.id && student.id.length > 20 && !student.id.includes('-master')) {
