@@ -90,36 +90,49 @@ export const db = {
       return data;
     },
     async upsert(student: any) {
+      // Clean and Map Payload
       const payload: any = {
         full_name: student.fullName || student.name || 'Unnamed Student',
         email: student.email || null,
-        roll_no: student.roll_no || null,
+        roll_no: student.rollNo || student.roll_no || null,
         class: student.class || '1st',
         section: student.section || 'A',
-        gr_number: student.gr_number || '',
+        gr_number: student.grNumber || student.gr_number || '',
         profile_image: student.profileImage || null,
-        father_name: student.father_name || null,
-        mother_name: student.mother_name || null,
-        father_mobile: student.father_mobile || null,
-        mother_mobile: student.mother_mobile || null,
-        residence_address: student.residence_address || null,
+        father_name: student.fatherName || null,
+        mother_name: student.motherName || null,
+        father_mobile: student.fatherMobile || null,
+        mother_mobile: student.motherMobile || null,
+        residence_address: student.residenceAddress || null,
         gender: student.gender || 'Male',
         dob: safeDate(student.dob),
-        admission_date: safeDate(student.admissionDate),
-        aadhar_no: student.aadharNo || null,
-        pan_no: student.panNo || null,
-        student_type: student.studentType || 'REGULAR',
-        birth_place: student.birthPlace || null,
-        uid_id: student.uidId || null,
-        pen_no: student.penNo || null
+        admission_date: safeDate(student.admissionDate || student.admission_date),
+        aadhar_no: student.aadharNo || student.aadhar_no || null,
+        pan_no: student.panNo || student.pan_no || null,
+        student_type: student.studentType || student.student_type || '',
+        birth_place: student.birthPlace || student.birth_place || null,
+        uid_id: student.uidId || student.uid_id || null,
+        pen_no: student.penNo || student.pen_no || null
       };
 
+      // Check if updating an existing record by ID
       if (student.id && student.id.length > 20 && !student.id.includes('-master')) {
         payload.id = student.id;
       }
 
-      const { data, error } = await supabase.from('students').upsert(payload, { onConflict: 'gr_number' }).select();
-      if (error) throw error;
+      // If we have an ID, we upsert based on the Primary Key.
+      // If we don't have an ID (like in imports), we use gr_number as the resolution target.
+      const upsertOptions = payload.id ? {} : { onConflict: 'gr_number' };
+
+      const { data, error } = await supabase
+        .from('students')
+        .upsert(payload, upsertOptions)
+        .select();
+        
+      if (error) {
+        console.error("Supabase Students Upsert Error:", error);
+        throw error;
+      }
       return data;
     },
     async delete(id: string) {
@@ -148,9 +161,9 @@ export const db = {
         profile_image: teacher.profileImage,
         joining_date: safeDate(teacher.joiningDate),
         dob: safeDate(teacher.dob),
-        assigned_role: teacher.assigned_role || 'SUBJECT_TEACHER',
-        assigned_class: teacher.assigned_class || null,
-        assigned_section: teacher.assigned_section || null,
+        assigned_role: teacher.assignedRole || 'SUBJECT_TEACHER',
+        assigned_class: teacher.assignedClass || null,
+        assigned_section: teacher.assignedSection || null,
         aadhar_no: teacher.aadharNo || null,
         pan_no: teacher.panNo || null,
         account_no: teacher.accountNo || null,

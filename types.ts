@@ -68,9 +68,10 @@ export interface Teacher extends User {
   assignedClass?: string;
   assignedSection?: string;
   lastLogin?: string;
-  // New Fields
+  // New Identity Fields
   aadharNo?: string;
   panNo?: string;
+  // Bank Account Details
   accountNo?: string;
   accountType?: 'SAVINGS' | 'CURRENT';
   bankName?: string;

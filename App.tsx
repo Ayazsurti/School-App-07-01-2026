@@ -127,12 +127,18 @@ const App: React.FC = () => {
 
   const [schoolLogo, setSchoolLogo] = useState<string | null>(null);
   const [schoolName, setSchoolName] = useState<string>(DEFAULT_APP_NAME);
+  const [schoolAddress, setSchoolAddress] = useState<string>('');
+  const [schoolEmail, setSchoolEmail] = useState<string>('');
+  const [schoolContact, setSchoolContact] = useState<string>('');
 
   const fetchBranding = async () => {
     try {
       const settings = await db.settings.getAll();
       if (settings.school_logo) setSchoolLogo(settings.school_logo);
       if (settings.school_name) setSchoolName(settings.school_name);
+      if (settings.school_address) setSchoolAddress(settings.school_address);
+      if (settings.school_email) setSchoolEmail(settings.school_email);
+      if (settings.school_contact) setSchoolContact(settings.school_contact);
     } catch (err) { console.error("Identity Sync Error"); }
   };
 
@@ -172,6 +178,14 @@ const App: React.FC = () => {
     localStorage.removeItem('school_app_user');
   };
 
+  const brandingData = {
+    name: schoolName,
+    logo: schoolLogo,
+    address: schoolAddress,
+    email: schoolEmail,
+    contact: schoolContact
+  };
+
   return (
     <HashRouter>
       <div className={darkMode ? 'dark' : ''}>
@@ -207,7 +221,7 @@ const App: React.FC = () => {
         </style>
         <Routes>
           <Route path="/login" element={!user ? <Login onLogin={handleLogin} schoolLogo={schoolLogo} schoolName={schoolName} /> : <Navigate to="/" />} />
-          <Route path="/*" element={user ? <Layout user={user} displaySettings={displaySettings} onUpdateDisplay={handleUpdateDisplay} onLogout={handleLogout} schoolLogo={schoolLogo} schoolName={schoolName} darkMode={darkMode} setDarkMode={setDarkMode} /> : <Navigate to="/login" />} />
+          <Route path="/*" element={user ? <Layout user={user} branding={brandingData} displaySettings={displaySettings} onUpdateDisplay={handleUpdateDisplay} onLogout={handleLogout} schoolLogo={schoolLogo} schoolName={schoolName} darkMode={darkMode} setDarkMode={setDarkMode} /> : <Navigate to="/login" />} />
         </Routes>
       </div>
     </HashRouter>
@@ -216,8 +230,9 @@ const App: React.FC = () => {
 
 interface LayoutProps {
   user: User;
-  displaySettings: DisplaySettings;
+  branding: { name: string; logo: string | null; address: string; email: string; contact: string; };
   onUpdateDisplay: (settings: DisplaySettings) => void;
+  displaySettings: DisplaySettings;
   onLogout: () => void;
   schoolLogo: string | null;
   schoolName: string;
@@ -225,22 +240,18 @@ interface LayoutProps {
   setDarkMode: (val: boolean) => void;
 }
 
-const Layout: React.FC<LayoutProps> = ({ user, displaySettings, onUpdateDisplay, onLogout, schoolLogo, schoolName, darkMode, setDarkMode }) => {
+const Layout: React.FC<LayoutProps> = ({ user, branding, onUpdateDisplay, displaySettings, onLogout, schoolLogo, schoolName, darkMode, setDarkMode }) => {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
   const [isCloudActive, setIsCloudActive] = useState(true);
   const [isCustomizing, setIsCustomizing] = useState(false);
+  const [isSavingNav, setIsSavingNav] = useState(false);
   
-  const [orderedNav, setOrderedNav] = useState<any[]>([]);
-  const dragItem = useRef<number | null>(null);
-  const dragOverItem = useRef<number | null>(null);
-
-  const location = useLocation();
-  const navigate = useNavigate();
-
-  useEffect(() => {
+  // Persistent Navigation State Initialization
+  const [orderedNav, setOrderedNav] = useState<any[]>(() => {
     const defaultNav = (NAVIGATION as any)[user.role] || [];
-    const savedOrder = localStorage.getItem(`nav_order_${user.role}`);
+    const cloudOrderKey = `nav_order_${user.role}`;
+    const savedOrder = localStorage.getItem(cloudOrderKey);
     
     if (savedOrder) {
       try {
@@ -249,38 +260,110 @@ const Layout: React.FC<LayoutProps> = ({ user, displaySettings, onUpdateDisplay,
           .map(name => defaultNav.find((item: any) => item.name === name))
           .filter(Boolean);
         const remaining = defaultNav.filter((item: any) => !savedNames.includes(item.name));
-        setOrderedNav([...ordered, ...remaining]);
-      } catch (e) { setOrderedNav(defaultNav); }
-    } else { setOrderedNav(defaultNav); }
+        return [...ordered, ...remaining];
+      } catch (e) { return defaultNav; }
+    }
+    return defaultNav;
+  });
+
+  const dragItem = useRef<number | null>(null);
+  const dragOverItem = useRef<number | null>(null);
+
+  const location = useLocation();
+  const navigate = useNavigate();
+
+  // Cloud Sync for Navigation Order
+  const fetchNavigationOrder = async () => {
+    const defaultNav = (NAVIGATION as any)[user.role] || [];
+    try {
+      const settings = await db.settings.getAll();
+      const cloudOrderKey = `nav_order_${user.role}`;
+      const savedOrder = settings[cloudOrderKey];
+      
+      if (savedOrder) {
+        const savedNames = JSON.parse(savedOrder) as string[];
+        const ordered = savedNames
+          .map(name => defaultNav.find((item: any) => item.name === name))
+          .filter(Boolean);
+        const remaining = defaultNav.filter((item: any) => !savedNames.includes(item.name));
+        const finalOrder = [...ordered, ...remaining];
+        
+        setOrderedNav(finalOrder);
+        // Sync local storage with cloud
+        localStorage.setItem(cloudOrderKey, savedOrder);
+      }
+    } catch (e) {
+      console.warn("Could not sync navigation with cloud, using local version.");
+    }
+  };
+
+  useEffect(() => {
+    fetchNavigationOrder();
+    
+    const channel = supabase.channel('nav-order-sync-global')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'settings' }, () => {
+        fetchNavigationOrder();
+      })
+      .subscribe();
+      
+    return () => { supabase.removeChannel(channel); };
   }, [user.role]);
 
   useEffect(() => {
     const interval = setInterval(async () => {
        const { error } = await supabase.from('settings').select('key', { count: 'exact', head: true }).limit(1);
        setIsCloudActive(!error);
-    }, 10000);
+    }, 15000);
     return () => clearInterval(interval);
   }, []);
 
   const handleDragStart = (index: number) => { dragItem.current = index; };
   const handleDragEnter = (index: number) => { dragOverItem.current = index; };
-  const handleDragEnd = () => {
-    if (dragItem.current !== null && dragOverItem.current !== null) {
+  
+  const handleDragEnd = async () => {
+    if (dragItem.current !== null && dragOverItem.current !== null && dragItem.current !== dragOverItem.current) {
       const copyListItems = [...orderedNav];
       const dragItemContent = copyListItems[dragItem.current];
       copyListItems.splice(dragItem.current, 1);
       copyListItems.splice(dragOverItem.current, 0, dragItemContent);
+      
       dragItem.current = null;
       dragOverItem.current = null;
+      
       setOrderedNav(copyListItems);
-      localStorage.setItem(`nav_order_${user.role}`, JSON.stringify(copyListItems.map(i => i.name)));
+      
+      // PERSIST IMMEDIATELY
+      setIsSavingNav(true);
+      const orderNames = copyListItems.map(i => i.name);
+      const jsonOrder = JSON.stringify(orderNames);
+      const cloudKey = `nav_order_${user.role}`;
+      
+      localStorage.setItem(cloudKey, jsonOrder);
+      try {
+        await db.settings.update(cloudKey, jsonOrder);
+      } catch (err) {
+        console.error("Cloud Nav Sync Failed", err);
+      } finally {
+        setTimeout(() => setIsSavingNav(false), 500);
+      }
+    } else {
+      dragItem.current = null;
+      dragOverItem.current = null;
     }
   };
 
-  const resetOrder = () => {
+  const resetOrder = async () => {
+    if (!confirm("Reset sidebar to factory default?")) return;
+    
     const defaultNav = (NAVIGATION as any)[user.role] || [];
     setOrderedNav(defaultNav);
-    localStorage.removeItem(`nav_order_${user.role}`);
+    const cloudKey = `nav_order_${user.role}`;
+    localStorage.removeItem(cloudKey);
+    try {
+      await db.settings.update(cloudKey, null);
+    } catch (err) {
+      console.error("Cloud Nav Reset Failed");
+    }
     setIsCustomizing(false);
   };
 
@@ -321,8 +404,9 @@ const Layout: React.FC<LayoutProps> = ({ user, displaySettings, onUpdateDisplay,
                </button>
             </div>
 
-            <button onClick={() => setIsCustomizing(!isCustomizing)} className={`w-full flex items-center justify-center gap-2 py-2 mt-2 rounded-xl text-[8px] font-black uppercase tracking-widest border transition-all ${isCustomizing ? 'bg-indigo-600 text-white border-indigo-500' : 'bg-slate-50 dark:bg-slate-800 text-slate-400 border-slate-100 dark:border-slate-700 hover:text-indigo-600'}`}>
-              <LayoutTemplate size={12} /> {isCustomizing ? 'Stop Customizing' : 'Customize Menu'}
+            <button onClick={() => setIsCustomizing(!isCustomizing)} className={`w-full flex items-center justify-center gap-2 py-2.5 mt-2 rounded-xl text-[8px] font-black uppercase tracking-widest border transition-all ${isCustomizing ? 'bg-indigo-600 text-white border-indigo-500 shadow-lg' : 'bg-slate-50 dark:bg-slate-800 text-slate-400 border-slate-100 dark:border-slate-700 hover:text-indigo-600'}`}>
+              {isSavingNav ? <Loader2 size={12} className="animate-spin" /> : <LayoutTemplate size={12} />} 
+              {isCustomizing ? 'Stop Customizing' : 'Customize Menu'}
             </button>
           </div>
 
@@ -330,9 +414,25 @@ const Layout: React.FC<LayoutProps> = ({ user, displaySettings, onUpdateDisplay,
             {orderedNav.map((item: any, index: number) => {
               const isActive = location.pathname === item.path;
               return (
-                <div key={item.name} draggable={isCustomizing} onDragStart={() => handleDragStart(index)} onDragEnter={() => handleDragEnter(index)} onDragEnd={handleDragEnd} onDragOver={(e) => e.preventDefault()} className={`relative flex items-center group ${isCustomizing ? 'cursor-grab active:cursor-grabbing' : ''}`}>
-                  {isCustomizing && <div className="absolute -left-2 text-indigo-400 opacity-50 group-hover:opacity-100"><GripVertical size={14} /></div>}
-                  <Link to={isCustomizing ? '#' : item.path} onClick={(e) => { if (isCustomizing) e.preventDefault(); else setSidebarOpen(false); }} className={`flex-1 flex items-center gap-3 px-4 py-3 rounded-lg transition-all ${isActive ? 'bg-indigo-600 text-white font-semibold shadow-lg shadow-indigo-100' : 'text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800/50 hover:text-indigo-600'} ${isCustomizing ? 'pointer-events-none' : ''}`}>
+                <div 
+                  key={item.name} 
+                  draggable={isCustomizing} 
+                  onDragStart={() => handleDragStart(index)} 
+                  onDragEnter={() => handleDragEnter(index)} 
+                  onDragEnd={handleDragEnd} 
+                  onDragOver={(e) => e.preventDefault()} 
+                  className={`relative flex items-center group transition-all ${isCustomizing ? 'cursor-grab active:cursor-grabbing hover:bg-slate-50 dark:hover:bg-slate-800/50 rounded-lg border border-transparent hover:border-indigo-100' : ''}`}
+                >
+                  {isCustomizing && (
+                    <div className="absolute left-1 text-indigo-400 opacity-50 group-hover:opacity-100 transition-opacity">
+                      <GripVertical size={14} />
+                    </div>
+                  )}
+                  <Link 
+                    to={isCustomizing ? '#' : item.path} 
+                    onClick={(e) => { if (isCustomizing) e.preventDefault(); else setSidebarOpen(false); }} 
+                    className={`flex-1 flex items-center gap-3 px-4 py-3 rounded-lg transition-all ${isActive ? 'bg-indigo-600 text-white font-semibold shadow-lg shadow-indigo-100' : 'text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800/50 hover:text-indigo-600'} ${isCustomizing ? 'pointer-events-none ml-4' : ''}`}
+                  >
                     <span className={`${isActive ? 'text-white' : 'text-slate-400 dark:text-slate-500'}`}>{item.icon}</span>
                     <span className="text-[10px] font-bold uppercase tracking-widest">{item.name}</span>
                   </Link>
@@ -342,7 +442,7 @@ const Layout: React.FC<LayoutProps> = ({ user, displaySettings, onUpdateDisplay,
           </nav>
 
           <div className="p-4 border-t border-slate-100 dark:border-slate-800 space-y-3 relative z-10">
-            {isCustomizing && <button onClick={resetOrder} className="w-full flex items-center justify-center gap-2 py-3 mb-2 bg-slate-100 dark:bg-slate-800 text-slate-500 rounded-xl font-black text-[10px] uppercase tracking-widest hover:text-rose-500 transition-all"><RotateCcw size={14} /> Reset Order</button>}
+            {isCustomizing && <button onClick={resetOrder} className="w-full flex items-center justify-center gap-2 py-3 mb-2 bg-slate-100 dark:bg-slate-800 text-slate-500 rounded-xl font-black text-[10px] uppercase tracking-widest hover:text-rose-500 transition-all shadow-sm"><RotateCcw size={14} /> Factory Reset</button>}
             <div className={`px-4 py-2 flex items-center justify-between text-[8px] font-black uppercase tracking-widest rounded-lg border ${isCloudActive ? 'bg-emerald-50 dark:bg-emerald-950/20 text-emerald-600 border-emerald-100 dark:border-emerald-900' : 'bg-rose-50 dark:bg-rose-950/20 text-rose-600 border-rose-100 dark:border-rose-900'}`}>
               <div className="flex items-center gap-2"><Activity size={10} className={isCloudActive ? 'animate-pulse' : ''} /><span>Cloud {isCloudActive ? 'Active' : 'Offline'}</span></div>
               {isCloudActive && <Check size={10} />}
@@ -369,7 +469,7 @@ const Layout: React.FC<LayoutProps> = ({ user, displaySettings, onUpdateDisplay,
         <main className="flex-1 p-4 lg:p-8 overflow-y-auto relative">
           <Routes>
             <Route path="/" element={<Navigate to={`/${user.role.toLowerCase()}/dashboard`} />} />
-            <Route path="/admin/dashboard" element={<Dashboard user={user} schoolLogo={schoolLogo} onUpdateLogo={() => navigate('/admin/branding')} />} />
+            <Route path="/admin/dashboard" element={<Dashboard user={user} branding={branding} onUpdateLogo={() => navigate('/admin/branding')} />} />
             <Route path="/admin/branding" element={<SchoolSettings user={user} />} />
             <Route path="/admin/display-config" element={<DisplayConfigure user={user} settings={displaySettings} onUpdateSettings={onUpdateDisplay} />} />
             <Route path="/admin/students" element={<StudentsManager user={user} />} />
@@ -398,11 +498,11 @@ const Layout: React.FC<LayoutProps> = ({ user, displaySettings, onUpdateDisplay,
             <Route path="/admin/notices" element={<NoticeBoard user={user} />} />
             <Route path="/admin/audit" element={<AuditLog user={user} />} />
             
-            <Route path="/teacher/dashboard" element={<Dashboard user={user} schoolLogo={schoolLogo} onUpdateLogo={() => {}} />} />
+            <Route path="/teacher/dashboard" element={<Dashboard user={user} branding={branding} onUpdateLogo={() => {}} />} />
             <Route path="/teacher/attendance" element={<Attendance user={user} />} />
             <Route path="/teacher/homework" element={<Homework user={user} />} />
             <Route path="/teacher/marks-entry" element={<MarksEntry user={user} />} />
-            <Route path="/student/dashboard" element={<Dashboard user={user} schoolLogo={schoolLogo} onUpdateLogo={() => {}} />} />
+            <Route path="/student/dashboard" element={<Dashboard user={user} branding={branding} onUpdateLogo={() => {}} />} />
             <Route path="/student/attendance" element={<Attendance user={user} />} />
             <Route path="/student/marksheet" element={<MarksheetGenerator user={user} schoolLogo={schoolLogo} />} />
           </Routes>
