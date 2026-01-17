@@ -90,7 +90,6 @@ export const db = {
       return data;
     },
     async upsert(student: any) {
-      // Clean and Map Payload for Database (snake_case)
       const payload: any = {
         full_name: student.fullName || student.name || 'Unnamed Student',
         email: student.email || null,
@@ -117,24 +116,16 @@ export const db = {
         mother_photo: student.motherPhoto || null
       };
 
-      // Ensure primary key is included only if it exists and is valid
       if (student.id && student.id.length > 20 && !student.id.includes('-master')) {
         payload.id = student.id;
       }
 
-      // Robust Upsert: If ID matches, update ID. If ID doesn't exist but gr_number matches, update gr_number.
       const { data, error } = await supabase
         .from('students')
-        .upsert(payload, { 
-          onConflict: 'gr_number', // Priority: resolve conflicts on GR Number if no valid PKEY ID
-          ignoreDuplicates: false 
-        })
+        .upsert(payload, { onConflict: 'gr_number', ignoreDuplicates: false })
         .select();
         
-      if (error) {
-        console.error("Database Student Sync Error:", error);
-        throw error;
-      }
+      if (error) throw error;
       return data;
     },
     async delete(id: string) {
@@ -373,7 +364,9 @@ export const db = {
       return true;
     },
     async getLedger() {
-      const { data, error } = await supabase.from('fee_ledger').select('*, students(full_name, gr_number)').order('created_at', { ascending: false });
+      // FIX: Removed the nested join query to prevent PGRST200 error.
+      // We will manual join the student names in the frontend component.
+      const { data, error } = await supabase.from('fee_ledger').select('*').order('created_at', { ascending: false });
       if (error) throw error;
       return data;
     },

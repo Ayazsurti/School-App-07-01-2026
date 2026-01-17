@@ -29,7 +29,8 @@ import {
   Banknote,
   Stamp,
   Palette,
-  BarChart3
+  BarChart3,
+  Globe
 } from 'lucide-react';
 import { TimetableEntry, Student } from './types';
 
@@ -51,6 +52,7 @@ export const NAVIGATION = {
     { name: 'Food Chart', icon: <UtensilsCrossed size={20} />, path: '/admin/food-chart' },
     { name: 'SMS Panel', icon: <MessageSquareQuote size={20} />, path: '/admin/sms' },
     { name: 'Fee Management', icon: <Banknote size={20} />, path: '/admin/fees/management' },
+    { name: 'Online Fees Payment', icon: <Globe size={20} />, path: '/admin/fees/management' },
     { name: 'Fee Setup', icon: <Settings2 size={20} />, path: '/admin/fees/setup' },
     { name: 'Studentwise Fee', icon: <BadgeDollarSign size={20} />, path: '/admin/fees/studentwise' },
     { name: 'Receipt Config', icon: <Settings size={20} />, path: '/admin/fees/receipt-config' },
@@ -72,6 +74,7 @@ export const NAVIGATION = {
     { name: 'Food Chart', icon: <UtensilsCrossed size={20} />, path: '/teacher/food-chart' },
     { name: 'SMS Panel', icon: <MessageSquareQuote size={20} />, path: '/teacher/sms' },
     { name: 'Fee Management', icon: <Banknote size={20} />, path: '/teacher/fees' },
+    { name: 'Online Fees Payment', icon: <Globe size={20} />, path: '/teacher/fees' },
     { name: 'Notices', icon: <Bell size={20} />, path: '/teacher/notices' },
   ],
   STUDENT: [
@@ -81,6 +84,7 @@ export const NAVIGATION = {
     { name: 'Homework', icon: <PencilRuler size={20} />, path: '/student/homework' },
     { name: 'Food Chart', icon: <UtensilsCrossed size={20} />, path: '/student/food-chart' },
     { name: 'Fees', icon: <CreditCard size={20} />, path: '/student/fees' },
+    { name: 'Online Fees Payment', icon: <Globe size={20} />, path: '/student/fees' },
     { name: 'Timetable', icon: <CalendarDays size={20} />, path: '/student/timetable' },
     { name: 'Notice Board', icon: <Bell size={20} />, path: '/student/notices' },
   ]

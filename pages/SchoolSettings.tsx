@@ -17,7 +17,11 @@ import {
   Camera,
   RotateCcw,
   AlertTriangle,
-  X
+  X,
+  Building2,
+  CreditCard,
+  QrCode,
+  Zap
 } from 'lucide-react';
 
 interface SchoolSettingsProps { user: User; }
@@ -34,7 +38,11 @@ const SchoolSettings: React.FC<SchoolSettingsProps> = ({ user }) => {
     school_address: '',
     school_contact: '',
     school_email: '',
-    school_logo: ''
+    school_logo: '',
+    school_bank_name: '',
+    school_account_no: '',
+    school_ifsc: '',
+    school_upi_id: ''
   });
 
   const fetchBranding = async () => {
@@ -45,7 +53,11 @@ const SchoolSettings: React.FC<SchoolSettingsProps> = ({ user }) => {
         school_address: settings.school_address || '',
         school_contact: settings.school_contact || '',
         school_email: settings.school_email || '',
-        school_logo: settings.school_logo || ''
+        school_logo: settings.school_logo || '',
+        school_bank_name: settings.school_bank_name || '',
+        school_account_no: settings.school_account_no || '',
+        school_ifsc: settings.school_ifsc || '',
+        school_upi_id: settings.school_upi_id || ''
       });
     } catch (err) { 
       console.error("Identity Fetch Error:", err); 
@@ -62,7 +74,7 @@ const SchoolSettings: React.FC<SchoolSettingsProps> = ({ user }) => {
     const file = e.target.files?.[0];
     if (file) {
       if (file.size > 800 * 1024) {
-        alert("Photo size bahut zyada hai! Please 800KB se kam ki photo upload karein taaki cloud speed fast rahe.");
+        alert("Photo size too large! Please use under 800KB.");
         return;
       }
       const reader = new FileReader();
@@ -81,7 +93,7 @@ const SchoolSettings: React.FC<SchoolSettingsProps> = ({ user }) => {
       setShowSuccess(true);
       setTimeout(() => setShowSuccess(false), 3000);
     } catch (err) { 
-      alert("Logo delete nahi ho paya. Cloud connection check karein."); 
+      alert("Logo delete failed."); 
     } finally { 
       setSyncing(false); 
     }
@@ -91,16 +103,15 @@ const SchoolSettings: React.FC<SchoolSettingsProps> = ({ user }) => {
     e.preventDefault();
     setSyncing(true);
     try {
-      // Logic to save all fields to cloud
       const entries = Object.entries(formData) as [string, string][];
       for (const [key, value] of entries) {
         await db.settings.update(key, value || null);
       }
-      createAuditLog(user, 'UPDATE', 'Identity', `School Identity Updated: ${formData.school_name}`);
+      createAuditLog(user, 'UPDATE', 'Identity', `Institutional configurations synced: ${formData.school_name}`);
       setShowSuccess(true);
       setTimeout(() => setShowSuccess(false), 3000);
     } catch (err) { 
-      alert("Cloud Sync Fail: Database check karein."); 
+      alert("Cloud Sync Failed."); 
     } finally { 
       setSyncing(false); 
     }
@@ -110,7 +121,7 @@ const SchoolSettings: React.FC<SchoolSettingsProps> = ({ user }) => {
     return (
       <div className="py-40 flex flex-col items-center justify-center">
         <Loader2 size={64} className="animate-spin text-indigo-600 mb-6" />
-        <p className="font-black text-xs uppercase tracking-widest text-slate-400">Loading Cloud Branding...</p>
+        <p className="font-black text-xs uppercase tracking-widest text-slate-400">Loading Cloud Node...</p>
       </div>
     );
   }
@@ -123,7 +134,7 @@ const SchoolSettings: React.FC<SchoolSettingsProps> = ({ user }) => {
               <CheckCircle2 size={24} strokeWidth={3} />
               <div>
                  <p className="font-black text-xs uppercase tracking-widest">SAVED TO CLOUD</p>
-                 <p className="text-[10px] font-bold text-emerald-100 uppercase mt-0.5">School Branding Updated</p>
+                 <p className="text-[10px] font-bold text-emerald-100 uppercase mt-0.5">Configuration Updated</p>
               </div>
            </div>
         </div>
@@ -135,8 +146,8 @@ const SchoolSettings: React.FC<SchoolSettingsProps> = ({ user }) => {
               <div className="w-20 h-20 bg-rose-50 dark:bg-rose-900/20 text-rose-600 rounded-3xl flex items-center justify-center mb-6 mx-auto">
                  <AlertTriangle size={40} />
               </div>
-              <h3 className="text-2xl font-black text-slate-900 dark:text-white mb-2 uppercase">Logo Delete Karein?</h3>
-              <p className="text-slate-500 text-xs mb-8 uppercase font-bold">Ye logo receipts aur ID cards se hat jayega.</p>
+              <h3 className="text-2xl font-black text-slate-900 dark:text-white mb-2 uppercase">Purge Logo?</h3>
+              <p className="text-slate-500 text-xs mb-8 uppercase font-bold">This will affect receipts and ID cards globally.</p>
               <div className="grid grid-cols-2 gap-4">
                  <button onClick={() => setShowDeleteConfirm(false)} className="py-4 bg-slate-100 dark:bg-slate-800 text-slate-600 font-black rounded-2xl uppercase text-[10px]">Cancel</button>
                  <button onClick={deleteLogo} className="py-4 bg-rose-600 text-white font-black rounded-2xl uppercase text-[10px]">Delete</button>
@@ -147,8 +158,8 @@ const SchoolSettings: React.FC<SchoolSettingsProps> = ({ user }) => {
 
       <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6">
         <div>
-          <h1 className="text-4xl font-black text-slate-900 dark:text-white tracking-tight uppercase flex items-center gap-3">School Branding <Stamp className="text-indigo-600" /></h1>
-          <p className="text-slate-500 dark:text-slate-400 font-medium">Yahan se aap School ka Naam aur Logo badal sakte hain.</p>
+          <h1 className="text-4xl font-black text-slate-900 dark:text-white tracking-tight uppercase flex items-center gap-3">Institutional Setup <Stamp className="text-indigo-600" /></h1>
+          <p className="text-slate-500 dark:text-slate-400 font-medium">Configure branding and fiscal payment gateways.</p>
         </div>
       </div>
 
@@ -176,8 +187,54 @@ const SchoolSettings: React.FC<SchoolSettingsProps> = ({ user }) => {
                  </div>
                  <input type="file" ref={fileInputRef} className="hidden" accept="image/*" onChange={handleLogoUpload} />
               </div>
-              <h3 className="font-black text-slate-900 dark:text-white uppercase text-sm">School Logo</h3>
-              <p className="text-[10px] text-slate-400 uppercase font-bold mt-1 text-center">PNG ya JPG use karein (Max 800KB)</p>
+              <h3 className="font-black text-slate-900 dark:text-white uppercase text-sm">Official Seal</h3>
+              <p className="text-[10px] text-slate-400 uppercase font-bold mt-1 text-center">Public Identity Token</p>
+           </div>
+
+           <div className="bg-slate-900 rounded-[2.5rem] p-8 text-white shadow-2xl space-y-6">
+              <h4 className="font-black text-xs uppercase tracking-widest text-indigo-400 flex items-center gap-2"><Building2 size={14}/> Fiscal Gateway Setup</h4>
+              <div className="space-y-4">
+                 <div className="space-y-1">
+                    <label className="text-[8px] font-black text-slate-500 uppercase">School UPI ID (For GPay/PhonePe)</label>
+                    <input 
+                      type="text" 
+                      value={formData.school_upi_id}
+                      onChange={e => setFormData({...formData, school_upi_id: e.target.value})}
+                      className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-xs font-bold outline-none focus:border-indigo-500" 
+                      placeholder="merchant@upi" 
+                    />
+                 </div>
+                 <div className="space-y-1">
+                    <label className="text-[8px] font-black text-slate-500 uppercase">Bank Name</label>
+                    <input 
+                      type="text" 
+                      value={formData.school_bank_name}
+                      onChange={e => setFormData({...formData, school_bank_name: e.target.value})}
+                      className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-xs font-bold outline-none focus:border-indigo-500" 
+                      placeholder="e.g., STATE BANK OF INDIA" 
+                    />
+                 </div>
+                 <div className="space-y-1">
+                    <label className="text-[8px] font-black text-slate-500 uppercase">Account Number</label>
+                    <input 
+                      type="text" 
+                      value={formData.school_account_no}
+                      onChange={e => setFormData({...formData, school_account_no: e.target.value})}
+                      className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-xs font-bold outline-none focus:border-indigo-500" 
+                      placeholder="0000XXXXXXXX" 
+                    />
+                 </div>
+                 <div className="space-y-1">
+                    <label className="text-[8px] font-black text-slate-500 uppercase">IFSC Code</label>
+                    <input 
+                      type="text" 
+                      value={formData.school_ifsc}
+                      onChange={e => setFormData({...formData, school_ifsc: e.target.value})}
+                      className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-xs font-bold outline-none focus:border-indigo-500 uppercase" 
+                      placeholder="SBIN0001234" 
+                    />
+                 </div>
+              </div>
            </div>
         </div>
 
@@ -185,7 +242,7 @@ const SchoolSettings: React.FC<SchoolSettingsProps> = ({ user }) => {
            <div className="bg-white dark:bg-slate-900 rounded-[3rem] shadow-sm border border-slate-100 dark:border-slate-800 p-10 space-y-8">
               <div className="group">
                  <div className="flex justify-between items-end mb-2 ml-1">
-                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">School Ka Poora Naam</label>
+                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Institutional Title</label>
                     <button type="button" onClick={() => setFormData({...formData, school_name: 'Deen-E-Islam School'})} className="text-[9px] font-black text-indigo-500 uppercase tracking-widest hover:underline flex items-center gap-1"><RotateCcw size={10}/> Reset</button>
                  </div>
                  <input 
@@ -199,20 +256,20 @@ const SchoolSettings: React.FC<SchoolSettingsProps> = ({ user }) => {
               </div>
 
               <div>
-                 <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2 block ml-1">School Ka Address (Address Line)</label>
+                 <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2 block ml-1">Geographic Registry Address</label>
                  <textarea 
                   rows={2}
                   required 
                   value={formData.school_address} 
                   onChange={e => setFormData({...formData, school_address: e.target.value})}
                   className="w-full bg-slate-50 dark:bg-slate-800 border-2 border-transparent focus:border-indigo-500 rounded-2xl px-6 py-4 font-bold text-slate-800 dark:text-white outline-none"
-                  placeholder="Pata Likhein (Receipts par print hoga)"
+                  placeholder="Official Address for Certificates"
                  />
               </div>
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                  <div>
-                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2 block ml-1">Email Address</label>
+                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2 block ml-1">Central Data Channel (Email)</label>
                     <div className="relative">
                        <Mail className="absolute left-5 top-1/2 -translate-y-1/2 text-slate-300" size={18} />
                        <input 
@@ -225,7 +282,7 @@ const SchoolSettings: React.FC<SchoolSettingsProps> = ({ user }) => {
                     </div>
                  </div>
                  <div>
-                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2 block ml-1">Mobile / Contact</label>
+                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2 block ml-1">Institutional Hotline</label>
                     <div className="relative">
                        <Phone className="absolute left-5 top-1/2 -translate-y-1/2 text-slate-300" size={18} />
                        <input 
@@ -246,7 +303,7 @@ const SchoolSettings: React.FC<SchoolSettingsProps> = ({ user }) => {
                   className="w-full py-6 bg-indigo-600 text-white font-black rounded-3xl shadow-xl hover:bg-indigo-700 transition-all uppercase text-xs tracking-widest flex items-center justify-center gap-3 disabled:opacity-50"
                  >
                     {syncing ? <Loader2 className="animate-spin" size={20} /> : <Save size={20} />}
-                    Save Branding to Cloud
+                    Sync All Institutional Configs
                  </button>
               </div>
            </div>

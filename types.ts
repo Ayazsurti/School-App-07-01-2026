@@ -11,6 +11,25 @@ export interface DisplaySettings {
   glassBlur: number;
 }
 
+export type PaymentStatus = 'PAID' | 'PARTIAL' | 'DUE';
+export type PaymentMode = 'CASH' | 'UPI' | 'GOOGLE_PAY' | 'PHONE_PE' | 'DEBIT_CARD' | 'CREDIT_CARD' | 'BANK_TRANSFER';
+
+export interface QuarterFee {
+  total: number;
+  paid: number;
+  pending: number;
+  status: PaymentStatus;
+  mode?: PaymentMode;
+  date?: string;
+}
+
+export interface StudentFees {
+  q1: QuarterFee;
+  q2: QuarterFee;
+  q3: QuarterFee;
+  q4: QuarterFee;
+}
+
 export interface User {
   id: string;
   name: string;
@@ -50,6 +69,7 @@ export interface Student extends User {
   remarks?: string;
   fatherPhoto?: string;
   motherPhoto?: string;
+  fees?: StudentFees;
 }
 
 export interface Teacher extends User {
@@ -70,10 +90,8 @@ export interface Teacher extends User {
   assignedClass?: string;
   assignedSection?: string;
   lastLogin?: string;
-  // New Identity Fields
   aadharNo?: string;
   panNo?: string;
-  // Bank Account Details
   accountNo?: string;
   accountType?: 'SAVINGS' | 'CURRENT';
   bankName?: string;
@@ -82,47 +100,6 @@ export interface Teacher extends User {
   branchAddress?: string;
   branchCode?: string;
   branchPhone?: string;
-}
-
-export interface ExamSubject {
-  subjectName: string;
-  maxTheory: number;
-  maxPractical: number;
-  maxOral?: number;
-  weightage?: number;
-}
-
-export interface ExamSchedule {
-  id: string;
-  examId: string;
-  subject: string;
-  date: string;
-  startTime: string;
-  endTime: string;
-  room?: string;
-  invigilator?: string;
-}
-
-export interface GradeRule {
-  id: string;
-  grade: string;
-  minPercent: number;
-  maxPercent: number;
-  point: number;
-  remark: string;
-}
-
-export interface Exam {
-  id: string;
-  name: string;
-  academicYear: string;
-  className: string;
-  startDate: string;
-  endDate: string;
-  examType: 'WRITTEN' | 'ORAL' | 'PRACTICAL' | 'MCQ';
-  mode: 'ONLINE' | 'OFFLINE';
-  status: 'DRAFT' | 'PUBLISHED' | 'COMPLETED';
-  subjects: ExamSubject[];
 }
 
 export interface FeeCategory {
@@ -136,6 +113,7 @@ export interface FeeStructure {
   fees: {
     categoryId: string;
     amount: number;
+    quarter?: 'Q1' | 'Q2' | 'Q3' | 'Q4';
   }[];
 }
 
@@ -147,25 +125,34 @@ export interface AttendanceRecord {
   markedBy: string;
 }
 
-export interface SubjectMarks {
+export interface ExamSubject {
   subjectName: string;
-  theoryMarks: number;
-  practicalMarks: number;
-  totalMarks: number;
-  grade: string;
-  isLocked: boolean;
+  maxTheory: number;
+  maxPractical: number;
 }
 
-export interface Marksheet {
+export interface Exam {
   id: string;
-  studentId: string;
-  examId: string;
-  marks: SubjectMarks[];
-  totalPercentage: number;
-  overallGrade: string;
-  rank: number;
-  remarks: string;
-  isResultPublished: boolean;
+  name: string;
+  academicYear: string;
+  className: string;
+  startDate: string;
+  endDate: string;
+  examType: 'WRITTEN' | 'ORAL' | 'PRACTICAL' | 'MCQ';
+  mode: 'ONLINE' | 'OFFLINE';
+  status: 'DRAFT' | 'PUBLISHED' | 'COMPLETED';
+  subjects?: ExamSubject[];
+}
+
+export interface ExamSchedule {
+  id?: string;
+  exam_id?: string;
+  subject: string;
+  date: string;
+  startTime: string;
+  endTime: string;
+  room?: string;
+  invilogator?: string;
 }
 
 export interface FeeRecord {
@@ -176,6 +163,37 @@ export interface FeeRecord {
   status: 'PAID' | 'PENDING' | 'OVERDUE';
   type: string;
   receiptNo: string;
+  quarter?: string;
+  mode?: string;
+}
+
+export interface TimetableEntry {
+  id: string;
+  day: 'Monday' | 'Tuesday' | 'Wednesday' | 'Thursday' | 'Friday' | 'Saturday' | 'Sunday';
+  startTime: string;
+  endTime: string;
+  subject: string;
+  teacherId: string;
+  teacherName: string;
+  className: string;
+  section: string;
+  color?: string;
+}
+
+export interface NoticeMedia {
+  url: string;
+  type: 'pdf' | 'image' | 'video' | string;
+  name?: string;
+}
+
+export interface Notice {
+  id: string;
+  title: string;
+  content: string;
+  category: string;
+  date: string;
+  postedBy: string;
+  attachments: NoticeMedia[];
 }
 
 export interface MediaAsset {
@@ -188,20 +206,13 @@ export interface MediaAsset {
   uploadedBy: string;
 }
 
-export interface NoticeMedia {
-  url: string;
-  type: 'image' | 'video' | 'pdf';
-  name: string;
-}
-
-export interface Notice {
+export interface GradeRule {
   id: string;
-  title: string;
-  content: string;
-  date: string;
-  category: 'URGENT' | 'GENERAL' | 'ACADEMIC' | 'EVENT';
-  postedBy: string;
-  attachments?: NoticeMedia[];
+  grade: string;
+  minPercent: number;
+  maxPercent: number;
+  point: number;
+  remark: string;
 }
 
 export interface Homework {
@@ -211,30 +222,8 @@ export interface Homework {
   subject: string;
   className: string;
   section: string;
-  due_date: string;
+  dueDate: string;
   createdAt: string;
   createdBy: string;
   attachment?: NoticeMedia;
-}
-
-export interface CurriculumItem {
-  id: string;
-  class: string;
-  subject: string;
-  topic: string;
-  description: string;
-}
-
-export interface TimetableEntry {
-  id: string;
-  day: 'Monday' | 'Tuesday' | 'Wednesday' | 'Thursday' | 'Friday' | 'Saturday';
-  startTime: string;
-  endTime: string;
-  subject: string;
-  teacherId: string;
-  teacherName: string;
-  className: string;
-  section: string;
-  room?: string;
-  color?: string;
 }
