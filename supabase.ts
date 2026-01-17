@@ -1,7 +1,10 @@
 
 import { createClient } from '@supabase/supabase-js';
 
+// Fallbacks for local development if VITE environment variables are not set
+// Fix: Property 'env' does not exist on type 'ImportMeta'. Using any to bypass TS check for Vite-specific property.
 const supabaseUrl = (import.meta as any).env?.VITE_SUPABASE_URL || 'https://qfordtxirmjeogqthbtv.supabase.co';
+// Fix: Property 'env' does not exist on type 'ImportMeta'. Using any to bypass TS check for Vite-specific property.
 const supabaseAnonKey = (import.meta as any).env?.VITE_SUPABASE_ANON_KEY || 'sb_publishable_UM7jqQWzi2dxxow1MmAEZA_V1zwXxmt';
 
 export const supabase = createClient(supabaseUrl, supabaseAnonKey);
@@ -61,7 +64,6 @@ export const db = {
         
       if (error) throw error;
       
-      // Fix: Include class and section in return object to match expectations in Login.tsx
       return {
         id: data.id,
         full_name: data.name || data.full_name,
@@ -74,20 +76,11 @@ export const db = {
     }
   },
   sms: {
-    /**
-     * REAL SMS INTEGRATION: Fast2SMS Gateway with WhatsApp Reporting Support
-     */
     async sendOTP(mobile: string, otp: string) {
       const apiKey = 'xgRhvXwkUOItuDdWMEoN6pFYqaH0BZLrPQ4C913snSGeb8fTVicV8rvzN5YIosOdai96bejph01UKyLP';
-      
-      // Note: Using a CORS proxy for browser-side testing. 
-      // In production, this call must move to a backend function.
-      const proxyUrl = 'https://cors-anywhere.herokuapp.com/';
       const apiUrl = 'https://www.fast2sms.com/dev/bulkV2';
 
       try {
-        console.log(`[SMS Gateway] Initiating dispatch for +91${mobile}`);
-        
         const response = await fetch(apiUrl, {
           method: 'POST',
           headers: { 
@@ -103,7 +96,6 @@ export const db = {
         
         const result = await response.json();
         
-        // Generate a detailed report in the format requested by user
         const deliveryReport = {
           "type": "status_update",
           "request_id": result.request_id || "wamid." + Math.random().toString(36).substr(2, 9).toUpperCase(),
@@ -114,17 +106,12 @@ export const db = {
           "errors": result.return ? null : result.message
         };
 
-        console.log("[SMS Delivery Protocol Report]", deliveryReport);
-
         if (result.return === true) {
           return { ...result, report: deliveryReport };
         } else {
           throw new Error(result.message || "Fast2SMS rejected the request.");
         }
       } catch (err: any) {
-        console.warn("Direct API call failed. Generating local debug token.", err.message);
-        
-        // FALLBACK: User-provided report structure for local testing
         const fallbackReport = {
           "type": "status_update",
           "request_id": "DEBUG-MODE-" + Math.random().toString(36).substr(2, 5).toUpperCase(),
@@ -133,12 +120,6 @@ export const db = {
           "timestamp": Math.floor(Date.now() / 1000),
           "otp_token": otp
         };
-        
-        console.log("-----------------------------------------");
-        console.log("CRITICAL SECURITY TOKEN ->", otp);
-        console.log("PROTOCOL REPORT:", fallbackReport);
-        console.log("-----------------------------------------");
-        
         return { return: true, simulated: true, report: fallbackReport };
       }
     }
@@ -251,7 +232,7 @@ export const db = {
         staff_id: teacher.staffId,
         subject: teacher.subject || (teacher.subjects ? teacher.subjects.join(', ') : 'General'),
         mobile: teacher.mobile,
-        alternate_mobile: teacher.alternateMobile || null,
+        alternate_mobile: teacher.alternate_mobile || null,
         email: teacher.email,
         qualification: teacher.qualification,
         residence_address: teacher.residenceAddress,
