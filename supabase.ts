@@ -1,10 +1,10 @@
 
 import { createClient } from '@supabase/supabase-js';
 
-// Fallbacks for local development if VITE environment variables are not set
-// Fix: Property 'env' does not exist on type 'ImportMeta'. Using any to bypass TS check for Vite-specific property.
+// Access environment variables using Vite's standard approach
+// Added type assertion to any to resolve ImportMeta 'env' property error
 const supabaseUrl = (import.meta as any).env?.VITE_SUPABASE_URL || 'https://qfordtxirmjeogqthbtv.supabase.co';
-// Fix: Property 'env' does not exist on type 'ImportMeta'. Using any to bypass TS check for Vite-specific property.
+// Added type assertion to any to resolve ImportMeta 'env' property error
 const supabaseAnonKey = (import.meta as any).env?.VITE_SUPABASE_ANON_KEY || 'sb_publishable_UM7jqQWzi2dxxow1MmAEZA_V1zwXxmt';
 
 export const supabase = createClient(supabaseUrl, supabaseAnonKey);

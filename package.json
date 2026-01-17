@@ -3,41 +3,11 @@
   "name": "deen-e-islam-school-app",
   "version": "1.0.0",
   "description": "Professional School Management System",
-  "main": "electron-main.js",
   "scripts": {
     "start": "vite",
     "dev": "vite",
     "build": "vite build",
-    "preview": "vite preview",
-    "electron:dev": "electron .",
-    "electron:start": "electron .",
-    "dist": "vite build && electron-builder"
-  },
-  "build": {
-    "appId": "com.deen.school",
-    "productName": "EduManagePro_Setup",
-    "directories": {
-      "output": "dist-exe"
-    },
-    "win": {
-      "target": "portable",
-      "icon": "public/icon.ico"
-    },
-    "files": [
-      "dist/**/*",
-      "electron-main.js",
-      "package.json"
-    ],
-    "extraResources": [
-      {
-        "from": "public",
-        "to": "public",
-        "filter": [
-          "**/*"
-        ]
-      }
-    ],
-    "publish": null
+    "preview": "vite preview"
   },
   "dependencies": {
     "react": "^19.0.0",
@@ -52,9 +22,7 @@
   "devDependencies": {
     "@vitejs/plugin-react": "^4.3.0",
     "vite": "^6.0.0",
-    "typescript": "^5.7.0",
-    "electron": "^31.0.0",
-    "electron-builder": "^24.13.0"
+    "typescript": "^5.7.0"
   },
   "author": "Deen-E-Islam School",
   "license": "ISC"
