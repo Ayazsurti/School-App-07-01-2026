@@ -42,7 +42,6 @@ export const NAVIGATION = {
     { name: 'School Branding', icon: <Stamp size={20} />, path: '/admin/branding' },
     { name: 'Display Configure', icon: <Palette size={20} />, path: '/admin/display-config' },
     { name: 'Student Management', icon: <Users size={20} />, path: '/admin/students' },
-    { name: 'Students General Reports', icon: <BarChart3 size={20} />, path: '/admin/reports' },
     { name: 'ID Card Gen', icon: <CreditCard size={20} />, path: '/admin/id-cards' },
     { name: 'Teacher Management', icon: <UserCheck size={20} />, path: '/admin/teachers' },
     { name: 'Homework', icon: <PencilRuler size={20} />, path: '/admin/homework' },

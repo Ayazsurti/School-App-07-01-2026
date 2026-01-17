@@ -2,19 +2,17 @@
 import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { User, Student } from '../types';
 import { createAuditLog } from '../utils/auditLogger';
-import { supabase, db } from '../supabase';
 import { 
   Plus, Search, Trash2, Edit2, X, UserPlus, User as UserIcon, Camera, Upload, 
   CheckCircle2, ShieldCheck, Smartphone, Loader2, RefreshCw,
   GraduationCap, FileSpreadsheet, FileDown, FileSearch, MapPin, 
   CreditCard, Calendar, Eye, StopCircle, Mail, Fingerprint, Tags,
-  Users, Check
+  Users, Check, ArrowRight
 } from 'lucide-react';
-import { APP_NAME } from '../constants';
+import { db, supabase } from '../supabase';
 
 interface StudentsManagerProps { user: User; }
 const ALL_CLASSES = ['Nursery', 'LKG', 'UKG', '1st', '2nd', '3rd', '4th', '5th', '6th', '7th', '8th', '9th', '10th', '11th', '12th'];
-const ALL_SECTIONS = ['A', 'B', 'C', 'D', 'E'];
 
 const StudentsManager: React.FC<StudentsManagerProps> = ({ user }) => {
   const [students, setStudents] = useState<Student[]>([]);
@@ -64,14 +62,13 @@ const StudentsManager: React.FC<StudentsManagerProps> = ({ user }) => {
         residenceAddress: s.residence_address,
         gender: s.gender,
         dob: s.dob,
-        admission_date: s.admission_date,
         admissionDate: s.admission_date,
         aadharNo: s.aadhar_no,
         panNo: s.pan_no,
         uidId: s.uid_id,
         penNo: s.pen_no,
         studentType: s.student_type,
-        birth_place: s.birth_place,
+        birthPlace: s.birth_place,
         fatherPhoto: s.father_photo,
         motherPhoto: s.mother_photo
       }));
@@ -84,7 +81,7 @@ const StudentsManager: React.FC<StudentsManagerProps> = ({ user }) => {
 
   useEffect(() => {
     fetchCloudData();
-    const channel = supabase.channel('realtime-students')
+    const channel = supabase.channel('realtime-students-v11')
       .on('postgres_changes', { event: '*', schema: 'public', table: 'students' }, () => {
         setIsSyncing(true);
         fetchCloudData().then(() => setTimeout(() => setIsSyncing(false), 800));
@@ -95,7 +92,7 @@ const StudentsManager: React.FC<StudentsManagerProps> = ({ user }) => {
 
   const exportToExcel = () => {
     const headers = [
-      "FULL NAME", "GR NUMBER", "ROLL NO", "CLASS", "SECTION", "GENDER", 
+      "ROLL NO", "GR NUMBER", "FULL NAME", "CLASS", "SECTION", "GENDER", 
       "DATE OF BIRTH", "ADMISSION DATE", "AADHAR NO", "PAN NO", "STUDENT TYPE", 
       "BIRTH PLACE", "FATHER NAME", "MOTHER NAME", "FATHER MOBILE", 
       "MOTHER MOBILE", "RESIDENCE ADDRESS", "EMAIL", "UID ID", "PEN NO"
@@ -105,9 +102,9 @@ const StudentsManager: React.FC<StudentsManagerProps> = ({ user }) => {
 
     const rows = dataToExport.map(s => {
       const rowData = [
-        s.fullName || '',
-        s.grNumber || '',
         s.rollNo || '',
+        s.grNumber || '',
+        s.fullName || '',
         s.class || '',
         s.section || '',
         s.gender || '',
@@ -224,11 +221,17 @@ const StudentsManager: React.FC<StudentsManagerProps> = ({ user }) => {
   };
 
   const filteredStudents = useMemo(() => {
-    return students.filter(s => {
+    let list = students.filter(s => {
       const query = searchQuery.toLowerCase();
-      const nameMatch = (s.fullName || s.name || '').toLowerCase().includes(query);
+      const nameMatch = (s.fullName || '').toLowerCase().includes(query);
       const grMatch = (s.grNumber || '').toLowerCase().includes(query);
       return (nameMatch || grMatch) && (selectedClass === 'All' || s.class === selectedClass);
+    });
+
+    return list.sort((a, b) => {
+      const rollA = parseInt(a.rollNo) || 0;
+      const rollB = parseInt(b.rollNo) || 0;
+      return rollA - rollB;
     });
   }, [students, searchQuery, selectedClass]);
 
@@ -257,11 +260,11 @@ const StudentsManager: React.FC<StudentsManagerProps> = ({ user }) => {
 
       <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6 no-print">
         <div>
-          <h1 className="text-4xl font-black text-slate-900 dark:text-white tracking-tight flex items-center gap-3 uppercase">Student Management <ShieldCheck className="text-indigo-600" /></h1>
-          <p className="text-slate-500 dark:text-slate-400 font-medium text-lg uppercase tracking-tight">Institutional Cloud Management Terminal</p>
+          <h1 className="text-4xl font-black text-slate-900 dark:text-white tracking-tight flex items-center gap-3 uppercase">Student Registry <ShieldCheck className="text-indigo-600" /></h1>
+          <p className="text-slate-500 dark:text-slate-400 font-medium text-lg uppercase tracking-tight">Official Institutional Student Management</p>
         </div>
         <div className="flex flex-wrap gap-3">
-          <button onClick={exportToExcel} className="px-6 py-4 bg-emerald-600 text-white font-black rounded-2xl shadow-xl flex items-center gap-3 hover:-translate-y-1 transition-all uppercase text-[10px] tracking-widest"><FileSpreadsheet size={18} /> EXPORT TO EXCEL</button>
+          <button onClick={exportToExcel} className="px-6 py-4 bg-emerald-600 text-white font-black rounded-2xl shadow-xl flex items-center gap-3 hover:-translate-y-1 transition-all uppercase text-[10px] tracking-widest"><FileSpreadsheet size={18} /> EXPORT EXCEL</button>
           <button onClick={() => { setEditingStudent(null); setFormData(initialFormData); setShowModal(true); stopCamera(); }} className="px-8 py-4 bg-indigo-600 text-white font-black rounded-2xl shadow-xl flex items-center gap-3 hover:-translate-y-1 transition-all uppercase text-xs tracking-widest"><UserPlus size={20} strokeWidth={3} /> New Enrollment</button>
         </div>
       </div>
@@ -269,7 +272,7 @@ const StudentsManager: React.FC<StudentsManagerProps> = ({ user }) => {
       <div className="bg-white dark:bg-slate-900 p-6 rounded-[2.5rem] shadow-sm border border-slate-100 dark:border-slate-800 flex flex-col md:flex-row gap-4 items-center no-print">
           <div className="relative group w-full max-w-md">
               <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-300" size={18} />
-              <input type="text" placeholder="Search by Name or GR No..." value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} className="w-full pl-12 pr-4 py-4 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl font-bold outline-none focus:ring-2 focus:ring-indigo-500 transition-all shadow-inner dark:text-white" />
+              <input type="text" placeholder="Search Identity (Name/GR)..." value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} className="w-full pl-12 pr-4 py-4 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl font-bold outline-none focus:ring-2 focus:ring-indigo-500 transition-all shadow-inner dark:text-white" />
           </div>
           <div className="flex gap-2 overflow-x-auto w-full pb-2 md:pb-0 custom-scrollbar">
               <button onClick={() => setSelectedClass('All')} className={`whitespace-nowrap px-6 py-3 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${selectedClass === 'All' ? 'bg-indigo-600 text-white shadow-lg' : 'bg-slate-100 dark:bg-slate-800 text-slate-400'}`}>All Grades</button>
@@ -290,9 +293,11 @@ const StudentsManager: React.FC<StudentsManagerProps> = ({ user }) => {
             <table className="w-full min-w-[1200px]">
               <thead>
                 <tr className="bg-slate-50 dark:bg-slate-800/50 text-slate-400 text-[10px] font-black uppercase tracking-widest border-b border-slate-100 dark:border-slate-800">
-                  <th className="px-10 py-6 text-left">Identity Profile</th>
-                  <th className="px-8 py-6 text-left">Identity Numbers</th>
-                  <th className="px-8 py-6 text-left">Grade / Roll</th>
+                  <th className="px-8 py-6 text-center" style={{ width: '80px' }}>Roll No</th>
+                  <th className="px-8 py-6 text-left" style={{ width: '150px' }}>GR Number</th>
+                  <th className="px-8 py-6 text-left">Full Name</th>
+                  <th className="px-8 py-6 text-left">Academic Placement</th>
+                  <th className="px-8 py-6 text-left">Gender/Type</th>
                   <th className="px-8 py-6 text-left">Guardian Details</th>
                   <th className="px-8 py-6 text-right">Actions</th>
                 </tr>
@@ -300,24 +305,37 @@ const StudentsManager: React.FC<StudentsManagerProps> = ({ user }) => {
               <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
                 {filteredStudents.map((student) => (
                   <tr key={student.id} className="hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-all group">
-                    <td className="px-10 py-6">
-                      <div className="flex items-center gap-5">
-                        <div className="w-14 h-14 bg-indigo-600 rounded-2xl flex items-center justify-center text-white font-black text-xl shadow-lg overflow-hidden group-hover:scale-110 transition-transform">
-                          {student.profileImage ? <img src={student.profileImage} className="w-full h-full object-cover" alt="S" /> : (student.fullName || '').charAt(0)}
+                    <td className="px-8 py-6 text-center">
+                       <div className="w-12 h-12 bg-indigo-50 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400 rounded-xl flex items-center justify-center font-black text-lg shadow-sm border border-indigo-100 dark:border-indigo-800 mx-auto">
+                         {student.rollNo || '-'}
+                       </div>
+                    </td>
+                    <td className="px-8 py-6">
+                       <span className="font-black text-slate-800 dark:text-white uppercase tracking-tight text-sm">{student.grNumber}</span>
+                    </td>
+                    <td className="px-8 py-6">
+                      <div className="flex items-center gap-4">
+                        <div className="w-10 h-10 bg-slate-100 dark:bg-slate-800 rounded-xl flex items-center justify-center text-slate-400 overflow-hidden shadow-inner border border-slate-200 dark:border-slate-700">
+                           {student.profileImage ? <img src={student.profileImage} className="w-full h-full object-cover" /> : <UserIcon size={20}/>}
                         </div>
-                        <div>
-                          <p className="font-black text-slate-800 dark:text-white text-base uppercase leading-tight">{student.fullName}</p>
-                          <p className="text-[9px] font-bold text-slate-400 uppercase mt-1 tracking-widest">{student.studentType || 'REGULAR'}</p>
-                        </div>
+                        <p className="font-black text-slate-800 dark:text-white text-sm uppercase leading-tight">{student.fullName}</p>
                       </div>
                     </td>
-                    <td className="px-8 py-6 font-black text-slate-700 dark:text-slate-300 text-sm uppercase">GR: {student.grNumber}</td>
                     <td className="px-8 py-6">
-                      <div className="inline-block bg-indigo-50 dark:bg-indigo-900/30 px-3 py-1.5 rounded-xl text-[10px] font-black text-indigo-700 dark:text-indigo-400 uppercase border border-indigo-100 dark:border-indigo-800">Std {student.class}-{student.section} • Roll {student.rollNo}</div>
+                      <div className="inline-flex flex-col">
+                         <span className="font-bold text-slate-700 dark:text-slate-300 text-[11px] uppercase">Standard {student.class}</span>
+                         <span className="text-[10px] font-black text-indigo-500 uppercase">Section {student.section}</span>
+                      </div>
+                    </td>
+                    <td className="px-8 py-6">
+                       <div className="flex flex-col">
+                          <span className="text-[10px] font-black text-slate-800 dark:text-slate-300 uppercase">{student.gender}</span>
+                          <span className="text-[8px] font-bold text-slate-400 uppercase tracking-widest">{student.studentType || 'REGULAR'}</span>
+                       </div>
                     </td>
                     <td className="px-8 py-6">
                        <div className="space-y-1">
-                          <p className="text-[10px] font-black text-slate-700 dark:text-slate-300 uppercase">{student.fatherName}</p>
+                          <p className="text-[10px] font-black text-slate-700 dark:text-slate-300 uppercase truncate max-w-[150px]">{student.fatherName}</p>
                           <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest flex items-center gap-1"><Smartphone size={10}/> {student.fatherMobile}</p>
                        </div>
                     </td>
@@ -329,6 +347,13 @@ const StudentsManager: React.FC<StudentsManagerProps> = ({ user }) => {
                     </td>
                   </tr>
                 ))}
+                {filteredStudents.length === 0 && !isLoading && (
+                  <tr>
+                    <td colSpan={7} className="py-20 text-center">
+                       <p className="text-slate-400 font-bold uppercase tracking-widest text-xs italic">Registry quadrant empty for current parameters.</p>
+                    </td>
+                  </tr>
+                )}
               </tbody>
             </table>
           </div>
@@ -480,7 +505,6 @@ const StudentsManager: React.FC<StudentsManagerProps> = ({ user }) => {
                                          </>
                                        ) : (
                                          <>
-                                           {/* Fix: Added Check icon from lucide-react */}
                                            <button type="button" onClick={capturePhoto} className="p-1.5 bg-emerald-600 text-white rounded-lg"><Check size={14}/></button>
                                            <button type="button" onClick={stopCamera} className="p-1.5 bg-rose-600 text-white rounded-lg"><X size={14}/></button>
                                          </>
@@ -519,7 +543,6 @@ const StudentsManager: React.FC<StudentsManagerProps> = ({ user }) => {
                                          </>
                                        ) : (
                                          <>
-                                           {/* Fix: Added Check icon from lucide-react */}
                                            <button type="button" onClick={capturePhoto} className="p-1.5 bg-emerald-600 text-white rounded-lg"><Check size={14}/></button>
                                            <button type="button" onClick={stopCamera} className="p-1.5 bg-rose-600 text-white rounded-lg"><X size={14}/></button>
                                          </>

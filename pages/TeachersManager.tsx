@@ -316,7 +316,7 @@ const TeachersManager: React.FC<TeachersManagerProps> = ({ user }) => {
                   <div className="h-8 w-px bg-slate-200 dark:bg-slate-700 hidden sm:block" />
                   <div className="flex bg-slate-100 dark:bg-slate-800 p-1.5 rounded-2xl">
                      <button onClick={() => setActiveTab('profile')} className={`px-6 py-2.5 rounded-xl text-[9px] font-black uppercase tracking-widest transition-all ${activeTab === 'profile' ? 'bg-white dark:bg-slate-700 text-indigo-600 shadow-sm' : 'text-slate-400'}`}>General Profile</button>
-                     <button onClick={() => setActiveTab('security')} className={`px-6 py-2.5 rounded-xl text-[9px] font-black uppercase tracking-widest transition-all ${activeTab === 'security' ? 'bg-white dark:bg-slate-700 text-rose-600 shadow-sm' : 'text-slate-400'}`}>Neural Access</button>
+                     <button onClick={() => setActiveTab('security')} className={`px-6 py-2.5 rounded-xl text-[9px] font-black uppercase tracking-widest transition-all ${activeTab === 'security' ? 'bg-white dark:bg-slate-700 text-rose-600 shadow-sm' : 'text-slate-400'}`}>Security Settings</button>
                   </div>
                </div>
                <button onClick={() => { stopCamera(); setShowModal(false); }} className="p-3 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-full text-slate-400 transition-all"><X size={28} /></button>
@@ -414,7 +414,7 @@ const TeachersManager: React.FC<TeachersManagerProps> = ({ user }) => {
                                 <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">PAN Number</label>
                                 <div className="relative">
                                    <CreditCard className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-300" size={16} />
-                                   <input type="text" value={formData.panNo} onChange={e => setFormData({...formData, panNo: e.target.value.toUpperCase()})} className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl pl-12 pr-4 py-3 font-bold text-slate-800 dark:text-white outline-none uppercase" placeholder="ABCDE1234F" />
+                                   <input type="text" value={formData.panNo} onChange={e => setFormData({...formData, panNo: e.target.value.toUpperCase()})} className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl pl-12 pr-4 py-4 font-bold text-slate-800 dark:text-white outline-none uppercase" placeholder="ABCDE1234F" />
                                 </div>
                              </div>
                              <div className="md:col-span-4 space-y-1">
@@ -468,7 +468,7 @@ const TeachersManager: React.FC<TeachersManagerProps> = ({ user }) => {
                     </div>
                  </div>
                ) : (
-                 /* Neural Access Cyber Theme Security Tab */
+                 /* Security & Access Tab */
                  <div className="animate-in slide-in-from-right-12 duration-700 space-y-10 py-4">
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-10">
                        {/* Status & Firewall */}
@@ -479,15 +479,15 @@ const TeachersManager: React.FC<TeachersManagerProps> = ({ user }) => {
                                 <Shield size={28} />
                              </div>
                              <div>
-                                <h4 className="text-xl font-black text-white uppercase tracking-tighter">Neural Firewall</h4>
-                                <p className="text-[8px] font-black text-indigo-400 uppercase tracking-[0.4em]">Auth Status: Synchronized</p>
+                                <h4 className="text-xl font-black text-white uppercase tracking-tighter">Account Security</h4>
+                                <p className="text-[8px] font-black text-indigo-400 uppercase tracking-[0.4em]">Registry Status: Synchronized</p>
                              </div>
                           </div>
 
                           <div className="space-y-6 relative z-10">
                              <div className="flex items-center justify-between p-6 bg-white/5 border border-white/10 rounded-2xl backdrop-blur-xl">
                                 <div>
-                                   <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Global Reach</p>
+                                   <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Access Level</p>
                                    <p className={`text-lg font-black uppercase ${formData.status === 'BLOCKED' ? 'text-rose-500 shadow-[0_0_10px_rgba(244,63,94,0.3)]' : 'text-emerald-400 shadow-[0_0_10px_rgba(52,211,153,0.3)]'}`}>{formData.status}</p>
                                 </div>
                                 <button 
@@ -501,12 +501,12 @@ const TeachersManager: React.FC<TeachersManagerProps> = ({ user }) => {
                              
                              <div className="p-6 bg-indigo-950/40 border border-indigo-500/20 rounded-2xl flex items-start gap-4">
                                 <Cpu size={20} className="text-indigo-400 shrink-0" />
-                                <p className="text-[10px] font-bold text-indigo-300 leading-relaxed uppercase tracking-wider italic">Neural Override: Revoking access will immediately de-authenticate this identity from the global educational grid.</p>
+                                <p className="text-[10px] font-bold text-indigo-300 leading-relaxed uppercase tracking-wider italic">Administrative Override: Revoking access will immediately de-authenticate this identity from the school management grid.</p>
                              </div>
                           </div>
                        </div>
 
-                       {/* Credentials & Biometrics */}
+                       {/* Credentials & Access */}
                        <div className="bg-slate-950 rounded-[3rem] p-10 border-2 border-cyan-500/30 shadow-[0_0_50px_-12px_rgba(6,182,212,0.2)] relative overflow-hidden group">
                           <div className="absolute inset-0 opacity-10 pointer-events-none" style={{ backgroundImage: 'linear-gradient(rgba(6,182,212,0.1) 1px, transparent 1px), linear-gradient(90deg, rgba(6,182,212,0.1) 1px, transparent 1px)', backgroundSize: '40px 40px' }}></div>
                           <div className="relative z-10 flex items-center gap-5 mb-10">
@@ -547,7 +547,7 @@ const TeachersManager: React.FC<TeachersManagerProps> = ({ user }) => {
                              <Activity size={32} className="text-indigo-400 animate-pulse" />
                              <div>
                                 <h4 className="text-2xl font-black text-white uppercase tracking-tight">Identity Activity Hub</h4>
-                                <p className="text-[8px] font-black text-slate-500 uppercase tracking-[0.4em]">Cloud Heartbeat: Stable</p>
+                                <p className="text-[8px] font-black text-slate-500 uppercase tracking-[0.4em]">System Status: Stable</p>
                              </div>
                           </div>
                           <span className="text-[10px] font-black text-emerald-400 uppercase tracking-widest bg-emerald-400/10 px-4 py-2 rounded-full border border-emerald-400/20">Synced 0.2ms Ago</span>
@@ -556,14 +556,14 @@ const TeachersManager: React.FC<TeachersManagerProps> = ({ user }) => {
                        <div className="grid grid-cols-1 md:grid-cols-3 gap-8 relative z-10">
                           <div className="p-8 bg-white/5 border border-white/10 rounded-[2.5rem] hover:bg-white/10 transition-all">
                              <p className="text-[9px] font-black text-indigo-400 uppercase tracking-widest mb-2">Login Node</p>
-                             <p className="text-lg font-black text-white truncate uppercase tracking-tighter">SERVER-DEEN-04</p>
+                             <p className="text-lg font-black text-white truncate uppercase tracking-tighter">SERVER-SYNC-04</p>
                           </div>
                           <div className="p-8 bg-white/5 border border-white/10 rounded-[2.5rem] hover:bg-white/10 transition-all">
-                             <p className="text-[9px] font-black text-indigo-400 uppercase tracking-widest mb-2">Protocol Access</p>
+                             <p className="text-[9px] font-black text-indigo-400 uppercase tracking-widest mb-2">Last Login</p>
                              <p className="text-lg font-black text-white uppercase tracking-tighter">{new Date().toLocaleTimeString()}</p>
                           </div>
                           <div className="p-8 bg-white/5 border border-white/10 rounded-[2.5rem] hover:bg-white/10 transition-all">
-                             <p className="text-[9px] font-black text-indigo-400 uppercase tracking-widest mb-2">Geo Tagging</p>
+                             <p className="text-[9px] font-black text-indigo-400 uppercase tracking-widest mb-2">Connectivity</p>
                              <p className="text-lg font-black text-white uppercase tracking-tighter">CLOUD-ACTIVE</p>
                           </div>
                        </div>

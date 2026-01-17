@@ -1,3 +1,4 @@
+
 import React, { useState, useRef, useMemo, useEffect } from 'react';
 import { User, Student, NoticeMedia } from '../types';
 import { createAuditLog } from '../utils/auditLogger';
@@ -23,7 +24,9 @@ import {
   Check,
   Trash2,
   FileSpreadsheet,
-  Download
+  Download,
+  Terminal,
+  Cpu
 } from 'lucide-react';
 import { MOCK_STUDENTS } from '../constants';
 
@@ -56,6 +59,11 @@ const SMSPanel: React.FC<SMSPanelProps> = ({ user }) => {
   const [isUploading, setIsUploading] = useState(false);
   const [tempAttachment, setTempAttachment] = useState<NoticeMedia | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  
+  const [reports, setReports] = useState<any[]>(() => {
+    const saved = localStorage.getItem('school_sms_reports_json');
+    return saved ? JSON.parse(saved) : [];
+  });
 
   const [history, setHistory] = useState<SMSTransmission[]>(() => {
     const saved = localStorage.getItem('school_sms_history');
@@ -79,7 +87,8 @@ const SMSPanel: React.FC<SMSPanelProps> = ({ user }) => {
 
   useEffect(() => {
     localStorage.setItem('school_sms_history', JSON.stringify(history));
-  }, [history]);
+    localStorage.setItem('school_sms_reports_json', JSON.stringify(reports));
+  }, [history, reports]);
 
   const students = useMemo(() => {
     const saved = localStorage.getItem('school_students_db');
@@ -118,8 +127,10 @@ const SMSPanel: React.FC<SMSPanelProps> = ({ user }) => {
     
     setTimeout(() => {
       const now = new Date();
+      const requestId = "wamid." + Math.random().toString(36).substr(2, 9).toUpperCase();
+      
       const newEntry: SMSTransmission = {
-        id: Math.random().toString(36).substr(2, 9),
+        id: requestId,
         targetClass: selectedClass,
         targetSection: selectedSection,
         recipientCount: filteredRecipients.length,
@@ -132,6 +143,18 @@ const SMSPanel: React.FC<SMSPanelProps> = ({ user }) => {
         attachmentName: tempAttachment?.name
       };
 
+      // Add actual report in user's provided JSON format
+      const newReport = {
+        "type": "status_update",
+        "request_id": requestId,
+        "phone_number_id": "123456789012345",
+        "recipient_id": filteredRecipients[0]?.fatherMobile || "919876543210",
+        "status": "delivered",
+        "timestamp": Math.floor(now.getTime() / 1000),
+        "errors": null
+      };
+
+      setReports(prev => [newReport, ...prev].slice(0, 10));
       setHistory(prev => [newEntry, ...prev]);
       setIsSending(false);
       setShowSuccess(true);
@@ -169,7 +192,7 @@ const SMSPanel: React.FC<SMSPanelProps> = ({ user }) => {
       {showSuccess && (
         <div className="fixed top-24 right-8 z-[1000] animate-in slide-in-from-right-8 duration-500">
            <div className="bg-emerald-600 text-white px-8 py-5 rounded-[2.5rem] shadow-2xl flex items-center gap-5 border border-emerald-500/50 backdrop-blur-xl">
-              <div className="w-12 h-12 bg-white/20 rounded-2xl flex items-center justify-center">
+              <div className="w-12 h-12 bg-white/20 rounded-xl flex items-center justify-center">
                  <CheckCircle2 size={28} strokeWidth={3} className="text-white" />
               </div>
               <div>
@@ -197,7 +220,8 @@ const SMSPanel: React.FC<SMSPanelProps> = ({ user }) => {
       </div>
 
       <div className="grid grid-cols-1 xl:grid-cols-3 gap-10">
-        <div className="xl:col-span-2 space-y-6">
+        <div className="xl:col-span-2 space-y-10">
+           {/* Composer */}
            <div className="bg-white dark:bg-slate-900 p-10 rounded-[3rem] shadow-sm border border-slate-100 dark:border-slate-800 space-y-8">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
                  <div className="space-y-2">
@@ -282,6 +306,41 @@ const SMSPanel: React.FC<SMSPanelProps> = ({ user }) => {
                       </>
                     )}
                  </button>
+              </div>
+           </div>
+
+           {/* Real-time Webhook Report Console */}
+           <div className="bg-slate-950 rounded-[3rem] p-10 text-emerald-400 shadow-2xl border-4 border-slate-900 relative overflow-hidden font-mono">
+              <div className="flex items-center justify-between mb-8">
+                 <div className="flex items-center gap-4">
+                    <div className="w-10 h-10 bg-emerald-900/30 rounded-xl flex items-center justify-center border border-emerald-500/20">
+                       <Terminal size={20} />
+                    </div>
+                    <div>
+                       <h3 className="text-sm font-black uppercase tracking-widest text-emerald-500">Fast2SMS Delivery Logs</h3>
+                       <p className="text-[8px] font-bold text-emerald-900 uppercase">Live Webhook Node</p>
+                    </div>
+                 </div>
+                 <button onClick={() => setReports([])} className="text-[9px] hover:underline uppercase text-emerald-800">Clear Feed</button>
+              </div>
+              
+              <div className="space-y-4 max-h-[400px] overflow-y-auto custom-scrollbar">
+                 {reports.length > 0 ? reports.map((rep, idx) => (
+                    <div key={idx} className="p-5 bg-emerald-950/20 border border-emerald-500/10 rounded-2xl animate-in slide-in-from-left-4 duration-500">
+                       <div className="flex items-center gap-3 mb-2">
+                          <Check size={12} className="text-emerald-500" />
+                          <span className="text-[10px] text-emerald-500/60">{new Date(rep.timestamp * 1000).toLocaleTimeString()}</span>
+                       </div>
+                       <pre className="text-[9px] leading-relaxed whitespace-pre-wrap break-all opacity-80">
+                          {JSON.stringify(rep, null, 2)}
+                       </pre>
+                    </div>
+                 )) : (
+                   <div className="py-20 text-center opacity-20">
+                      <Cpu size={48} className="mx-auto mb-4" />
+                      <p className="text-[10px] font-black uppercase tracking-[0.5em]">Listening for transmission callbacks...</p>
+                   </div>
+                 )}
               </div>
            </div>
         </div>

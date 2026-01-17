@@ -73,7 +73,6 @@ import MediaGallery from './pages/MediaGallery';
 import Timetable from './pages/Timetable';
 import VideoGallery from './pages/VideoGallery';
 import StudentsManager from './pages/StudentsManager';
-import StudentReports from './pages/StudentReports';
 import TeachersManager from './pages/TeachersManager';
 import ExamSetup from './pages/ExamSetup';
 import GradingSystem from './pages/GradingSystem';
@@ -473,7 +472,6 @@ const Layout: React.FC<LayoutProps> = ({ user, branding, onUpdateDisplay, displa
             <Route path="/admin/branding" element={<SchoolSettings user={user} />} />
             <Route path="/admin/display-config" element={<DisplayConfigure user={user} settings={displaySettings} onUpdateSettings={onUpdateDisplay} />} />
             <Route path="/admin/students" element={<StudentsManager user={user} />} />
-            <Route path="/admin/reports" element={<StudentReports user={user} schoolLogo={schoolLogo} schoolName={schoolName} />} />
             <Route path="/admin/id-cards" element={<IdCardGenerator user={user} schoolLogo={schoolLogo} />} />
             <Route path="/admin/teachers" element={<TeachersManager user={user} />} />
             <Route path="/admin/homework" element={<Homework user={user} />} />
