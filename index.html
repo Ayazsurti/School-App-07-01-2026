@@ -38,6 +38,7 @@
               'core-rotate-slow': 'spin 15s linear infinite',
               'core-rotate-fast': 'spin 3s linear infinite',
               'biometric-pulse': 'pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite',
+              'bell-pulse': 'bell-pulse 1.5s ease-in-out infinite',
             },
             keyframes: {
               shake: {
@@ -53,6 +54,11 @@
               'scan-line-fast': {
                 '0%': { transform: 'translateY(-100%)' },
                 '100%': { transform: 'translateY(1000%)' },
+              },
+              'bell-pulse': {
+                '0%, 100%': { transform: 'rotate(0deg)' },
+                '20%, 60%': { transform: 'rotate(15deg)' },
+                '40%, 80%': { transform: 'rotate(-15deg)' },
               }
             }
           }

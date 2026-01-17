@@ -136,6 +136,7 @@ const Homework: React.FC<HomeworkProps> = ({ user }) => {
 
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (user.role === 'STUDENT') return;
     if (!formData.title || !formData.subject) return;
     setIsUploading(true);
     try {
@@ -154,6 +155,7 @@ const Homework: React.FC<HomeworkProps> = ({ user }) => {
   };
 
   const confirmDelete = async () => {
+    if (user.role === 'STUDENT') return;
     if (!deleteConfirmationId) return;
     try {
       await db.homework.delete(deleteConfirmationId);
@@ -166,9 +168,12 @@ const Homework: React.FC<HomeworkProps> = ({ user }) => {
   const filteredHomeworks = useMemo(() => {
     return homeworks.filter(hw => {
       const matchesSearch = (hw.title + ' ' + hw.description).toLowerCase().includes(searchQuery.toLowerCase());
+      if (user.role === 'STUDENT') {
+        // Strict automatic filtering for students based on their actual placement in registry
+        return matchesSearch && hw.className === user.class && hw.section === user.section;
+      }
       const matchesClass = selectedClassFilter === 'All' || hw.className === selectedClassFilter;
       const matchesSubject = selectedSubjectFilter === 'All' || hw.subject === selectedSubjectFilter;
-      if (user.role === 'STUDENT') return matchesSearch && hw.className === '10th';
       return matchesSearch && matchesClass && matchesSubject;
     });
   }, [homeworks, searchQuery, selectedClassFilter, selectedSubjectFilter, user]);
@@ -315,7 +320,6 @@ const Homework: React.FC<HomeworkProps> = ({ user }) => {
                 className="w-full h-full border-none sm:block hidden" 
                 title="Homework PDF Viewer"
               />
-              {/* Android Access Portal Overlay */}
               <div className="absolute inset-0 flex flex-col items-center justify-center p-8 text-center bg-slate-900/95 backdrop-blur-lg sm:hidden">
                   <div className="w-24 h-24 bg-indigo-600/20 text-indigo-400 rounded-full flex items-center justify-center mb-8 border border-indigo-500/30 shadow-inner">
                     <Smartphone size={40} className="animate-pulse" />
@@ -343,10 +347,9 @@ const Homework: React.FC<HomeworkProps> = ({ user }) => {
         </div>
       )}
 
-      {/* Homework delete confirmation */}
       {deleteConfirmationId && (
         <div className="fixed inset-0 z-[800] flex items-center justify-center p-4 bg-slate-950/85 backdrop-blur-md animate-in fade-in">
-           <div className="bg-white dark:bg-slate-900 rounded-[2.5rem] p-10 sm:p-12 max-w-sm w-full shadow-2xl text-center border border-rose-100 dark:border-rose-900/50 animate-in zoom-in-95">
+           <div className="bg-white dark:bg-slate-900 rounded-[2.5rem] p-10 sm:p-12 max-sm w-full shadow-2xl text-center border border-rose-100 dark:border-rose-900/50 animate-in zoom-in-95">
               <div className="w-20 h-20 bg-rose-50 dark:bg-rose-900/20 text-rose-600 rounded-[2.5rem] flex items-center justify-center mb-8 mx-auto shadow-inner border border-rose-100">
                  <Trash2 size={36} strokeWidth={2.5} />
               </div>

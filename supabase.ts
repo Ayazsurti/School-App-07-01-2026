@@ -61,12 +61,15 @@ export const db = {
         
       if (error) throw error;
       
+      // Fix: Include class and section in return object to match expectations in Login.tsx
       return {
         id: data.id,
         full_name: data.name || data.full_name,
         email: data.email,
         role: role,
-        profile_image: data.profile_image
+        profile_image: data.profile_image,
+        class: role === 'STUDENT' ? data.class : data.assigned_class,
+        section: role === 'STUDENT' ? data.section : data.assigned_section
       };
     }
   },

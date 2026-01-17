@@ -1,5 +1,5 @@
 
-import React, { useState, useMemo, useEffect, useRef } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { User, Student } from '../types';
 import { db, supabase } from '../supabase';
 import { createAuditLog } from '../utils/auditLogger';
@@ -7,7 +7,8 @@ import {
   Calendar, Check, X, Search, Clock, Users, UserCheck, UserX, Save, 
   CheckCircle2, Loader2, CalendarDays, ChevronLeft, ChevronRight, 
   ArrowLeft, ArrowRight, Hash, Filter, RefreshCw, Zap, GraduationCap, LayoutGrid,
-  Globe, BookOpen, Calendar as CalendarIcon, ListChecks
+  Globe, BookOpen, Calendar as CalendarIcon, ListChecks, AlertTriangle,
+  History, TrendingUp, AlertCircle
 } from 'lucide-react';
 
 interface AttendanceProps { user: User; }
@@ -40,50 +41,48 @@ const CATEGORY_MAP: Record<CategoryKey, { label: string, grades: string[], color
   GUJ_HIGHER_SECONDARY_BOYS: { label: 'GUJ Higher Sec Boys (11-12)', grades: GRADE_RANGES.HIGHER, color: 'text-emerald-700' }
 };
 
-const WEEKDAYS = ['S', 'M', 'T', 'W', 'T', 'F', 'S'];
-
 const Attendance: React.FC<AttendanceProps> = ({ user }) => {
   const isStudent = user.role === 'STUDENT';
+  const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split('T')[0]);
   const [selectedCategory, setSelectedCategory] = useState<CategoryKey>('PRIMARY_GIRLS');
-  const [selectedClass, setSelectedClass] = useState('1st');
-  const [selectedSection, setSelectedSection] = useState('A');
-  const [selectedDate, setSelectedDate] = useState(new Date()); 
-  const [attendance, setAttendance] = useState<Record<string, AttendanceStatus>>({});
   const [students, setStudents] = useState<Student[]>([]);
-  const [isSaving, setIsSaving] = useState(false);
+  const [attendance, setAttendance] = useState<Record<string, AttendanceStatus>>({});
+  const [studentRecords, setStudentRecords] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [isSaving, setIsSaving] = useState(false);
   const [showSuccess, setShowSuccess] = useState(false);
-  const [quickRoll, setQuickRoll] = useState('');
-  const rollInputRef = useRef<HTMLInputElement>(null);
-
-  useEffect(() => {
-    const available = CATEGORY_MAP[selectedCategory].grades;
-    if (!available.includes(selectedClass)) {
-      setSelectedClass(available[0]);
-    }
-  }, [selectedCategory]);
 
   const fetchData = async () => {
     setIsLoading(true);
     try {
-      const dateStr = selectedDate.toISOString().split('T')[0];
-      const [studentData, attendanceData] = await Promise.all([
-        db.students.getAll(),
-        db.attendance.getByDate(dateStr)
-      ]);
+      if (isStudent) {
+        // Fetch ALL records for this specific student
+        const { data, error } = await supabase
+          .from('attendance')
+          .select('*')
+          .eq('student_id', user.id)
+          .order('date', { ascending: false });
+        if (error) throw error;
+        setStudentRecords(data || []);
+      } else {
+        // Teacher/Admin View: Fetch students and attendance for selected date
+        const [studentData, attendanceData] = await Promise.all([
+          db.students.getAll(),
+          db.attendance.getByDate(selectedDate)
+        ]);
 
-      const mappedStudents = studentData.map((s: any) => ({
-        id: s.id, fullName: s.full_name, name: s.full_name, rollNo: s.roll_no,
-        class: s.class, section: s.section
-      })) as Student[];
+        const mappedStudents = studentData.map((s: any) => ({
+          id: s.id, fullName: s.full_name, name: s.full_name, grNumber: s.gr_number,
+          class: s.class, section: s.section, rollNo: s.roll_no, gender: s.gender
+        }));
+        setStudents(mappedStudents as Student[]);
 
-      setStudents(mappedStudents);
-
-      const attendanceMap: Record<string, AttendanceStatus> = {};
-      attendanceData.forEach((r: any) => {
-        attendanceMap[r.student_id] = r.status as AttendanceStatus;
-      });
-      setAttendance(attendanceMap);
+        const attendanceMap: Record<string, AttendanceStatus> = {};
+        attendanceData.forEach((record: any) => {
+          attendanceMap[record.student_id] = record.status as AttendanceStatus;
+        });
+        setAttendance(attendanceMap);
+      }
     } catch (err) {
       console.error("Attendance Sync Error:", err);
     } finally {
@@ -93,98 +92,157 @@ const Attendance: React.FC<AttendanceProps> = ({ user }) => {
 
   useEffect(() => {
     fetchData();
-    const channel = supabase.channel('realtime-attendance-v85')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'attendance' }, () => fetchData())
-      .subscribe();
-    return () => { supabase.removeChannel(channel); };
-  }, [selectedDate, selectedClass, selectedSection]);
+  }, [selectedDate, user.id]);
 
-  const currentList = useMemo(() => {
-    return students
-      .filter(s => s.class === selectedClass && s.section === selectedSection)
-      .sort((a, b) => (parseInt(a.rollNo) || 0) - (parseInt(b.rollNo) || 0));
-  }, [students, selectedClass, selectedSection]);
+  const filteredStudents = useMemo(() => {
+    if (isStudent) return [];
+    const grades = CATEGORY_MAP[selectedCategory].grades;
+    return students.filter(s => grades.includes(s.class));
+  }, [students, selectedCategory, isStudent]);
 
-  const markAllPresent = () => {
-    const newAttendance = { ...attendance };
-    currentList.forEach(s => {
-      newAttendance[s.id] = 'PRESENT';
-    });
-    setAttendance(newAttendance);
+  // Student specific stats
+  const studentStats = useMemo(() => {
+    if (!isStudent) return null;
+    const present = studentRecords.filter(r => r.status === 'PRESENT').length;
+    const absent = studentRecords.filter(r => r.status === 'ABSENT').length;
+    const late = studentRecords.filter(r => r.status === 'LATE').length;
+    return { total: studentRecords.length, present: present + late, absent };
+  }, [studentRecords, isStudent]);
+
+  const handleStatusChange = (studentId: string, status: AttendanceStatus) => {
+    setAttendance(prev => ({ ...prev, [studentId]: status }));
   };
 
-  const handleQuickMark = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!quickRoll) return;
-    const student = currentList.find(s => s.rollNo === quickRoll);
-    if (student) {
-      setAttendance(prev => ({ ...prev, [student.id]: 'ABSENT' })); 
-      setQuickRoll('');
-      rollInputRef.current?.focus();
-    } else {
-      alert(`Roll No ${quickRoll} not found in this class.`);
-      setQuickRoll('');
-    }
-  };
-
-  const handleSaveAttendance = async () => {
+  const handleSave = async () => {
     if (isStudent) return;
     setIsSaving(true);
     try {
-      const dateStr = selectedDate.toISOString().split('T')[0];
-      const records = currentList.map(s => ({
-        date: dateStr,
+      const records = filteredStudents.map(s => ({
         student_id: s.id,
-        status: attendance[s.id] || 'PRESENT',
-        marked_by: user.name,
-        class: selectedClass,
-        section: selectedSection
+        date: selectedDate,
+        status: attendance[s.id] || 'NOT_MARKED',
+        marked_by: user.name
       }));
-
       await db.attendance.bulkUpsert(records);
-      createAuditLog(user, 'UPDATE', 'Attendance', `Registry Synced: ${CATEGORY_MAP[selectedCategory].label}`);
+      await createAuditLog(user, 'CREATE', 'Attendance', `Marked attendance for ${CATEGORY_MAP[selectedCategory].label} on ${selectedDate}`);
       setShowSuccess(true);
       setTimeout(() => setShowSuccess(false), 3000);
     } catch (err) {
-      alert("Sync Failure.");
+      alert("Attendance Save Failed");
     } finally {
       setIsSaving(false);
     }
   };
 
-  const markStatus = (studentId: string, status: AttendanceStatus) => {
-    if (isStudent) return;
-    setAttendance(prev => ({ ...prev, [studentId]: status }));
-  };
+  if (isStudent) {
+    return (
+      <div className="space-y-8 pb-20 animate-in fade-in duration-500">
+        <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6">
+          <div>
+            <h1 className="text-4xl font-black text-slate-900 dark:text-white tracking-tight uppercase flex items-center gap-3">Presence Diary <CalendarIcon className="text-indigo-600" /></h1>
+            <p className="text-slate-500 dark:text-slate-400 font-medium text-lg uppercase tracking-tight">Personalized attendance tracking records.</p>
+          </div>
+        </div>
 
-  const calendarData = useMemo(() => {
-    const year = selectedDate.getFullYear();
-    const month = selectedDate.getMonth();
-    const firstDay = new Date(year, month, 1).getDay();
-    const daysInMonth = new Date(year, month + 1, 0).getDate();
-    
-    const days = [];
-    for (let i = 0; i < firstDay; i++) days.push(null);
-    for (let i = 1; i <= daysInMonth; i++) days.push(new Date(year, month, i));
-    
-    return days;
-  }, [selectedDate.getMonth(), selectedDate.getFullYear()]);
+        {isLoading ? (
+          <div className="py-40 flex flex-col items-center justify-center animate-pulse"><Loader2 size={64} className="animate-spin text-indigo-600" /></div>
+        ) : (
+          <div className="space-y-10">
+            {/* Stats Overview */}
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+              <div className="bg-white dark:bg-slate-900 p-8 rounded-[3rem] shadow-sm border border-slate-100 dark:border-slate-800 flex items-center gap-6 group hover:shadow-xl transition-all">
+                <div className="w-16 h-16 bg-indigo-50 dark:bg-indigo-900/30 text-indigo-600 rounded-[1.8rem] flex items-center justify-center group-hover:scale-110 transition-transform"><BookOpen size={32} /></div>
+                <div>
+                   <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Total Records</p>
+                   <h3 className="text-4xl font-black text-slate-900 dark:text-white">{studentStats?.total}</h3>
+                </div>
+              </div>
+              <div className="bg-emerald-50 dark:bg-emerald-900/20 p-8 rounded-[3rem] border border-emerald-100 dark:border-emerald-800/50 flex items-center gap-6 group hover:shadow-xl transition-all">
+                <div className="w-16 h-16 bg-white dark:bg-emerald-600 text-emerald-600 dark:text-white rounded-[1.8rem] flex items-center justify-center group-hover:scale-110 transition-transform shadow-sm"><UserCheck size={32} /></div>
+                <div>
+                   <p className="text-[10px] font-black text-emerald-600 dark:text-emerald-400 uppercase tracking-widest mb-1">Present Count</p>
+                   <h3 className="text-4xl font-black text-emerald-800 dark:text-emerald-100">{studentStats?.present}</h3>
+                </div>
+              </div>
+              <div className="bg-rose-50 dark:bg-rose-900/20 p-8 rounded-[3rem] border border-rose-100 dark:border-rose-800/50 flex items-center gap-6 group hover:shadow-xl transition-all">
+                <div className="w-16 h-16 bg-white dark:bg-rose-600 text-rose-600 dark:text-white rounded-[1.8rem] flex items-center justify-center group-hover:scale-110 transition-transform shadow-sm"><UserX size={32} /></div>
+                <div>
+                   <p className="text-[10px] font-black text-rose-600 dark:text-rose-400 uppercase tracking-widest mb-1">Absent Count</p>
+                   <h3 className="text-4xl font-black text-rose-800 dark:text-rose-100">{studentStats?.absent}</h3>
+                </div>
+              </div>
+            </div>
 
-  const changeMonth = (offset: number) => {
-    const nextDate = new Date(selectedDate);
-    nextDate.setMonth(nextDate.getMonth() + offset);
-    setSelectedDate(nextDate);
-  };
+            {/* List of Absences */}
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-10">
+               <div className="bg-white dark:bg-slate-900 rounded-[4rem] shadow-sm border border-slate-100 dark:border-slate-800 overflow-hidden flex flex-col h-full">
+                  <div className="p-10 border-b border-slate-50 dark:border-slate-800 bg-slate-50/30 dark:bg-slate-800/20 flex items-center justify-between">
+                     <h3 className="text-xl font-black text-slate-900 dark:text-white uppercase tracking-tight flex items-center gap-3">
+                        <AlertTriangle className="text-rose-500" /> Absence Ledger
+                     </h3>
+                     <span className="bg-rose-100 dark:bg-rose-900/40 text-rose-600 dark:text-rose-400 px-4 py-1.5 rounded-full text-[10px] font-black uppercase tracking-widest border border-rose-200 dark:border-rose-800">{studentStats?.absent} Dates</span>
+                  </div>
+                  <div className="flex-1 overflow-y-auto max-h-[600px] p-8 space-y-4 custom-scrollbar">
+                     {studentRecords.filter(r => r.status === 'ABSENT').length > 0 ? (
+                       studentRecords.filter(r => r.status === 'ABSENT').map(record => (
+                         <div key={record.id} className="p-6 bg-slate-50 dark:bg-slate-800/50 rounded-[2.5rem] flex items-center justify-between group border border-transparent hover:border-rose-200 transition-all">
+                            <div className="flex items-center gap-5">
+                               <div className="w-12 h-12 bg-rose-100 dark:bg-rose-900/30 text-rose-600 rounded-2xl flex items-center justify-center font-black"><CalendarIcon size={20} /></div>
+                               <div>
+                                  <p className="font-black text-slate-800 dark:text-white text-base uppercase">{new Date(record.date).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })}</p>
+                                  <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">Marked By: {record.marked_by || 'Registrar'}</p>
+                               </div>
+                            </div>
+                            <span className="px-4 py-2 bg-rose-600 text-white font-black text-[9px] uppercase tracking-widest rounded-xl shadow-lg shadow-rose-200 dark:shadow-none">ABSENT</span>
+                         </div>
+                       ))
+                     ) : (
+                       <div className="py-20 text-center opacity-30">
+                          <CheckCircle2 size={64} className="mx-auto mb-6 text-emerald-500" />
+                          <h4 className="text-xl font-black uppercase tracking-widest">Perfect Attendance</h4>
+                          <p className="text-xs mt-2 uppercase font-bold">Zero absence records found in cloud vault.</p>
+                       </div>
+                     )}
+                  </div>
+               </div>
+
+               {/* Full History Timeline */}
+               <div className="bg-slate-900 rounded-[4rem] p-10 text-white shadow-2xl relative overflow-hidden group">
+                  <div className="absolute top-0 right-0 w-32 h-32 bg-indigo-500/10 rounded-full -mr-16 -mt-16 group-hover:scale-110 transition-transform"></div>
+                  <h3 className="text-xl font-black uppercase tracking-tight flex items-center gap-3 mb-10"><History className="text-indigo-400" /> Recent Timeline</h3>
+                  <div className="space-y-6 relative z-10 max-h-[500px] overflow-y-auto custom-scrollbar pr-4">
+                     {studentRecords.slice(0, 15).map(record => (
+                       <div key={record.id} className="flex items-start gap-5 group/item">
+                          <div className="pt-1">
+                             <div className={`w-3 h-3 rounded-full border-2 border-white ${record.status === 'PRESENT' ? 'bg-emerald-500' : 'bg-rose-500'} transition-transform group-hover/item:scale-150 shadow-[0_0_10px_rgba(255,255,255,0.3)]`}></div>
+                          </div>
+                          <div className="flex-1 min-w-0">
+                             <div className="flex items-center justify-between mb-1">
+                                <p className="font-black text-sm uppercase tracking-tight">{new Date(record.date).toLocaleDateString('en-GB', { day: '2-digit', month: 'long' })}</p>
+                                <span className={`text-[8px] font-black uppercase tracking-widest px-2 py-0.5 rounded ${record.status === 'PRESENT' ? 'text-emerald-400' : 'text-rose-400'}`}>{record.status}</span>
+                             </div>
+                             <p className="text-[10px] text-slate-500 font-bold uppercase tracking-widest">Registry Sync • {record.status === 'PRESENT' ? 'Verified Entry' : 'Manual Exception'}</p>
+                          </div>
+                       </div>
+                     ))}
+                  </div>
+               </div>
+            </div>
+          </div>
+        )}
+      </div>
+    );
+  }
 
   return (
-    <div className="space-y-6 pb-20 animate-in fade-in duration-500 relative">
+    <div className="space-y-8 pb-20 animate-in fade-in duration-500">
       {showSuccess && (
         <div className="fixed top-24 right-8 z-[1000] animate-in slide-in-from-right-8 duration-500">
-           <div className="bg-emerald-600 text-white px-8 py-5 rounded-2xl shadow-2xl flex items-center gap-4 border border-emerald-500/50 backdrop-blur-xl">
+           <div className="bg-emerald-600 text-white px-8 py-5 rounded-[2rem] shadow-2xl flex items-center gap-4 border border-emerald-500/50 backdrop-blur-xl">
               <CheckCircle2 size={24} strokeWidth={3} />
               <div>
-                 <p className="font-black text-xs uppercase tracking-widest leading-none">Global Sync Success</p>
-                 <p className="text-[10px] font-bold text-emerald-100 uppercase tracking-widest mt-1.5">Attendance records committed</p>
+                 <p className="font-black text-xs uppercase tracking-widest">Attendance Synced</p>
+                 <p className="text-[10px] font-bold text-emerald-100 uppercase mt-0.5">Cloud Records Updated</p>
               </div>
            </div>
         </div>
@@ -192,236 +250,98 @@ const Attendance: React.FC<AttendanceProps> = ({ user }) => {
 
       <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6">
         <div>
-          <h1 className="text-4xl font-black text-slate-900 dark:text-white tracking-tight uppercase flex items-center gap-3">
-             Attendance terminal <Zap className="text-indigo-600" />
-          </h1>
-          <p className="text-slate-500 dark:text-slate-400 font-medium text-lg uppercase tracking-tight">Institutional Registry Matrix</p>
+          <h1 className="text-4xl font-black text-slate-900 dark:text-white tracking-tight uppercase flex items-center gap-3">Attendance Terminal <UserCheck className="text-indigo-600" /></h1>
+          <p className="text-slate-500 dark:text-slate-400 font-medium text-lg uppercase tracking-tight">Real-time presence tracking synced across campus.</p>
         </div>
-        {!isStudent && (
-          <div className="flex gap-3">
-            <button 
-              onClick={markAllPresent} 
-              className="px-8 py-5 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 text-indigo-600 font-black rounded-2xl shadow-sm hover:bg-indigo-50 transition-all uppercase text-[10px] tracking-[0.2em] flex items-center gap-3"
-            >
-              <ListChecks size={20} /> Mark All Present
-            </button>
-            <button 
-              onClick={handleSaveAttendance} 
-              disabled={isSaving || currentList.length === 0} 
-              className="px-10 py-5 bg-indigo-600 text-white font-black rounded-2xl shadow-xl hover:bg-indigo-700 transition-all uppercase text-[10px] tracking-[0.2em] flex items-center gap-3 disabled:opacity-50"
-            >
-              {isSaving ? <Loader2 className="animate-spin" size={20} /> : <Save size={20} />} Sync Terminal
-            </button>
-          </div>
-        )}
+        <div className="flex items-center gap-3">
+          <input 
+            type="date" 
+            value={selectedDate} 
+            onChange={e => setSelectedDate(e.target.value)}
+            className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl px-6 py-4 font-bold text-slate-700 dark:text-white outline-none focus:ring-2 focus:ring-indigo-500 shadow-sm"
+          />
+          <button 
+            onClick={handleSave}
+            disabled={isSaving}
+            className="px-8 py-4 bg-indigo-600 text-white font-black rounded-2xl shadow-xl hover:bg-indigo-700 transition-all uppercase text-xs tracking-widest flex items-center gap-3 disabled:opacity-50"
+          >
+            {isSaving ? <Loader2 size={20} className="animate-spin" /> : <Save size={20} />} Sync All
+          </button>
+        </div>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
-        
-        {/* Sidebar: COMPACT WHITE GRID CALENDAR */}
-        <div className="lg:col-span-4 space-y-6">
-           <div className="bg-white dark:bg-slate-900 p-6 rounded-[3rem] shadow-sm border border-slate-100 dark:border-slate-800 flex flex-col">
-              {/* Financial Year Month Navigator */}
-              <div className="flex items-center justify-between mb-6 bg-slate-50 dark:bg-slate-800/50 p-3 rounded-2xl border border-slate-100 dark:border-slate-700">
-                 <button onClick={() => changeMonth(-1)} className="p-2 hover:bg-white dark:hover:bg-slate-700 rounded-xl transition-all text-slate-400 hover:text-indigo-600">
-                    <ChevronLeft size={20} />
-                 </button>
-                 <div className="text-center">
-                    <h2 className="text-sm font-black text-slate-900 dark:text-white uppercase tracking-tighter leading-none">
-                       {selectedDate.toLocaleDateString('en-US', { month: 'long', year: 'numeric' })}
-                    </h2>
-                    <p className="text-[6px] font-black text-slate-400 uppercase tracking-[0.4em] mt-1">Financial Cycle</p>
-                 </div>
-                 <button onClick={() => changeMonth(1)} className="p-2 hover:bg-white dark:hover:bg-slate-700 rounded-xl transition-all text-slate-400 hover:text-indigo-600">
-                    <ChevronRight size={20} />
-                 </button>
-              </div>
-
-              {/* GRID CALENDAR - COMPACT HEIGHT */}
-              <div className="bg-white dark:bg-slate-800 rounded-[2rem] p-4 border border-slate-100 dark:border-slate-700 shadow-lg relative overflow-hidden flex flex-col">
-                 <div className="grid grid-cols-7 gap-1.5 mb-4">
-                    {WEEKDAYS.map(w => (
-                      <div key={w} className="text-center text-[9px] font-black text-slate-300 uppercase">{w}</div>
-                    ))}
-                 </div>
-                 
-                 <div className="grid grid-cols-7 gap-1.5">
-                    {calendarData.map((d, idx) => {
-                       if (!d) return <div key={`empty-${idx}`} className="aspect-square" />;
-                       
-                       const isSelected = d.getDate() === selectedDate.getDate() && d.getMonth() === selectedDate.getMonth();
-                       const isToday = new Date().toDateString() === d.toDateString();
-                       
-                       return (
-                         <button 
-                           key={d.getTime()}
-                           onClick={() => setSelectedDate(d)}
-                           className={`aspect-square rounded-lg flex flex-col items-center justify-center transition-all duration-200 border-2 ${
-                             isSelected ? 'bg-indigo-600 border-indigo-400 text-white shadow-md scale-105 z-10' : 
-                             isToday ? 'bg-indigo-50 dark:bg-indigo-950 border-indigo-100 dark:border-indigo-900 text-indigo-600 font-black' :
-                             'bg-slate-50/50 dark:bg-slate-900/50 border-transparent text-slate-400 hover:bg-slate-100 hover:text-slate-600 text-xs'
-                           }`}
-                         >
-                           <span className="font-black tracking-tighter leading-none">{d.getDate()}</span>
-                           {isToday && !isSelected && <div className="w-1 h-1 bg-indigo-500 rounded-full mt-1 animate-pulse" />}
-                         </button>
-                       );
-                    })}
-                 </div>
-              </div>
-              
-              <div className="space-y-4 pt-6 mt-6 border-t border-slate-50 dark:border-slate-800">
-                 <div className="space-y-1.5">
-                    <label className="text-[9px] font-black text-slate-400 uppercase ml-1 tracking-widest">Medium & Wing</label>
-                    <select 
-                      value={selectedCategory} 
-                      onChange={e => setSelectedCategory(e.target.value as CategoryKey)} 
-                      className="w-full bg-slate-50 dark:bg-slate-800 border-2 border-slate-100 dark:border-slate-700 rounded-xl px-4 py-3 font-bold text-slate-700 dark:text-white outline-none focus:ring-2 focus:ring-indigo-500 shadow-sm transition-all text-[10px]"
-                    >
-                      <optgroup label="English Medium">
-                        <option value="PRIMARY_GIRLS">Primary Girls (1-8)</option>
-                        <option value="PRIMARY_BOYS">Primary Boys (1-8)</option>
-                        <option value="SECONDARY_GIRLS">Secondary Girls (9-10)</option>
-                        <option value="SECONDARY_BOYS">Secondary Boys (9-10)</option>
-                        <option value="HIGHER_SECONDARY_GIRLS">Higher Sec Girls (11-12)</option>
-                        <option value="HIGHER_SECONDARY_BOYS">Higher Sec Boys (11-12)</option>
-                      </optgroup>
-                      <optgroup label="Gujarati Medium">
-                        <option value="GUJ_PRIMARY_GIRLS">GUJ Primary Girls (1-8)</option>
-                        <option value="GUJ_PRIMARY_BOYS">GUJ Primary Boys (1-8)</option>
-                        <option value="GUJ_SECONDARY_GIRLS">GUJ Secondary Girls (9-10)</option>
-                        <option value="GUJ_SECONDARY_BOYS">GUJ Secondary Boys (9-10)</option>
-                        <option value="GUJ_HIGHER_SECONDARY_GIRLS">GUJ Higher Sec Girls (11-12)</option>
-                        <option value="GUJ_HIGHER_SECONDARY_BOYS">GUJ Higher Sec Boys (11-12)</option>
-                      </optgroup>
-                    </select>
-                 </div>
-
-                 <div className="grid grid-cols-2 gap-3">
-                    <div className="space-y-1.5">
-                       <label className="text-[9px] font-black text-slate-400 uppercase ml-1 tracking-widest">Standard</label>
-                       <select 
-                         value={selectedClass} 
-                         onChange={e => setSelectedClass(e.target.value)} 
-                         className="w-full bg-slate-50 dark:bg-slate-800 border-2 border-slate-100 dark:border-slate-700 rounded-xl px-4 py-3 font-bold text-slate-700 dark:text-white outline-none text-[10px]"
-                       >
-                         {CATEGORY_MAP[selectedCategory].grades.map(c => <option key={c} value={c}>Std {c}</option>)}
-                       </select>
-                    </div>
-                    <div className="space-y-1.5">
-                       <label className="text-[9px] font-black text-slate-400 uppercase ml-1 tracking-widest">Section</label>
-                       <select 
-                         value={selectedSection} 
-                         onChange={e => setSelectedSection(e.target.value)} 
-                         className="w-full bg-slate-50 dark:bg-slate-800 border-2 border-slate-100 dark:border-slate-700 rounded-xl px-4 py-3 font-bold text-slate-700 dark:text-white outline-none text-[10px]"
-                       >
-                         <option value="A">A</option>
-                         <option value="B">B</option>
-                         <option value="C">C</option>
-                       </select>
-                    </div>
-                 </div>
-              </div>
-           </div>
+      <div className="bg-white dark:bg-slate-900 p-6 rounded-[2.5rem] shadow-sm border border-slate-100 dark:border-slate-800">
+        <div className="flex gap-2 overflow-x-auto pb-2 custom-scrollbar">
+          {(Object.keys(CATEGORY_MAP) as CategoryKey[]).map(key => (
+            <button 
+              key={key} 
+              onClick={() => setSelectedCategory(key)}
+              className={`whitespace-nowrap px-6 py-3 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${selectedCategory === key ? 'bg-indigo-600 text-white shadow-lg' : 'bg-slate-100 dark:bg-slate-800 text-slate-400'}`}
+            >
+              {CATEGORY_MAP[key].label}
+            </button>
+          ))}
         </div>
+      </div>
 
-        {/* Main Panel: Student List & Quick Mark */}
-        <div className="lg:col-span-8 space-y-6">
-           {!isStudent && (
-             <div className="bg-white dark:bg-slate-900 p-5 rounded-[3rem] shadow-sm border border-slate-100 dark:border-slate-800 flex items-center justify-center">
-                <div className="w-full max-w-sm">
-                   <form onSubmit={handleQuickMark} className="relative group">
-                      <div className="absolute left-6 top-1/2 -translate-y-1/2 text-rose-500">
-                         <UserX size={18} />
+      <div className="bg-white dark:bg-slate-900 rounded-[3rem] shadow-sm border border-slate-100 dark:border-slate-800 overflow-hidden min-h-[400px]">
+        {isLoading ? (
+          <div className="py-40 flex flex-col items-center justify-center animate-pulse">
+            <Loader2 size={64} className="animate-spin text-indigo-600 mb-6" />
+            <p className="font-black text-xs uppercase tracking-widest text-slate-400">Accessing Attendance Cloud...</p>
+          </div>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full">
+              <thead>
+                <tr className="bg-slate-50 dark:bg-slate-800/50 text-slate-400 text-[10px] font-black uppercase tracking-widest border-b border-slate-100 dark:border-slate-800">
+                  <th className="px-10 py-6 text-left">Student Profile</th>
+                  <th className="px-8 py-6 text-left">Identity Details</th>
+                  <th className="px-8 py-6 text-center">Status Selection</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
+                {filteredStudents.map(student => (
+                  <tr key={student.id} className="hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-all group">
+                    <td className="px-10 py-6">
+                      <div className="flex items-center gap-4">
+                        <div className="w-12 h-12 bg-indigo-50 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400 rounded-xl flex items-center justify-center font-black text-lg shadow-sm border border-indigo-100 dark:border-indigo-800">
+                          {student.rollNo || student.fullName.charAt(0)}
+                        </div>
+                        <p className="font-black text-slate-800 dark:text-white text-sm uppercase">{student.fullName}</p>
                       </div>
-                      <input 
-                        ref={rollInputRef}
-                        type="text" 
-                        value={quickRoll}
-                        onChange={e => setQuickRoll(e.target.value)}
-                        placeholder="ROLL NO (ABSENT)" 
-                        className="w-full pl-12 pr-6 py-4 bg-slate-50 dark:bg-slate-800 border-2 border-transparent focus:border-rose-500 rounded-2xl font-black text-base outline-none transition-all shadow-inner dark:text-white placeholder:text-slate-300 uppercase text-center" 
-                      />
-                      <button type="submit" className="absolute right-2.5 top-1/2 -translate-y-1/2 p-2.5 bg-rose-600 text-white rounded-xl shadow-lg hover:scale-105 active:scale-95 transition-all">
-                         <Check size={16} strokeWidth={4} />
-                      </button>
-                   </form>
-                </div>
-             </div>
-           )}
-
-           <div className="bg-white dark:bg-slate-900 rounded-[3.5rem] shadow-sm border border-slate-100 dark:border-slate-800 overflow-hidden min-h-[500px]">
-              <div className="px-10 py-10 border-b border-slate-50 dark:border-slate-800 bg-slate-50/30 dark:bg-slate-800/20 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-                 <div className="flex items-center gap-5">
-                    <GraduationCap size={32} className="text-indigo-600" />
-                    <div>
-                       <h3 className="font-black text-slate-900 dark:text-white text-2xl uppercase tracking-tight leading-none">Std {selectedClass} Ledger</h3>
-                       <p className={`text-[10px] font-black uppercase tracking-widest mt-2 ${CATEGORY_MAP[selectedCategory].color}`}>{CATEGORY_MAP[selectedCategory].label}</p>
-                    </div>
-                 </div>
-                 <div className="flex items-center gap-6">
-                    <div className="text-right hidden sm:block">
-                       <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Attendance Stats</p>
-                       <p className="text-base font-black text-slate-900 dark:text-white uppercase tracking-tighter">
-                          {Object.values(attendance).filter(v => v === 'PRESENT').length} Present • {Object.values(attendance).filter(v => v === 'ABSENT').length} Absent
-                       </p>
-                    </div>
-                    {isLoading && <Loader2 className="animate-spin text-indigo-500" size={32}/>}
-                 </div>
-              </div>
-
-              <div className="p-6 sm:p-10 space-y-4">
-                 {currentList.length > 0 ? currentList.map((student) => {
-                   const status = attendance[student.id] || 'NOT_MARKED';
-                   return (
-                     <div key={student.id} className="flex flex-col sm:flex-row items-center justify-between p-6 bg-slate-50 dark:bg-slate-800/40 rounded-[3rem] border border-transparent hover:border-indigo-100 hover:bg-white dark:hover:bg-slate-800 transition-all group gap-6">
-                        <div className="flex items-center gap-8 w-full sm:w-auto">
-                           <div className={`w-16 h-16 rounded-[1.8rem] flex items-center justify-center font-black text-2xl shadow-xl group-hover:scale-110 transition-transform ${status === 'PRESENT' ? 'bg-emerald-600 text-white shadow-emerald-100' : status === 'ABSENT' ? 'bg-rose-600 text-white shadow-rose-100' : 'bg-white dark:bg-slate-700 text-slate-400 shadow-sm'}`}>
-                             {student.rollNo}
-                           </div>
-                           <div className="min-w-0">
-                              <h4 className="font-black text-slate-900 dark:text-white uppercase text-sm leading-tight truncate max-w-[200px]">{student.fullName}</h4>
-                              <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-1.5">Profile Verified Registry</p>
-                           </div>
-                        </div>
-
-                        <div className="flex items-center gap-4 w-full sm:w-auto justify-center bg-white/50 dark:bg-slate-900/50 p-3 rounded-[2.5rem] border border-slate-100 dark:border-slate-700 shadow-sm">
-                           {!isStudent && (
-                             <button 
-                               onClick={() => markStatus(student.id, 'PRESENT')}
-                               className={`p-4 rounded-2xl transition-all ${status === 'PRESENT' ? 'bg-emerald-600 text-white shadow-xl' : 'bg-white dark:bg-slate-700 text-slate-400 hover:bg-emerald-50 hover:text-emerald-600'}`}
-                               title="Mark Present"
-                             >
-                               <ArrowLeft size={28} strokeWidth={3} />
-                             </button>
-                           )}
-                           
-                           <div className={`px-12 py-3.5 rounded-2xl text-[11px] font-black uppercase tracking-[0.2em] border transition-all min-w-[160px] text-center ${status === 'PRESENT' ? 'bg-emerald-50 text-emerald-600 border-emerald-100 shadow-sm' : status === 'ABSENT' ? 'bg-rose-50 text-rose-600 border-rose-100 shadow-sm' : 'bg-slate-100 text-slate-400 border-slate-200'}`}>
-                              {status === 'NOT_MARKED' ? 'PENDING' : status.replace('_', ' ')}
-                           </div>
-
-                           {!isStudent && (
-                             <button 
-                               onClick={() => markStatus(student.id, 'ABSENT')}
-                               className={`p-4 rounded-2xl transition-all ${status === 'ABSENT' ? 'bg-rose-600 text-white shadow-xl' : 'bg-white dark:bg-slate-700 text-slate-400 hover:bg-rose-50 hover:text-rose-600'}`}
-                               title="Mark Absent"
-                             >
-                               <ArrowRight size={28} strokeWidth={3} />
-                             </button>
-                           )}
-                        </div>
-                     </div>
-                   );
-                 }) : !isLoading && (
-                   <div className="py-40 text-center flex flex-col items-center">
-                      <LayoutGrid size={80} className="text-slate-100 dark:text-slate-800 mb-8" />
-                      <h3 className="text-3xl font-black text-slate-300 dark:text-slate-700 uppercase tracking-tighter">No Records Found</h3>
-                      <p className="text-slate-400 font-bold uppercase tracking-widest text-[10px] mt-2">Adjust Grade or Section to load registry.</p>
-                   </div>
-                 )}
-              </div>
-           </div>
-        </div>
+                    </td>
+                    <td className="px-8 py-6">
+                      <div className="flex flex-col">
+                        <span className="text-[10px] font-black text-indigo-600 dark:text-indigo-400 uppercase tracking-widest">GR: {student.grNumber}</span>
+                        <span className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">Std {student.class}-{student.section}</span>
+                      </div>
+                    </td>
+                    <td className="px-8 py-6">
+                      <div className="flex items-center justify-center gap-2">
+                        {(['PRESENT', 'ABSENT', 'LATE'] as AttendanceStatus[]).map(status => (
+                          <button 
+                            key={status}
+                            onClick={() => handleStatusChange(student.id, status)}
+                            className={`px-4 py-2 rounded-xl text-[9px] font-black uppercase tracking-widest transition-all border-2 ${
+                              attendance[student.id] === status 
+                                ? status === 'PRESENT' ? 'bg-emerald-600 border-emerald-600 text-white shadow-lg' 
+                                : status === 'ABSENT' ? 'bg-rose-600 border-rose-600 text-white shadow-lg'
+                                : 'bg-amber-50 border-amber-50 text-white shadow-lg'
+                                : 'bg-white dark:bg-slate-900 border-slate-100 dark:border-slate-800 text-slate-400 hover:border-slate-200'
+                            }`}
+                          >
+                            {status}
+                          </button>
+                        ))}
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
       </div>
     </div>
   );
