@@ -74,7 +74,7 @@ const StudentsManager: React.FC<StudentsManagerProps> = ({ user }) => {
       }));
       setStudents(mapped);
     } catch (err: any) { 
-      console.error("Cloud Fetch Error:", err); 
+      console.error("Cloud Fetch Error Details:", err.message || err); 
     }
     finally { setIsLoading(false); }
   };
@@ -214,7 +214,7 @@ const StudentsManager: React.FC<StudentsManagerProps> = ({ user }) => {
       setFormData(initialFormData);
       fetchCloudData();
     } catch (err: any) { 
-      alert(`Cloud Sync Error: ${err.message}`); 
+      alert(`Cloud Sync Error: ${err.message || "Failed to connect to database"}`); 
     } finally { 
       setIsSyncing(false); 
     }
@@ -596,7 +596,7 @@ const StudentsManager: React.FC<StudentsManagerProps> = ({ user }) => {
               <p className="text-slate-500 dark:text-slate-400 mb-10 font-medium text-xs uppercase tracking-widest">This erase is permanent and will sync across all terminals.</p>
               <div className="grid grid-cols-2 gap-4">
                  <button onClick={() => setDeleteId(null)} className="py-5 bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 font-black rounded-3xl uppercase text-[10px] tracking-widest">Keep It</button>
-                 <button onClick={async () => { await db.students.delete(deleteId); setDeleteId(null); fetchCloudData(); }} className="py-5 bg-rose-600 text-white font-black rounded-3xl shadow-xl hover:bg-rose-700 transition-all uppercase text-[10px] tracking-widest">Confirm Purge</button>
+                 <button onClick={async () => { try { await db.students.delete(deleteId); setDeleteId(null); fetchCloudData(); } catch(e: any) { alert(e.message); } }} className="py-5 bg-rose-600 text-white font-black rounded-3xl shadow-xl hover:bg-rose-700 transition-all uppercase text-[10px] tracking-widest">Confirm Purge</button>
               </div>
            </div>
         </div>

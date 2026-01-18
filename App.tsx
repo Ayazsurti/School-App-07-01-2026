@@ -145,7 +145,9 @@ const App: React.FC = () => {
       if (settings.school_address) setSchoolAddress(settings.school_address);
       if (settings.school_email) setSchoolEmail(settings.school_email);
       if (settings.school_contact) setSchoolContact(settings.school_contact);
-    } catch (err) { console.error("Identity Sync Error"); }
+    } catch (err: any) { 
+      console.warn("Branding sync skipped or table missing:", err.message || err); 
+    }
   };
 
   useEffect(() => {
@@ -288,8 +290,12 @@ const Layout: React.FC<LayoutProps> = ({ user, branding, onUpdateDisplay, displa
   useEffect(() => {
     if (isStudent) {
       const fetchStudentDetails = async () => {
-        const { data, error } = await supabase.from('students').select('*').eq('id', user.id).single();
-        if (data) setFullStudentData(data);
+        try {
+          const { data, error } = await supabase.from('students').select('*').eq('id', user.id).single();
+          if (data) setFullStudentData(data);
+        } catch (e) {
+          console.warn("Could not fetch full student details from cloud.");
+        }
       };
       fetchStudentDetails();
     }
@@ -367,7 +373,7 @@ const Layout: React.FC<LayoutProps> = ({ user, branding, onUpdateDisplay, displa
         </div>
       )}
 
-      {/* STUDENT PROFILE MODAL - ENHANCED FOR REQUESTED FIELDS */}
+      {/* STUDENT PROFILE MODAL */}
       {showProfileModal && (
         <div className="fixed inset-0 z-[2000] flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-xl animate-in fade-in duration-500">
            <div className="bg-white dark:bg-slate-900 rounded-[3.5rem] p-1 shadow-2xl max-w-2xl w-full border border-slate-100 dark:border-slate-800 overflow-hidden relative group">
