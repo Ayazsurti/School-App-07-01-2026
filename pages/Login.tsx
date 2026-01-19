@@ -4,7 +4,8 @@ import { User, UserRole } from '../types';
 import { 
   ShieldCheck, Lock, Eye, EyeOff, School, Loader2, Smartphone,
   Key, ChevronRight, Hash, ShieldAlert,
-  SendHorizontal, SmartphoneNfc, Timer, Cloud, CheckCircle2, UserCircle
+  SendHorizontal, SmartphoneNfc, Timer, Cloud, CheckCircle2, UserCircle,
+  Fingerprint, Cpu, Globe, Activity
 } from 'lucide-react';
 import { db, getErrorMessage } from '../supabase';
 import { createAuditLog } from '../utils/auditLogger';
@@ -24,6 +25,7 @@ const Login: React.FC<LoginProps> = ({ onLogin, schoolLogo, schoolName }) => {
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [isAuthenticating, setIsAuthenticating] = useState(false);
+  const [syncStatus, setSyncStatus] = useState("Initializing Neural Uplink...");
   const [error, setError] = useState<string | null>(null);
 
   // 1 Minute OTP Timer Logic
@@ -54,8 +56,26 @@ const Login: React.FC<LoginProps> = ({ onLogin, schoolLogo, schoolName }) => {
 
   const executeLogin = async (userObj: User) => {
     setIsAuthenticating(true);
-    // Enforce 3-second premium loading delay for all roles
+    
+    // Status text rotation during 3-second delay
+    const statuses = [
+      "Initializing Neural Uplink...",
+      "Synchronizing Identity Node...",
+      "Securing Institutional Session..."
+    ];
+    
+    let currentStep = 0;
+    const statusInterval = setInterval(() => {
+      currentStep++;
+      if (currentStep < statuses.length) {
+        setSyncStatus(statuses[currentStep]);
+      }
+    }, 1000);
+
+    // Enforce 3-second premium loading delay
     await new Promise(resolve => setTimeout(resolve, 3000));
+    
+    clearInterval(statusInterval);
     setIsAuthenticating(false);
     onLogin(userObj);
   };
@@ -87,7 +107,6 @@ const Login: React.FC<LoginProps> = ({ onLogin, schoolLogo, schoolName }) => {
       const profile = await db.auth.loginWithMobile(mobileNumber, role as 'TEACHER' | 'STUDENT');
       const userObj: User = {
         id: profile.id,
-        /* Fix: Changed profile.full_name to profile.name */
         name: profile.name,
         email: `${mobileNumber}@edu.node`,
         role: profile.role as UserRole,
@@ -111,7 +130,6 @@ const Login: React.FC<LoginProps> = ({ onLogin, schoolLogo, schoolName }) => {
       const profile = await db.auth.login(username, password);
       const userObj: User = {
         id: profile.id,
-        /* Fix: Changed profile.full_name to profile.name */
         name: profile.name,
         email: `${username}@edu.node`,
         role: profile.role as UserRole,
@@ -135,24 +153,65 @@ const Login: React.FC<LoginProps> = ({ onLogin, schoolLogo, schoolName }) => {
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-white p-6 relative overflow-hidden font-['Inter']">
-      {/* 3-Second Loading Animation Overlay */}
+      
+      {/* ADVANCED 3-SECOND SYNC OVERLAY */}
       {isAuthenticating && (
-        <div className="fixed inset-0 z-[1000] flex flex-col items-center justify-center bg-white/90 backdrop-blur-2xl animate-in fade-in duration-500">
-          <div className="w-full max-w-sm px-10 text-center space-y-8">
-            <div className="relative">
-              <div className="w-24 h-24 bg-indigo-600 rounded-[2.5rem] mx-auto flex items-center justify-center text-white shadow-2xl animate-bounce">
-                <Cloud size={40} />
+        <div className="fixed inset-0 z-[2000] flex flex-col items-center justify-center bg-slate-950 animate-in fade-in duration-500">
+          <div className="absolute inset-0 neural-grid-white opacity-10"></div>
+          
+          {/* Cyber Scanning HUD Elements */}
+          <div className="absolute top-10 left-10 text-cyan-500/30 font-mono text-[8px] space-y-1 hidden sm:block">
+            <p>NODE_AUTH_V4</p>
+            <p>LATENCY: 0.02ms</p>
+            <p>GATEWAY: SECURE</p>
+          </div>
+          <div className="absolute bottom-10 right-10 text-indigo-500/30 font-mono text-[8px] space-y-1 hidden sm:block text-right">
+            <p>IDENTITY_HASH: SH256</p>
+            <p>CLOUD_LINK: ACTIVE</p>
+            <p>DB_SYNC: 100%</p>
+          </div>
+
+          <div className="w-full max-w-sm px-10 text-center space-y-12 relative">
+            {/* Pulsing Identity Core */}
+            <div className="relative mx-auto w-32 h-32">
+              <div className="absolute inset-0 bg-cyan-500/20 rounded-full blur-3xl animate-neural-pulse"></div>
+              
+              {/* Outer Ring */}
+              <div className="absolute inset-0 border-4 border-dashed border-indigo-500/30 rounded-full animate-[spin_10s_linear_infinite]"></div>
+              
+              {/* Inner Rotating Ring */}
+              <div className="absolute inset-4 border-2 border-cyan-400/50 rounded-full animate-[spin_3s_linear_infinite_reverse]"></div>
+              
+              {/* Central Identity Chip */}
+              <div className="absolute inset-8 bg-indigo-600 rounded-3xl shadow-[0_0_40px_rgba(79,70,229,0.5)] flex items-center justify-center text-white border border-white/20">
+                <Fingerprint size={40} className="animate-pulse" />
               </div>
-              <div className="absolute top-0 left-1/2 -translate-x-1/2 w-24 h-24 border-4 border-indigo-100 border-t-indigo-600 rounded-[2.5rem] animate-spin"></div>
+
+              {/* Orbiting Particles */}
+              <div className="absolute -top-2 left-1/2 w-2 h-2 bg-cyan-400 rounded-full shadow-[0_0_10px_#22d3ee]"></div>
             </div>
-            <div className="space-y-2">
-              <h2 className="text-2xl font-black text-slate-900 uppercase tracking-tighter">Establishing Session</h2>
-              <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.3em]">Synchronizing Identity with Cloud Node</p>
+
+            <div className="space-y-4">
+              <div className="flex flex-col items-center gap-1">
+                <h2 className="text-xl font-black text-white uppercase tracking-[0.3em] animate-in slide-in-from-bottom-2">{syncStatus}</h2>
+                <div className="flex items-center gap-2 text-indigo-400">
+                   <Activity size={12} className="animate-pulse" />
+                   <p className="text-[9px] font-black uppercase tracking-[0.4em]">Biometric Verification</p>
+                </div>
+              </div>
+              
+              <div className="relative h-1 w-full bg-white/5 rounded-full overflow-hidden border border-white/10">
+                <div className="h-full bg-gradient-to-r from-indigo-500 via-cyan-400 to-indigo-500 rounded-full animate-[progress-grow_3s_linear] w-full origin-left relative">
+                   <div className="absolute inset-0 bg-[length:20px_100%] bg-gradient-to-r from-transparent via-white/30 to-transparent animate-[scan-line-fast_1.5s_linear_infinite]"></div>
+                </div>
+              </div>
             </div>
-            <div className="w-full bg-slate-100 h-1.5 rounded-full overflow-hidden shadow-inner">
-              <div className="h-full bg-indigo-600 rounded-full animate-[progress-grow_3s_linear]"></div>
+
+            <div className="grid grid-cols-3 gap-2 opacity-20">
+               {[...Array(3)].map((_, i) => (
+                 <div key={i} className="h-0.5 bg-indigo-500 rounded-full"></div>
+               ))}
             </div>
-            <p className="text-[9px] font-bold text-indigo-500 uppercase tracking-widest animate-pulse italic">Connecting to Gateway...</p>
           </div>
         </div>
       )}
@@ -342,12 +401,5 @@ const Login: React.FC<LoginProps> = ({ onLogin, schoolLogo, schoolName }) => {
     </div>
   );
 };
-
-// Additional Icon
-const SmartphoneNfc = ({ size, className }: { size: number, className?: string }) => (
-  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className={className}>
-    <rect width="14" height="20" x="5" y="2" rx="2" ry="2"/><path d="M12 18h.01"/><path d="M17 8.5a5 5 0 0 1 0 7"/><path d="M14.3 10.1a2 2 0 0 1 0 3.8"/>
-  </svg>
-);
 
 export default Login;

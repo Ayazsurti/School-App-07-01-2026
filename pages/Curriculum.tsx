@@ -37,6 +37,13 @@ const Curriculum: React.FC<CurriculumProps> = ({ user }) => {
   const [successMsg, setSuccessMsg] = useState('');
   const fileInputRef = useRef<HTMLInputElement>(null);
 
+  const formatTimestamp = () => {
+    return new Date().toLocaleString('en-GB', { 
+      day: '2-digit', month: 'short', year: 'numeric',
+      hour: '2-digit', minute: '2-digit', hour12: true 
+    });
+  };
+
   const fetchCloudData = async () => {
     try {
       const data = await db.curriculum.getFolders();
@@ -72,7 +79,7 @@ const Curriculum: React.FC<CurriculumProps> = ({ user }) => {
     if (!folderName.trim() || isStudent) return;
     setUploading(true);
     try {
-      const timestamp = new Date().toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
+      const timestamp = formatTimestamp();
       await db.curriculum.insertFolder(folderName.toUpperCase(), timestamp);
       await createAuditLog(user, 'CREATE', 'Curriculum', `New Subject Category: ${folderName}`);
       setFolderName('');
@@ -116,7 +123,7 @@ const Curriculum: React.FC<CurriculumProps> = ({ user }) => {
           type: selectedFile.type.includes('pdf') ? 'PDF' : 'IMAGE',
           mediaUrl: ev.target?.result as string,
           metadata: { size: selectedFile.size, lastModified: selectedFile.lastModified },
-          timestamp: new Date().toLocaleDateString()
+          timestamp: formatTimestamp()
         };
         await db.curriculum.insertFile(payload);
         await createAuditLog(user, 'CREATE', 'Curriculum', `Synced material: ${payload.title}`);
@@ -201,12 +208,11 @@ const Curriculum: React.FC<CurriculumProps> = ({ user }) => {
           )}
           <div>
             <h1 className="text-2xl sm:text-4xl font-black text-slate-900 dark:text-white tracking-tight uppercase leading-tight">{activeFolder ? activeFolder.name : 'Curriculum Archive'}</h1>
-            <p className="text-slate-500 dark:text-slate-400 font-medium text-xs sm:text-lg uppercase tracking-tight">Institutional education assets.</p>
+            <p className="text-slate-500 dark:text-slate-400 font-medium text-xs sm:text-lg uppercase tracking-tight">Institutional education assets with precise timestamps.</p>
           </div>
         </div>
 
         <div className="flex items-center gap-4">
-           {/* REQUESTED TOP RIGHT CORNER ELEMENTS FOR STUDENT */}
            {isStudent && (
               <div className="flex items-center gap-4 bg-white dark:bg-slate-900 p-2 pl-4 rounded-[2rem] border border-slate-100 dark:border-slate-800 shadow-sm">
                  <button className="p-2 text-slate-400 hover:text-indigo-600 transition-all relative">
@@ -243,7 +249,8 @@ const Curriculum: React.FC<CurriculumProps> = ({ user }) => {
               <div key={folder.id} onClick={() => setActiveFolderId(folder.id)} className="bg-white dark:bg-slate-900 p-8 rounded-[3rem] shadow-sm border border-slate-100 dark:border-slate-800 hover:shadow-2xl transition-all cursor-pointer group relative">
                  <div className="w-16 h-16 bg-indigo-50 dark:bg-indigo-900/30 text-indigo-600 rounded-[1.8rem] flex items-center justify-center group-hover:bg-indigo-600 group-hover:text-white transition-all shadow-inner mb-6"><Folder size={28} /></div>
                  <h3 className="text-xl font-black text-slate-900 dark:text-white leading-tight mb-1 uppercase truncate">{folder.name}</h3>
-                 <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-1.5">{folder.curriculum_files?.length || 0} Documents</p>
+                 <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-1.5 mb-1">{folder.curriculum_files?.length || 0} Documents</p>
+                 <p className="text-[7px] font-black text-slate-300 uppercase tracking-widest flex items-center gap-1.5"><Clock size={10}/> Established: {folder.timestamp}</p>
               </div>
            ))}
            {folders.length === 0 && (
@@ -272,7 +279,7 @@ const Curriculum: React.FC<CurriculumProps> = ({ user }) => {
                       </div>
                       <div className="min-w-0">
                          <h4 className="text-lg font-black text-slate-800 dark:text-white uppercase truncate">{file.title}</h4>
-                         <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mt-1">Uploaded: {file.timestamp}</p>
+                         <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mt-1 flex items-center gap-1.5"><Clock size={12}/> Synced: {file.timestamp}</p>
                       </div>
                    </div>
                    <div className="flex gap-3 shrink-0 ml-4 items-center">
@@ -375,18 +382,18 @@ const Curriculum: React.FC<CurriculumProps> = ({ user }) => {
         </div>
       )}
 
-      {/* DELETE CONFIRMATION FILE */}
+      {/* DELETE CONFIRMATION FILE - UPDATED TO COMPACT SIZE */}
       {deleteFileId && (
         <div className="fixed inset-0 z-[1300] flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-md animate-in fade-in">
-           <div className="bg-white dark:bg-slate-900 rounded-[3rem] p-12 max-sm w-full shadow-2xl text-center">
-              <div className="w-20 h-20 bg-rose-50 dark:bg-rose-900/20 text-rose-600 rounded-[2.5rem] flex items-center justify-center mb-8 mx-auto shadow-inner">
-                 <AlertTriangle size={48} strokeWidth={2.5} />
+           <div className="bg-white dark:bg-slate-900 rounded-[2.5rem] p-8 max-w-xs w-full shadow-2xl text-center">
+              <div className="w-16 h-16 bg-rose-50 dark:bg-rose-900/20 text-rose-600 rounded-[1.8rem] flex items-center justify-center mb-6 mx-auto shadow-inner">
+                 <AlertTriangle size={32} strokeWidth={2.5} />
               </div>
-              <h3 className="text-2xl font-black uppercase tracking-tight">Delete Asset?</h3>
-              <p className="text-slate-500 dark:text-slate-400 mb-10 font-medium text-xs uppercase tracking-widest">This material will be permanently purged.</p>
-              <div className="grid grid-cols-2 gap-4">
-                 <button onClick={() => setDeleteFileId(null)} className="py-5 bg-slate-100 dark:bg-slate-800 rounded-3xl font-black uppercase text-[10px]">Cancel</button>
-                 <button onClick={confirmDeleteFile} className="py-5 bg-rose-600 text-white rounded-3xl font-black uppercase text-[10px]">Confirm</button>
+              <h3 className="text-xl font-black uppercase tracking-tight">Delete Asset?</h3>
+              <p className="text-slate-500 dark:text-slate-400 mb-8 font-medium text-[10px] uppercase tracking-widest">This material will be permanently purged.</p>
+              <div className="grid grid-cols-2 gap-3">
+                 <button onClick={() => setDeleteFileId(null)} className="py-4 bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 font-black rounded-2xl uppercase text-[10px]">Cancel</button>
+                 <button onClick={confirmDeleteFile} className="py-4 bg-rose-600 text-white rounded-2xl font-black uppercase text-[10px]">Purge</button>
               </div>
            </div>
         </div>

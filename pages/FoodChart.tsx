@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { User } from '../types';
 import { createAuditLog } from '../utils/auditLogger';
@@ -147,19 +148,20 @@ const FoodChart: React.FC<FoodChartProps> = ({ user }) => {
         </div>
       )}
 
+      {/* COMPACT DELETE DIALOG */}
       {deleteConfirm && (
         <div className="fixed inset-0 z-[750] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-md animate-in fade-in duration-200">
-           <div className="bg-white dark:bg-slate-900 rounded-[2.5rem] p-10 max-sm w-full shadow-2xl animate-in zoom-in-95 text-center border border-slate-100 dark:border-slate-800">
-              <div className="w-20 h-20 bg-rose-50 dark:bg-rose-900/20 text-rose-600 rounded-[2rem] flex items-center justify-center mb-6 mx-auto border border-rose-100 dark:border-rose-900/50 shadow-inner">
-                 <Trash2 size={40} />
+           <div className="bg-white dark:bg-slate-900 rounded-[2.5rem] p-8 max-w-xs w-full shadow-2xl animate-in zoom-in-95 text-center border border-slate-100 dark:border-slate-800">
+              <div className="w-16 h-16 bg-rose-50 dark:bg-rose-900/20 text-rose-600 rounded-[1.8rem] flex items-center justify-center mb-6 mx-auto border border-rose-100 dark:border-rose-900/50 shadow-inner">
+                 <Trash2 size={32} />
               </div>
-              <h3 className="text-2xl font-black text-slate-900 dark:text-white mb-2 tracking-tight uppercase">Permanently Delete?</h3>
-              <p className="text-slate-500 dark:text-slate-400 font-medium leading-relaxed mb-8">
-                 Are you sure you want to erase <b>{deleteConfirm.item.name}</b> from the roster?
+              <h3 className="text-xl font-black text-slate-900 dark:text-white mb-2 tracking-tight uppercase">Delete Item?</h3>
+              <p className="text-slate-500 dark:text-slate-400 font-medium leading-relaxed mb-8 text-[10px] uppercase tracking-widest">
+                 Purge <b>{deleteConfirm.item.name}</b> from the menu?
               </p>
-              <div className="flex gap-3">
-                 <button onClick={() => setDeleteConfirm(null)} className="flex-1 py-4 bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 font-bold rounded-2xl hover:bg-slate-200 transition-colors uppercase text-[10px] tracking-widest">Cancel</button>
-                 <button onClick={confirmDelete} className="flex-1 py-4 bg-rose-600 text-white font-black rounded-2xl shadow-lg shadow-rose-200 hover:bg-rose-700 transition-all uppercase text-[10px] tracking-widest">Confirm Delete</button>
+              <div className="grid grid-cols-2 gap-3">
+                 <button onClick={() => setDeleteConfirm(null)} className="py-4 bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 font-bold rounded-2xl hover:bg-slate-200 transition-colors uppercase text-[10px] tracking-widest">Cancel</button>
+                 <button onClick={confirmDelete} className="py-4 bg-rose-600 text-white font-black rounded-2xl shadow-lg shadow-rose-200 hover:bg-rose-700 transition-all uppercase text-[10px] tracking-widest">Purge</button>
               </div>
            </div>
         </div>
@@ -275,7 +277,7 @@ const FoodChart: React.FC<FoodChartProps> = ({ user }) => {
                    <h3 className="text-2xl font-black text-slate-900 dark:text-white tracking-tight">{editingItem ? 'Edit Entry' : `New ${activeDay} Item`}</h3>
                    <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Catering Control Panel</p>
                  </div>
-                 <button onClick={() => setShowModal(false)} className="p-3 bg-white dark:bg-slate-800 hover:bg-slate-100 dark:hover:bg-slate-700 rounded-full text-slate-400 transition-all shadow-sm"><X size={24} /></button>
+                 <button onClick={() => setShowModal(false)} className="p-3 bg-white dark:bg-slate-900 hover:bg-slate-100 dark:hover:bg-slate-700 rounded-full text-slate-400 transition-all shadow-sm"><X size={24} /></button>
               </div>
 
               <div className="p-10 space-y-6">

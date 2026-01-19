@@ -1,8 +1,8 @@
-
 import React, { useState, useRef, useMemo, useEffect } from 'react';
 import { User, MediaAsset } from '../types';
 import { createAuditLog } from '../utils/auditLogger';
-import { supabase, db } from '../supabase';
+// Fix: Imported db and supabase which were missing
+import { db, supabase } from '../supabase';
 import { 
   Plus, Search, Trash2, Upload, X, Maximize2, Image as ImageIcon, Clock, User as UserIcon, AlertCircle, Loader2, Edit2, CheckCircle2, AlertTriangle, Save, RefreshCw
 } from 'lucide-react';
@@ -23,6 +23,13 @@ const MediaGallery: React.FC<MediaGalleryProps> = ({ user }) => {
   
   const [formData, setFormData] = useState({ name: '', description: '', url: '' });
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const formatTimestamp = () => {
+    return new Date().toLocaleString('en-GB', { 
+      day: '2-digit', month: 'short', year: 'numeric',
+      hour: '2-digit', minute: '2-digit', hour12: true 
+    });
+  };
 
   const fetchCloudData = async () => {
     try {
@@ -80,7 +87,7 @@ const MediaGallery: React.FC<MediaGalleryProps> = ({ user }) => {
           description: formData.description || 'Cloud Memory',
           type: 'image',
           uploadedBy: user.name,
-          date: new Date().toLocaleDateString()
+          date: formatTimestamp()
         };
         await db.gallery.insert(newAsset);
         createAuditLog(user, 'CREATE', 'Gallery', `Photo Uploaded: ${newAsset.name}`);
@@ -112,7 +119,6 @@ const MediaGallery: React.FC<MediaGalleryProps> = ({ user }) => {
 
   return (
     <div className="space-y-6 animate-in fade-in duration-500 pb-20 relative">
-      {/* SYNC INDICATOR */}
       {isSyncing && (
         <div className="fixed top-24 left-1/2 -translate-x-1/2 z-[1100] animate-bounce">
            <div className="bg-indigo-600 text-white px-6 py-2 rounded-full shadow-2xl flex items-center gap-3 border border-indigo-400">
@@ -122,7 +128,6 @@ const MediaGallery: React.FC<MediaGalleryProps> = ({ user }) => {
         </div>
       )}
 
-      {/* SUCCESS TOAST */}
       {showSuccess && (
         <div className="fixed top-24 right-8 z-[1000] animate-in slide-in-from-right-8 duration-500">
            <div className="bg-emerald-600 text-white px-8 py-5 rounded-[2rem] shadow-2xl flex items-center gap-4 border border-emerald-500/50 backdrop-blur-xl">
@@ -138,7 +143,7 @@ const MediaGallery: React.FC<MediaGalleryProps> = ({ user }) => {
       <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6">
         <div>
           <h1 className="text-4xl font-black text-slate-900 dark:text-white tracking-tight flex items-center gap-3 uppercase">Photo Gallery <ImageIcon className="text-indigo-600" /></h1>
-          <p className="text-slate-500 dark:text-slate-400 font-medium text-lg uppercase tracking-tight">Preserving institutional memories on the global cloud.</p>
+          <p className="text-slate-500 dark:text-slate-400 font-medium text-lg uppercase tracking-tight">Preserving institutional memories with precise timestamps.</p>
         </div>
         {canManage && (
           <button onClick={() => fileInputRef.current?.click()} className="px-8 py-4 bg-indigo-600 text-white font-black rounded-2xl shadow-xl flex items-center gap-3 hover:-translate-y-1 transition-all uppercase text-xs tracking-widest disabled:opacity-50" disabled={uploading}>
@@ -177,8 +182,8 @@ const MediaGallery: React.FC<MediaGalleryProps> = ({ user }) => {
                   </p>
                   <div className="flex items-center justify-between border-t border-slate-50 dark:border-slate-800 pt-6 mt-auto">
                      <div className="space-y-1">
-                        <p className="text-[9px] font-black text-indigo-600 uppercase tracking-widest flex items-center gap-1.5"><Clock size={12}/> {asset.date}</p>
-                        <p className="text-[8px] font-bold text-slate-400 uppercase tracking-widest">By {asset.uploadedBy}</p>
+                        <p className="text-[8px] font-black text-indigo-600 uppercase tracking-widest flex items-center gap-1.5"><Clock size={12}/> {asset.date}</p>
+                        <p className="text-[7px] font-bold text-slate-400 uppercase tracking-widest">By {asset.uploadedBy}</p>
                      </div>
                      {canManage && (
                        <div className="flex gap-1">
@@ -253,18 +258,18 @@ const MediaGallery: React.FC<MediaGalleryProps> = ({ user }) => {
         </div>
       )}
 
-      {/* DELETE CONFIRMATION MODAL */}
+      {/* DELETE CONFIRMATION MODAL - UPDATED TO COMPACT SIZE */}
       {deleteId && (
         <div className="fixed inset-0 z-[1300] flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-md animate-in fade-in">
-           <div className="bg-white dark:bg-slate-900 rounded-[3rem] p-12 max-sm w-full shadow-2xl text-center border border-rose-100 dark:border-rose-900/50 animate-in zoom-in-95">
-              <div className="w-24 h-24 bg-rose-50 dark:bg-rose-900/20 text-rose-600 rounded-[2.5rem] flex items-center justify-center mb-8 mx-auto shadow-inner border border-rose-100">
-                 <AlertTriangle size={48} strokeWidth={2.5} />
+           <div className="bg-white dark:bg-slate-900 rounded-[3rem] p-8 max-w-xs w-full shadow-2xl text-center border border-rose-100/20 animate-in zoom-in-95">
+              <div className="w-16 h-16 bg-rose-50 dark:bg-rose-900/20 text-rose-600 rounded-[1.8rem] flex items-center justify-center mb-6 mx-auto shadow-inner border border-rose-100">
+                 <AlertTriangle size={32} strokeWidth={2.5} />
               </div>
-              <h3 className="text-3xl font-black text-slate-900 dark:text-white mb-3 uppercase tracking-tighter">Purge Memory?</h3>
-              <p className="text-slate-500 dark:text-slate-400 mb-10 font-medium text-xs leading-relaxed uppercase tracking-widest">This photo and its details will be permanently erased from the global archive.</p>
-              <div className="grid grid-cols-2 gap-4">
-                 <button onClick={() => setDeleteId(null)} className="py-5 bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 font-black rounded-3xl uppercase text-[10px] tracking-widest">Keep It</button>
-                 <button onClick={confirmDelete} className="py-5 bg-rose-600 text-white font-black rounded-3xl shadow-xl hover:bg-rose-700 transition-all uppercase text-[10px] tracking-widest">Confirm Delete</button>
+              <h3 className="text-xl font-black text-slate-900 dark:text-white mb-2 uppercase tracking-tighter">Purge Memory?</h3>
+              <p className="text-slate-500 dark:text-slate-400 mb-8 font-medium text-[10px] leading-relaxed uppercase tracking-widest">This photo and its details will be permanently erased from the archive.</p>
+              <div className="grid grid-cols-2 gap-3">
+                 <button onClick={() => setDeleteId(null)} className="py-4 bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 font-black rounded-2xl uppercase text-[10px]">Cancel</button>
+                 <button onClick={confirmDelete} className="py-4 bg-rose-600 text-white font-black rounded-2xl shadow-xl hover:bg-rose-700 transition-all uppercase text-[10px]">Purge</button>
               </div>
            </div>
         </div>

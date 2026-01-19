@@ -7,7 +7,7 @@ import {
   CheckCircle2, ShieldCheck, Smartphone, Loader2, RefreshCw,
   GraduationCap, FileSpreadsheet, FileDown, FileSearch, MapPin, 
   CreditCard, Calendar, Eye, StopCircle, Mail, Fingerprint, Tags,
-  Users, Check, ArrowRight
+  Users, Check, ArrowRight, AlertTriangle
 } from 'lucide-react';
 import { db, supabase, getErrorMessage } from '../supabase';
 
@@ -67,13 +67,13 @@ const StudentsManager: React.FC<StudentsManagerProps> = ({ user }) => {
         panNo: s.pan_no,
         uidId: s.uid_id,
         penNo: s.pen_no,
-        studentType: s.student_type,
+        student_type: s.student_type,
         birthPlace: s.birth_place,
         fatherPhoto: s.father_photo,
         motherPhoto: s.mother_photo,
         password: s.password
       }));
-      setStudents(mapped);
+      setStudents(mapped as Student[]);
     } catch (err: any) { 
       console.error("Student Cloud Fetch Error:", getErrorMessage(err)); 
     }
@@ -521,18 +521,18 @@ const StudentsManager: React.FC<StudentsManagerProps> = ({ user }) => {
         </div>
       )}
 
-      {/* Delete Dialog */}
+      {/* Delete Dialog - UPDATED TO COMPACT SIZE */}
       {deleteId && (
         <div className="fixed inset-0 z-[2000] flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-md no-print animate-in fade-in">
-           <div className="bg-white dark:bg-slate-900 rounded-[3rem] p-12 max-sm w-full shadow-2xl text-center border border-rose-100 dark:border-rose-900/50 animate-in zoom-in-95">
-              <div className="w-24 h-24 bg-rose-50 dark:bg-rose-900/20 text-rose-600 rounded-[2.5rem] flex items-center justify-center mb-8 mx-auto shadow-inner border border-rose-100">
-                 <Trash2 size={48} strokeWidth={2.5} />
+           <div className="bg-white dark:bg-slate-900 rounded-[3rem] p-8 max-w-xs w-full shadow-2xl text-center border border-rose-100/20 animate-in zoom-in-95">
+              <div className="w-16 h-16 bg-rose-50 dark:bg-rose-900/20 text-rose-600 rounded-[1.8rem] flex items-center justify-center mb-6 mx-auto shadow-inner border border-rose-100">
+                 <AlertTriangle size={32} strokeWidth={2.5} />
               </div>
-              <h3 className="text-3xl font-black text-slate-900 dark:text-white mb-3 uppercase tracking-tighter">Purge Data?</h3>
-              <p className="text-slate-500 dark:text-slate-400 mb-10 font-medium text-xs uppercase tracking-widest">This erase is permanent and will sync across all terminals.</p>
-              <div className="grid grid-cols-2 gap-4">
-                 <button onClick={() => setDeleteId(null)} className="py-5 bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 font-black rounded-3xl uppercase text-[10px] tracking-widest">Keep It</button>
-                 <button onClick={async () => { try { await db.students.delete(deleteId); setDeleteId(null); fetchCloudData(); } catch(e: any) { alert(getErrorMessage(e)); } }} className="py-5 bg-rose-600 text-white font-black rounded-3xl shadow-xl hover:bg-rose-700 transition-all uppercase text-[10px] tracking-widest">Confirm Purge</button>
+              <h3 className="text-xl font-black text-slate-900 dark:text-white mb-2 uppercase tracking-tighter">Purge Data?</h3>
+              <p className="text-slate-500 dark:text-slate-400 mb-8 font-medium text-[10px] uppercase tracking-widest">This erase is permanent and will sync across all terminals.</p>
+              <div className="grid grid-cols-2 gap-3">
+                 <button onClick={() => setDeleteId(null)} className="py-4 bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 font-black rounded-2xl uppercase text-[10px]">Keep</button>
+                 <button onClick={async () => { try { await db.students.delete(deleteId); setDeleteId(null); fetchCloudData(); } catch(e: any) { alert(getErrorMessage(e)); } }} className="py-4 bg-rose-600 text-white font-black rounded-2xl shadow-xl hover:bg-rose-700 transition-all uppercase text-[10px]">Purge</button>
               </div>
            </div>
         </div>

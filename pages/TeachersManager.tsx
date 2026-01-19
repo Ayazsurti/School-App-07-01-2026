@@ -303,7 +303,6 @@ const TeachersManager: React.FC<TeachersManagerProps> = ({ user }) => {
         )}
       </div>
 
-      {/* MODAL */}
       {showModal && (
         <div className="fixed inset-0 z-[1000] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-md animate-in fade-in">
           <div className="bg-white dark:bg-slate-900 rounded-[3rem] p-1 shadow-2xl max-w-5xl w-full max-h-[95vh] overflow-hidden flex flex-col border border-slate-100 dark:border-slate-800">
@@ -468,10 +467,8 @@ const TeachersManager: React.FC<TeachersManagerProps> = ({ user }) => {
                     </div>
                  </div>
                ) : (
-                 /* Security & Access Tab */
                  <div className="animate-in slide-in-from-right-12 duration-700 space-y-10 py-4">
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-10">
-                       {/* Status & Firewall */}
                        <div className="bg-slate-950 rounded-[3rem] p-10 border-2 border-indigo-500/30 shadow-[0_0_50px_-12px_rgba(99,102,241,0.2)] relative overflow-hidden group">
                           <div className="absolute inset-0 opacity-10 pointer-events-none" style={{ backgroundImage: 'radial-gradient(#4f46e5 1px, transparent 0)', backgroundSize: '24px 24px' }}></div>
                           <div className="relative z-10 flex items-center gap-5 mb-10">
@@ -506,7 +503,6 @@ const TeachersManager: React.FC<TeachersManagerProps> = ({ user }) => {
                           </div>
                        </div>
 
-                       {/* Credentials & Access */}
                        <div className="bg-slate-950 rounded-[3rem] p-10 border-2 border-cyan-500/30 shadow-[0_0_50px_-12px_rgba(6,182,212,0.2)] relative overflow-hidden group">
                           <div className="absolute inset-0 opacity-10 pointer-events-none" style={{ backgroundImage: 'linear-gradient(rgba(6,182,212,0.1) 1px, transparent 1px), linear-gradient(90deg, rgba(6,182,212,0.1) 1px, transparent 1px)', backgroundSize: '40px 40px' }}></div>
                           <div className="relative z-10 flex items-center gap-5 mb-10">
@@ -583,18 +579,18 @@ const TeachersManager: React.FC<TeachersManagerProps> = ({ user }) => {
         </div>
       )}
 
-      {/* Delete Dialog */}
+      {/* Delete Dialog - UPDATED TO COMPACT SIZE */}
       {deleteId && (
         <div className="fixed inset-0 z-[2000] flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-md animate-in fade-in">
-           <div className="bg-white dark:bg-slate-900 rounded-[3rem] p-12 max-sm w-full shadow-2xl text-center border border-rose-100 dark:border-rose-900/50 animate-in zoom-in-95">
-              <div className="w-24 h-24 bg-rose-50 dark:bg-rose-900/20 text-rose-600 rounded-[2.5rem] flex items-center justify-center mb-8 mx-auto shadow-inner border border-rose-100">
-                 <Trash2 size={48} strokeWidth={2.5} />
+           <div className="bg-white dark:bg-slate-900 rounded-[3rem] p-8 max-w-xs w-full shadow-2xl text-center border border-rose-100/20 animate-in zoom-in-95">
+              <div className="w-16 h-16 bg-rose-50 dark:bg-rose-900/20 text-rose-600 rounded-[1.8rem] flex items-center justify-center mb-6 mx-auto shadow-inner border border-rose-100">
+                 <AlertTriangle size={32} strokeWidth={2.5} />
               </div>
-              <h3 className="text-3xl font-black text-slate-900 dark:text-white mb-3 uppercase tracking-tighter">Deactivate Faculty?</h3>
-              <p className="text-slate-500 dark:text-slate-400 mb-10 font-medium text-xs leading-relaxed uppercase tracking-widest">This professional record will be permanently purged from the cloud terminal.</p>
-              <div className="grid grid-cols-2 gap-4">
-                 <button onClick={() => setDeleteId(null)} className="py-5 bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 font-black rounded-3xl uppercase text-[10px] tracking-widest">Keep</button>
-                 <button onClick={async () => { await db.teachers.delete(deleteId); setDeleteId(null); fetchCloudData(); }} className="py-5 bg-rose-600 text-white font-black rounded-3xl shadow-xl hover:bg-rose-700 transition-all uppercase text-[10px] tracking-widest">Confirm Purge</button>
+              <h3 className="text-xl font-black text-slate-900 dark:text-white mb-2 uppercase tracking-tighter">Deactivate Faculty?</h3>
+              <p className="text-slate-500 dark:text-slate-400 mb-8 font-medium text-[10px] leading-relaxed uppercase tracking-widest">This professional record will be permanently purged.</p>
+              <div className="grid grid-cols-2 gap-3">
+                 <button onClick={() => setDeleteId(null)} className="py-4 bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 font-black rounded-2xl uppercase text-[10px]">Keep</button>
+                 <button onClick={async () => { await db.teachers.delete(deleteId); setDeleteId(null); fetchCloudData(); }} className="py-4 bg-rose-600 text-white font-black rounded-2xl shadow-xl hover:bg-rose-700 transition-all uppercase text-[10px]">Purge</button>
               </div>
            </div>
         </div>

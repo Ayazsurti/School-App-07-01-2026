@@ -25,7 +25,8 @@ import {
   Loader2,
   RefreshCw,
   Download,
-  Smartphone
+  Smartphone,
+  AlertTriangle
 } from 'lucide-react';
 import { MOCK_SUBJECTS } from '../constants';
 import { db, supabase } from '../supabase';
@@ -58,13 +59,20 @@ const Homework: React.FC<HomeworkProps> = ({ user }) => {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [showSuccess, setShowSuccess] = useState(false);
 
+  const formatTimestamp = (dateStr: string) => {
+    return new Date(dateStr).toLocaleString('en-GB', { 
+      day: '2-digit', month: 'short', year: 'numeric',
+      hour: '2-digit', minute: '2-digit', hour12: true 
+    });
+  };
+
   const fetchCloudData = async () => {
     try {
       const data = await db.homework.getAll();
       setHomeworks(data.map((h: any) => ({
         id: h.id, title: h.title, description: h.description, subject: h.subject,
         className: h.class_name, section: h.section, dueDate: h.due_date,
-        createdAt: new Date(h.created_at).toLocaleString(), createdBy: h.created_by,
+        createdAt: formatTimestamp(h.created_at), createdBy: h.created_by,
         attachment: h.attachment
       })));
     } catch (err) { console.error("Cloud Error:", err); }
@@ -146,7 +154,7 @@ const Homework: React.FC<HomeworkProps> = ({ user }) => {
         createdBy: editingHomework?.createdBy || user.name,
         attachment: tempAttachment || editingHomework?.attachment
       });
-      createAuditLog(user, editingHomework ? 'UPDATE' : 'CREATE', 'Homework', `Cloud Synced: ${formData.title}`);
+      createAuditLog(user, 'CREATE', 'Homework', `Cloud Synced: ${formData.title}`);
       setShowModal(false);
       setShowSuccess(true);
       setTimeout(() => setShowSuccess(false), 3000);
@@ -169,7 +177,6 @@ const Homework: React.FC<HomeworkProps> = ({ user }) => {
     return homeworks.filter(hw => {
       const matchesSearch = (hw.title + ' ' + hw.description).toLowerCase().includes(searchQuery.toLowerCase());
       if (user.role === 'STUDENT') {
-        // Strict automatic filtering for students based on their actual placement in registry
         return matchesSearch && hw.className === user.class && hw.section === user.section;
       }
       const matchesClass = selectedClassFilter === 'All' || hw.className === selectedClassFilter;
@@ -203,7 +210,7 @@ const Homework: React.FC<HomeworkProps> = ({ user }) => {
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 px-4 sm:px-0">
         <div>
           <h1 className="text-2xl sm:text-4xl font-black text-slate-900 dark:text-white tracking-tight leading-tight uppercase flex items-center gap-2 sm:gap-3">Homework <PencilRuler className="text-indigo-600" size={24} /></h1>
-          <p className="text-slate-500 dark:text-slate-400 font-medium text-xs sm:text-lg">Assignment distribution system.</p>
+          <p className="text-slate-500 dark:text-slate-400 font-medium text-xs sm:text-lg">Assignment distribution system with precise timestamps.</p>
         </div>
         {canManage && (
           <button onClick={() => { setEditingHomework(null); setTempAttachment(null); setShowModal(true); }} className="w-full sm:w-auto px-6 py-4 bg-indigo-600 text-white font-black rounded-2xl shadow-xl flex items-center justify-center gap-3 hover:-translate-y-1 transition-all uppercase text-xs tracking-widest"><Plus size={18} /> Post Task</button>
@@ -233,7 +240,8 @@ const Homework: React.FC<HomeworkProps> = ({ user }) => {
                   <span className="px-3 py-1 rounded-full text-[8px] sm:text-[9px] font-black tracking-widest uppercase bg-amber-50 text-amber-600 border border-amber-100">Due: {hw.dueDate}</span>
                </div>
                <h3 className="text-lg sm:text-xl font-black text-slate-900 dark:text-white leading-tight mb-1 uppercase truncate">{hw.title}</h3>
-               <p className="text-[9px] font-black text-indigo-500 uppercase tracking-widest mb-3 sm:mb-4">Std {hw.className}-{hw.section} • {hw.subject}</p>
+               <p className="text-[9px] font-black text-indigo-500 uppercase tracking-widest mb-1">Std {hw.className}-{hw.section} • {hw.subject}</p>
+               <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-1 mb-4"><Clock size={10}/> Posted: {hw.createdAt}</p>
                <p className="text-slate-500 dark:text-slate-400 text-xs sm:text-sm line-clamp-3 mb-6 flex-1 leading-relaxed">{hw.description}</p>
                <div className="flex gap-2 mt-auto pt-4 border-t border-slate-50 dark:border-slate-800 items-center">
                   {hw.attachment && (
@@ -286,78 +294,18 @@ const Homework: React.FC<HomeworkProps> = ({ user }) => {
         </div>
       )}
 
-      {showViewer && viewingFile && viewingFile.attachment && (
-        <div className="fixed inset-0 z-[600] bg-slate-950/98 backdrop-blur-2xl flex flex-col p-4 sm:p-10 animate-in zoom-in-95">
-           <div className="flex justify-between items-center mb-6 text-white px-2">
-              <div className="flex items-center gap-4">
-                 <div className="p-3 bg-white/10 rounded-xl hidden sm:flex"><FileText size={24} /></div>
-                 <div>
-                    <h3 className="text-xl lg:text-3xl font-black uppercase tracking-tight truncate max-w-[120px] sm:max-w-md">{viewingFile.attachment.name}</h3>
-                    <p className="text-[9px] text-white/40 uppercase font-bold tracking-widest">Assignment Document</p>
-                 </div>
-              </div>
-              <div className="flex items-center gap-2">
-                 <button 
-                  onClick={handleNativeOpen} 
-                  className="p-3 sm:px-6 bg-white/10 hover:bg-indigo-600 text-white rounded-2xl transition-all flex items-center gap-2 font-bold uppercase text-[9px] sm:text-[10px] border border-white/5"
-                 >
-                   <Smartphone size={18} /> <span className="hidden sm:inline">Open Full</span>
-                 </button>
-                 <a 
-                   href={blobUrl || viewingFile.attachment.url} 
-                   download={viewingFile.attachment.name}
-                   className="p-3 sm:px-6 bg-indigo-600 hover:bg-indigo-700 text-white rounded-2xl transition-all flex items-center gap-2 font-bold uppercase text-[9px] sm:text-[10px] shadow-xl"
-                   rel="noopener noreferrer"
-                 >
-                   <Download size={18} /> <span className="hidden sm:inline">Download</span>
-                 </a>
-                 <button onClick={closeViewer} className="p-3 bg-white/10 hover:bg-rose-600 rounded-2xl transition-all border border-white/5"><X size={20} /></button>
-              </div>
-           </div>
-           <div className="flex-1 bg-white dark:bg-slate-900 rounded-[2rem] lg:rounded-[3rem] overflow-hidden shadow-2xl border-4 lg:border-8 border-white/10 relative group">
-              <iframe 
-                src={`${blobUrl}#toolbar=0&navpanes=0`} 
-                className="w-full h-full border-none sm:block hidden" 
-                title="Homework PDF Viewer"
-              />
-              <div className="absolute inset-0 flex flex-col items-center justify-center p-8 text-center bg-slate-900/95 backdrop-blur-lg sm:hidden">
-                  <div className="w-24 h-24 bg-indigo-600/20 text-indigo-400 rounded-full flex items-center justify-center mb-8 border border-indigo-500/30 shadow-inner">
-                    <Smartphone size={40} className="animate-pulse" />
-                  </div>
-                  <h4 className="text-white font-black text-2xl mb-4 uppercase tracking-tight">Assignment Access</h4>
-                  <p className="text-slate-400 font-medium text-sm mb-10 leading-relaxed uppercase tracking-widest max-w-xs">Android security requires using the system viewer for PDF documents. Open fullscreen to complete your task.</p>
-                  <div className="grid grid-cols-1 gap-4 w-full max-w-xs">
-                    <button 
-                      onClick={handleNativeOpen}
-                      className="w-full py-6 bg-indigo-600 text-white rounded-[1.8rem] font-black uppercase text-xs tracking-[0.2em] shadow-2xl active:scale-95 transition-transform"
-                    >
-                      Open in Fullscreen
-                    </button>
-                    <a 
-                      href={blobUrl || viewingFile.attachment.url} 
-                      download={viewingFile.attachment.name}
-                      className="w-full py-6 bg-white/5 text-white border border-white/10 rounded-[1.8rem] font-black uppercase text-xs tracking-[0.2em] flex items-center justify-center gap-3"
-                    >
-                      Save Assignment
-                    </a>
-                  </div>
-              </div>
-           </div>
-           <p className="text-center text-white/40 text-[8px] font-black uppercase py-4 tracking-widest">Institutional Homework Engine</p>
-        </div>
-      )}
-
+      {/* DELETE DIALOG - UPDATED TO COMPACT SIZE */}
       {deleteConfirmationId && (
         <div className="fixed inset-0 z-[800] flex items-center justify-center p-4 bg-slate-950/85 backdrop-blur-md animate-in fade-in">
-           <div className="bg-white dark:bg-slate-900 rounded-[2.5rem] p-10 sm:p-12 max-sm w-full shadow-2xl text-center border border-rose-100 dark:border-rose-900/50 animate-in zoom-in-95">
-              <div className="w-20 h-20 bg-rose-50 dark:bg-rose-900/20 text-rose-600 rounded-[2.5rem] flex items-center justify-center mb-8 mx-auto shadow-inner border border-rose-100">
-                 <Trash2 size={36} strokeWidth={2.5} />
+           <div className="bg-white dark:bg-slate-900 rounded-[2.5rem] p-8 max-w-xs w-full shadow-2xl text-center border border-rose-100/20 animate-in zoom-in-95">
+              <div className="w-16 h-16 bg-rose-50 dark:bg-rose-900/20 text-rose-600 rounded-[1.8rem] flex items-center justify-center mb-6 mx-auto shadow-inner border border-rose-100">
+                 <AlertTriangle size={32} strokeWidth={2.5} />
               </div>
-              <h3 className="text-2xl font-black text-slate-900 dark:text-white mb-3 uppercase tracking-tighter">Purge Homework?</h3>
-              <p className="text-slate-500 dark:text-slate-400 mb-10 font-medium text-[10px] leading-relaxed uppercase tracking-widest">This task will be erased from all student dashboards permanently.</p>
-              <div className="grid grid-cols-2 gap-4">
-                 <button onClick={() => setDeleteConfirmationId(null)} className="py-4 bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 font-black rounded-2xl uppercase text-[10px] tracking-widest">Keep</button>
-                 <button onClick={confirmDelete} className="py-4 bg-rose-600 text-white font-black rounded-2xl shadow-xl hover:bg-rose-700 transition-all uppercase text-[10px] tracking-widest">Delete</button>
+              <h3 className="text-xl font-black text-slate-900 dark:text-white mb-2 uppercase tracking-tighter">Purge Homework?</h3>
+              <p className="text-slate-500 dark:text-slate-400 mb-8 font-medium text-[10px] leading-relaxed uppercase tracking-widest">This task will be erased from all dashboards permanently.</p>
+              <div className="grid grid-cols-2 gap-3">
+                 <button onClick={() => setDeleteConfirmationId(null)} className="py-4 bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 font-black rounded-2xl uppercase text-[10px]">Keep</button>
+                 <button onClick={confirmDelete} className="py-4 bg-rose-600 text-white font-black rounded-2xl shadow-xl hover:bg-rose-700 transition-all uppercase text-[10px]">Delete</button>
               </div>
            </div>
         </div>
