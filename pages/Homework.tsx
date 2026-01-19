@@ -26,7 +26,9 @@ import {
   RefreshCw,
   Download,
   Smartphone,
-  AlertTriangle
+  AlertTriangle,
+  ShieldCheck,
+  Database
 } from 'lucide-react';
 import { MOCK_SUBJECTS } from '../constants';
 import { db, supabase } from '../supabase';
@@ -63,7 +65,7 @@ const Homework: React.FC<HomeworkProps> = ({ user }) => {
     return new Date(dateStr).toLocaleString('en-GB', { 
       day: '2-digit', month: 'short', year: 'numeric',
       hour: '2-digit', minute: '2-digit', hour12: true 
-    });
+    }).toUpperCase();
   };
 
   const fetchCloudData = async () => {
@@ -189,6 +191,19 @@ const Homework: React.FC<HomeworkProps> = ({ user }) => {
 
   return (
     <div className="space-y-6 sm:space-y-8 pb-20 animate-in fade-in duration-500 relative">
+      {/* HARDWARE INTERFACE HUD */}
+      <div className="flex flex-wrap gap-4 no-print px-4 sm:px-0 mb-2">
+         <div className="flex items-center gap-2 bg-emerald-50 dark:bg-emerald-950/20 border border-emerald-100 dark:border-emerald-900 px-4 py-2 rounded-full shadow-sm">
+            <ShieldCheck size={14} className="text-emerald-500" />
+            <span className="text-[8px] font-black text-emerald-700 dark:text-emerald-400 uppercase tracking-widest">Gateway Verified</span>
+            <div className="w-1.5 h-1.5 bg-emerald-500 rounded-full animate-pulse"></div>
+         </div>
+         <div className="flex items-center gap-2 bg-indigo-50 dark:bg-indigo-950/20 border border-indigo-100 dark:border-indigo-900 px-4 py-2 rounded-full shadow-sm">
+            <Database size={14} className="text-indigo-500" />
+            <span className="text-[8px] font-black text-indigo-700 dark:text-indigo-400 uppercase tracking-widest">Cloud Repository Connected</span>
+         </div>
+      </div>
+
       {isSyncing && (
         <div className="fixed top-24 left-1/2 -translate-x-1/2 z-[1100] animate-bounce">
            <div className="bg-indigo-600 text-white px-4 py-2 rounded-full shadow-2xl flex items-center gap-2 border border-indigo-400">
@@ -283,7 +298,7 @@ const Homework: React.FC<HomeworkProps> = ({ user }) => {
                     <input type="date" value={formData.dueDate} onChange={e => setFormData({...formData, dueDate: e.target.value})} className="w-full bg-slate-50 dark:bg-slate-800 border-2 border-slate-100 dark:border-slate-700 rounded-2xl px-5 py-4 font-bold text-slate-800 dark:text-white outline-none" />
                  </div>
                  <textarea rows={4} value={formData.description} onChange={e => setFormData({...formData, description: e.target.value})} placeholder="Detailed Instructions" className="w-full bg-slate-50 dark:bg-slate-800 border-2 border-slate-100 dark:border-slate-700 rounded-2xl px-5 py-4 font-bold text-slate-800 dark:text-white outline-none focus:ring-2 focus:ring-indigo-500 resize-none shadow-inner" />
-                 <button type="button" onClick={() => fileInputRef.current?.click()} className="w-full py-6 sm:py-8 bg-indigo-50 dark:bg-indigo-900/10 text-indigo-600 dark:text-indigo-400 rounded-2xl border-4 border-dashed border-indigo-200 dark:border-indigo-800 flex flex-col items-center justify-center gap-2 hover:bg-indigo-100 transition-all font-black uppercase text-[9px] sm:text-[10px]">
+                 <button type="button" onClick={() => fileInputRef.current?.click()} className="w-full py-6 sm:py-8 bg-indigo-50 dark:bg-indigo-900/10 text-indigo-600 dark:text-indigo-400 font-black rounded-2xl border-4 border-dashed border-indigo-200 dark:border-indigo-800 flex flex-col items-center justify-center gap-2 hover:bg-indigo-100 transition-all font-black uppercase text-[9px] sm:text-[10px]">
                     {isUploading ? <Loader2 className="animate-spin" /> : <Upload size={24} />}
                     {tempAttachment ? 'PDF Attached' : 'Attach Guidance PDF'}
                  </button>

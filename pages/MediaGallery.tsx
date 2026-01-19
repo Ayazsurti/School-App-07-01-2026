@@ -1,10 +1,11 @@
+
 import React, { useState, useRef, useMemo, useEffect } from 'react';
 import { User, MediaAsset } from '../types';
 import { createAuditLog } from '../utils/auditLogger';
-// Fix: Imported db and supabase which were missing
 import { db, supabase } from '../supabase';
 import { 
-  Plus, Search, Trash2, Upload, X, Maximize2, Image as ImageIcon, Clock, User as UserIcon, AlertCircle, Loader2, Edit2, CheckCircle2, AlertTriangle, Save, RefreshCw
+  Plus, Search, Trash2, Upload, X, Maximize2, Image as ImageIcon, Clock, User as UserIcon, AlertCircle, Loader2, Edit2, CheckCircle2, AlertTriangle, Save, RefreshCw,
+  ShieldCheck, Zap, Database
 } from 'lucide-react';
 
 interface MediaGalleryProps { user: User; }
@@ -28,7 +29,7 @@ const MediaGallery: React.FC<MediaGalleryProps> = ({ user }) => {
     return new Date().toLocaleString('en-GB', { 
       day: '2-digit', month: 'short', year: 'numeric',
       hour: '2-digit', minute: '2-digit', hour12: true 
-    });
+    }).toUpperCase();
   };
 
   const fetchCloudData = async () => {
@@ -119,6 +120,19 @@ const MediaGallery: React.FC<MediaGalleryProps> = ({ user }) => {
 
   return (
     <div className="space-y-6 animate-in fade-in duration-500 pb-20 relative">
+      {/* HARDWARE INTERFACE HUD */}
+      <div className="flex flex-wrap gap-4 no-print mb-4">
+         <div className="flex items-center gap-2 bg-emerald-50 dark:bg-emerald-950/20 border border-emerald-100 dark:border-emerald-900 px-4 py-2 rounded-full shadow-sm">
+            <ShieldCheck size={14} className="text-emerald-500" />
+            <span className="text-[8px] font-black text-emerald-700 dark:text-emerald-400 uppercase tracking-widest">Media Access: Authorized</span>
+            <div className="w-1.5 h-1.5 bg-emerald-500 rounded-full animate-pulse"></div>
+         </div>
+         <div className="flex items-center gap-2 bg-indigo-50 dark:bg-indigo-950/20 border border-indigo-100 dark:border-indigo-900 px-4 py-2 rounded-full shadow-sm">
+            <Database size={14} className="text-indigo-500" />
+            <span className="text-[8px] font-black text-indigo-700 dark:text-indigo-400 uppercase tracking-widest">Storage Sync: Active</span>
+         </div>
+      </div>
+
       {isSyncing && (
         <div className="fixed top-24 left-1/2 -translate-x-1/2 z-[1100] animate-bounce">
            <div className="bg-indigo-600 text-white px-6 py-2 rounded-full shadow-2xl flex items-center gap-3 border border-indigo-400">
@@ -143,7 +157,7 @@ const MediaGallery: React.FC<MediaGalleryProps> = ({ user }) => {
       <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6">
         <div>
           <h1 className="text-4xl font-black text-slate-900 dark:text-white tracking-tight flex items-center gap-3 uppercase">Photo Gallery <ImageIcon className="text-indigo-600" /></h1>
-          <p className="text-slate-500 dark:text-slate-400 font-medium text-lg uppercase tracking-tight">Preserving institutional memories with precise timestamps.</p>
+          <p className="text-slate-500 dark:text-slate-400 font-medium text-lg uppercase tracking-tight">Institutional archive with verified temporal data.</p>
         </div>
         {canManage && (
           <button onClick={() => fileInputRef.current?.click()} className="px-8 py-4 bg-indigo-600 text-white font-black rounded-2xl shadow-xl flex items-center gap-3 hover:-translate-y-1 transition-all uppercase text-xs tracking-widest disabled:opacity-50" disabled={uploading}>

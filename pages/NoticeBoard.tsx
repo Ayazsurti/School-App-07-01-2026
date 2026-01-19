@@ -27,7 +27,8 @@ import {
   Download,
   CloudLightning,
   RefreshCcw,
-  Check
+  Check,
+  Database
 } from 'lucide-react';
 
 interface NoticeBoardProps { user: User; }
@@ -57,7 +58,7 @@ const NoticeBoard: React.FC<NoticeBoardProps> = ({ user }) => {
     return new Date().toLocaleString('en-GB', { 
       day: '2-digit', month: 'short', year: 'numeric',
       hour: '2-digit', minute: '2-digit', hour12: true 
-    });
+    }).toUpperCase();
   };
 
   const fetchCloudData = async () => {
@@ -140,6 +141,19 @@ const NoticeBoard: React.FC<NoticeBoardProps> = ({ user }) => {
 
   return (
     <div className="space-y-8 animate-in fade-in duration-500 pb-20 relative">
+      {/* HARDWARE INTERFACE HUD */}
+      <div className="flex flex-wrap gap-4 no-print">
+         <div className="flex items-center gap-2 bg-emerald-50 dark:bg-emerald-950/20 border border-emerald-100 dark:border-emerald-900 px-4 py-2 rounded-full shadow-sm">
+            <ShieldCheck size={14} className="text-emerald-500" />
+            <span className="text-[8px] font-black text-emerald-700 dark:text-emerald-400 uppercase tracking-widest">Broadcast Access: Active</span>
+            <div className="w-1.5 h-1.5 bg-emerald-500 rounded-full animate-pulse"></div>
+         </div>
+         <div className="flex items-center gap-2 bg-indigo-50 dark:bg-indigo-950/20 border border-indigo-100 dark:border-indigo-900 px-4 py-2 rounded-full shadow-sm">
+            <Database size={14} className="text-indigo-500" />
+            <span className="text-[8px] font-black text-indigo-700 dark:text-indigo-400 uppercase tracking-widest">Temporal Sync: Authorized</span>
+         </div>
+      </div>
+
       {isSyncing && (
         <div className="fixed top-24 left-1/2 -translate-x-1/2 z-[1100] animate-bounce">
            <div className="bg-indigo-600 text-white px-6 py-2 rounded-full shadow-2xl flex items-center gap-3 border border-indigo-400">

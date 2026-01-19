@@ -4,7 +4,7 @@ import { User } from '../types';
 import { createAuditLog } from '../utils/auditLogger';
 import { supabase, db } from '../supabase';
 import { 
-  FileText, Download, Plus, Upload, X, Trash2, ChevronRight, FolderPlus, Folder, ArrowLeft, Clock, CheckCircle2, Eye, Loader2, FileIcon, ExternalLink, AlertTriangle, Smartphone, RefreshCw, ShieldCheck, FileUp, Bell, UserCircle
+  FileText, Download, Plus, Upload, X, Trash2, ChevronRight, FolderPlus, Folder, ArrowLeft, Clock, CheckCircle2, Eye, Loader2, FileIcon, ExternalLink, AlertTriangle, Smartphone, RefreshCw, ShieldCheck, FileUp, Bell, UserCircle, Database
 } from 'lucide-react';
 
 interface CurriculumProps { user: User; }
@@ -41,7 +41,7 @@ const Curriculum: React.FC<CurriculumProps> = ({ user }) => {
     return new Date().toLocaleString('en-GB', { 
       day: '2-digit', month: 'short', year: 'numeric',
       hour: '2-digit', minute: '2-digit', hour12: true 
-    });
+    }).toUpperCase();
   };
 
   const fetchCloudData = async () => {
@@ -180,6 +180,19 @@ const Curriculum: React.FC<CurriculumProps> = ({ user }) => {
 
   return (
     <div className="space-y-8 pb-20 animate-in fade-in duration-500 relative">
+      {/* HARDWARE INTERFACE HUD */}
+      <div className="flex flex-wrap gap-4 no-print px-4 sm:px-0">
+         <div className="flex items-center gap-2 bg-emerald-50 dark:bg-emerald-950/20 border border-emerald-100 dark:border-emerald-900 px-4 py-2 rounded-full shadow-sm">
+            <ShieldCheck size={14} className="text-emerald-500" />
+            <span className="text-[8px] font-black text-emerald-700 dark:text-emerald-400 uppercase tracking-widest">Document Node: Verified</span>
+            <div className="w-1.5 h-1.5 bg-emerald-500 rounded-full animate-pulse"></div>
+         </div>
+         <div className="flex items-center gap-2 bg-indigo-50 dark:bg-indigo-950/20 border border-indigo-100 dark:border-indigo-900 px-4 py-2 rounded-full shadow-sm">
+            <Database size={14} className="text-indigo-500" />
+            <span className="text-[8px] font-black text-indigo-700 dark:text-indigo-400 uppercase tracking-widest">Global Vault Synced</span>
+         </div>
+      </div>
+
       {isSyncing && (
         <div className="fixed top-24 left-1/2 -translate-x-1/2 z-[1100] animate-bounce">
            <div className="bg-indigo-600 text-white px-4 py-2 rounded-full shadow-2xl flex items-center gap-2 border border-indigo-400">
@@ -208,7 +221,7 @@ const Curriculum: React.FC<CurriculumProps> = ({ user }) => {
           )}
           <div>
             <h1 className="text-2xl sm:text-4xl font-black text-slate-900 dark:text-white tracking-tight uppercase leading-tight">{activeFolder ? activeFolder.name : 'Curriculum Archive'}</h1>
-            <p className="text-slate-500 dark:text-slate-400 font-medium text-xs sm:text-lg uppercase tracking-tight">Institutional education assets with precise timestamps.</p>
+            <p className="text-slate-500 dark:text-slate-400 font-medium text-xs sm:text-lg uppercase tracking-tight">Institutional education assets with verified sync data.</p>
           </div>
         </div>
 
@@ -250,7 +263,7 @@ const Curriculum: React.FC<CurriculumProps> = ({ user }) => {
                  <div className="w-16 h-16 bg-indigo-50 dark:bg-indigo-900/30 text-indigo-600 rounded-[1.8rem] flex items-center justify-center group-hover:bg-indigo-600 group-hover:text-white transition-all shadow-inner mb-6"><Folder size={28} /></div>
                  <h3 className="text-xl font-black text-slate-900 dark:text-white leading-tight mb-1 uppercase truncate">{folder.name}</h3>
                  <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-1.5 mb-1">{folder.curriculum_files?.length || 0} Documents</p>
-                 <p className="text-[7px] font-black text-slate-300 uppercase tracking-widest flex items-center gap-1.5"><Clock size={10}/> Established: {folder.timestamp}</p>
+                 <p className="text-[7px] font-black text-slate-300 uppercase tracking-widest flex items-center gap-1.5"><Clock size={10}/> Establish: {folder.timestamp}</p>
               </div>
            ))}
            {folders.length === 0 && (
