@@ -8,9 +8,13 @@ export const supabase = createClient(supabaseUrl, supabaseAnonKey);
 
 export const getErrorMessage = (err: any): string => {
   if (typeof err === 'string') return err;
-  if (err?.code === '42501') return "Database Permission Error: Please run the SQL Policy fix.";
+  
+  if (err?.code === '42501') return "RLS Error: Update access is blocked by Supabase. Please run the Policy SQL fix.";
+  if (err?.code === '42703') return `Column Error: One or more columns (status, cancel_reason, etc.) are missing or misspelled in your table.`;
+  if (err?.code === '23502') return "Constraint Error: One of the columns is marked as 'NOT NULL' but we are trying to clear it. Run the 'DROP NOT NULL' SQL fix.";
+  
   if (err?.message) return err.message;
-  return "Institutional cloud sync failure.";
+  return "Database communication failure.";
 };
 
 export const db = {
@@ -152,7 +156,6 @@ export const db = {
       return data;
     },
     async upsert(student: any) {
-      // CRITICAL FIX: Map Frontend camelCase to Database snake_case
       const payload = {
         full_name: student.fullName,
         gr_number: student.grNumber,
@@ -176,7 +179,8 @@ export const db = {
         profile_image: student.profileImage,
         father_photo: student.fatherPhoto,
         mother_photo: student.motherPhoto,
-        password: student.password || 'student786'
+        password: student.password || 'student786',
+        status: student.status || 'ACTIVE'
       };
 
       if (student.id) (payload as any).id = student.id;
@@ -184,6 +188,37 @@ export const db = {
       const { data, error } = await supabase.from('students').upsert(payload).select();
       if (error) throw error;
       return data;
+    },
+    async cancelAdmission(id: string, reason: string, date: string, adminName: string) {
+      const { data, error } = await supabase.from('students').update({
+        status: 'CANCELLED',
+        cancel_reason: reason,
+        cancel_date: date,
+        cancelled_by: adminName
+      }).eq('id', id).select();
+      if (error) throw error;
+      return data;
+    },
+    async revertAdmission(id: string) {
+      // Step 1: Direct Update attempt (Fastest)
+      // Note: We avoid .select() here to ensure the update hits the DB even if SELECT policies are restricted
+      const { error, count } = await supabase
+        .from('students')
+        .update({
+          status: 'ACTIVE',
+          cancel_reason: null,
+          cancel_date: null,
+          cancelled_by: null
+        })
+        .eq('id', id);
+      
+      if (error) {
+        console.error("Supabase Direct Update Error:", error);
+        throw error;
+      }
+
+      // If count is returned (PostgREST usually returns it), we can verify
+      return { success: true };
     },
     async delete(id: string) {
       const { error } = await supabase.from('students').delete().eq('id', id);
@@ -403,7 +438,10 @@ export const db = {
     async getStructures() {
       const { data, error } = await supabase.from('fee_structures').select('*');
       if (error) throw error;
-      return data;
+      return (data || []).map((s: any) => ({
+        className: s.class_name,
+        fees: s.fees
+      }));
     },
     async upsertStructure(data: any) {
       const { error } = await supabase.from('fee_structures').upsert([{

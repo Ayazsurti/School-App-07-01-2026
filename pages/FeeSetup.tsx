@@ -4,7 +4,7 @@ import { User, FeeCategory, FeeStructure } from '../types';
 import { createAuditLog } from '../utils/auditLogger';
 import { 
   Plus, Trash2, Settings2, Save, X, CheckCircle2, LayoutGrid, Info, Loader2,
-  Layers, Copy, Zap, Calculator, ShieldCheck, AlertCircle, CloudSync, ArrowUpCircle,
+  Layers, Copy, Zap, Calculator, ShieldCheck, AlertCircle, ArrowUpCircle,
   RefreshCw, ChevronDown
 } from 'lucide-react';
 import { db, supabase } from '../supabase';
@@ -70,7 +70,8 @@ const FeeSetup: React.FC<FeeSetupProps> = ({ user }) => {
       const allPossibleGrades = ['1st', '2nd', '3rd', '4th', '5th', '6th', '7th', '8th', '9th', '10th', '11th', '12th'];
       allPossibleGrades.forEach(cls => {
         initialDraft[cls] = {};
-        const struct = structs.find(s => s.class_name === cls);
+        // Fixed: Access correctly mapped className property
+        const struct = structs.find(s => s.className === cls);
         if (struct && Array.isArray(struct.fees)) {
           struct.fees.forEach((f: any) => {
             if (f.quarter) initialDraft[cls][f.quarter] = f.amount.toString();
@@ -284,7 +285,8 @@ const FeeSetup: React.FC<FeeSetupProps> = ({ user }) => {
             const classDraft = draftFees[cls] || {};
             const totalAnnual = QUARTERS.reduce((acc, q) => acc + (parseInt(classDraft[q] || '0') || 0), 0);
             
-            const originalStruct = structures.find(s => s.class_name === cls);
+            // Fixed: Access correctly mapped className property
+            const originalStruct = structures.find(s => s.className === cls);
             const isModified = QUARTERS.some(q => {
                const original = originalStruct?.fees?.find((f: any) => f.quarter === q)?.amount || 0;
                return (parseInt(classDraft[q] || '0') || 0) !== original;

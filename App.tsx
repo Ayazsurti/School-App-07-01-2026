@@ -63,8 +63,8 @@ import {
   UserCircle,
   Heart,
   Shield,
-  /* Fix: Added missing Hash icon import */
-  Hash
+  Hash,
+  UserMinus
 } from 'lucide-react';
 import { User, UserRole, DisplaySettings, Student } from './types';
 import Login from './pages/Login';
@@ -83,6 +83,7 @@ import MediaGallery from './pages/MediaGallery';
 import Timetable from './pages/Timetable';
 import VideoGallery from './pages/VideoGallery';
 import StudentsManager from './pages/StudentsManager';
+import AdmissionCancellation from './pages/AdmissionCancellation';
 import TeachersManager from './pages/TeachersManager';
 import ExamSetup from './pages/ExamSetup';
 import GradingSystem from './pages/GradingSystem';
@@ -539,9 +540,10 @@ const Layout: React.FC<LayoutProps> = ({ user, cloudSettings, branding, onUpdate
             <Route path="/" element={<Navigate to={`/${user.role.toLowerCase()}/dashboard`} />} />
             <Route path="/admin/dashboard" element={<Dashboard user={user} branding={branding} onUpdateLogo={() => navigate('/admin/branding')} />} />
             <Route path="/admin/branding" element={<SchoolSettings user={user} />} />
-            /* Fix: Changed handleUpdateDisplay to onUpdateDisplay as it is passed as a prop from Layout */
+            {/* Fixed: Changed handleUpdateDisplay to onUpdateDisplay prop */}
             <Route path="/admin/display-config" element={<DisplayConfigure user={user} settings={displaySettings} onUpdateSettings={onUpdateDisplay} />} />
             <Route path="/admin/students" element={<StudentsManager user={user} />} />
+            <Route path="/admin/cancel-admission" element={<AdmissionCancellation user={user} />} />
             <Route path="/admin/id-cards" element={<IdCardGenerator user={user} schoolLogo={schoolLogo} />} />
             <Route path="/admin/teachers" element={<TeachersManager user={user} />} />
             <Route path="/admin/homework" element={<Homework user={user} />} />

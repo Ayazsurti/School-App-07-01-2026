@@ -30,7 +30,8 @@ import {
   Stamp,
   Palette,
   BarChart3,
-  Globe
+  Globe,
+  UserMinus
 } from 'lucide-react';
 import { TimetableEntry, Student } from './types';
 
@@ -42,6 +43,7 @@ export const NAVIGATION = {
     { name: 'School Branding', icon: <Stamp size={20} />, path: '/admin/branding' },
     { name: 'Display Configure', icon: <Palette size={20} />, path: '/admin/display-config' },
     { name: 'Student Management', icon: <Users size={20} />, path: '/admin/students' },
+    { name: 'Cancel Admission', icon: <UserMinus size={20} />, path: '/admin/cancel-admission' },
     { name: 'ID Card Gen', icon: <CreditCard size={20} />, path: '/admin/id-cards' },
     { name: 'Teacher Management', icon: <UserCheck size={20} />, path: '/admin/teachers' },
     { name: 'Homework', icon: <PencilRuler size={20} />, path: '/admin/homework' },
