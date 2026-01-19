@@ -32,7 +32,7 @@ import {
   X,
   Check
 } from 'lucide-react';
-import { db, supabase } from '../supabase';
+import { db, supabase, getErrorMessage } from '../supabase';
 import { APP_NAME } from '../constants';
 
 interface IdCardGeneratorProps {
@@ -40,7 +40,7 @@ interface IdCardGeneratorProps {
   schoolLogo: string | null;
 }
 
-const ALL_CLASSES = ['1st', '2nd', '3rd', '4th', '5th', '6th', '7th', '8th', '9th', '10th', '11th', '12th'];
+const ALL_CLASSES = ['Nursery', 'LKG', 'UKG', '1st', '2nd', '3rd', '4th', '5th', '6th', '7th', '8th', '9th', '10th', '11th', '12th'];
 
 const IdCardGenerator: React.FC<IdCardGeneratorProps> = ({ user, schoolLogo }) => {
   const [selectedClass, setSelectedClass] = useState('All');
@@ -57,7 +57,7 @@ const IdCardGenerator: React.FC<IdCardGeneratorProps> = ({ user, schoolLogo }) =
   const fetchCloudStudents = async () => {
     try {
       const data = await db.students.getAll();
-      const mapped = data.map((s: any) => ({
+      const mapped = (data || []).map((s: any) => ({
         id: s.id, fullName: s.full_name, name: s.full_name, email: s.email, rollNo: s.roll_no,
         class: s.class, section: s.section, grNumber: s.gr_number, profileImage: s.profile_image,
         fatherName: s.father_name, motherName: s.mother_name, fatherMobile: s.father_mobile,
@@ -65,13 +65,15 @@ const IdCardGenerator: React.FC<IdCardGeneratorProps> = ({ user, schoolLogo }) =
         dob: s.dob
       }));
       setStudents(mapped as Student[]);
-    } catch (err) { console.error("Identity Sync Error"); }
+    } catch (err: any) { 
+      console.error("Identity Registry Fetch Error:", getErrorMessage(err)); 
+    }
     finally { setIsLoading(false); }
   };
 
   useEffect(() => {
     fetchCloudStudents();
-    const channel = supabase.channel('id-generator-sync-v16')
+    const channel = supabase.channel('id-generator-sync-v17')
       .on('postgres_changes', { event: '*', schema: 'public', table: 'students' }, () => {
         setIsSyncing(true);
         fetchCloudStudents().then(() => setTimeout(() => setIsSyncing(false), 800));
@@ -127,7 +129,7 @@ const IdCardGenerator: React.FC<IdCardGeneratorProps> = ({ user, schoolLogo }) =
 
   const handleDownloadPdf = () => {
     if (selectedStudents.length === 0) {
-      alert("No students selected for ID generation.");
+      alert("No identities selected for batch processing.");
       return;
     }
     setTimeout(() => {
@@ -188,7 +190,7 @@ const IdCardGenerator: React.FC<IdCardGeneratorProps> = ({ user, schoolLogo }) =
         <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6">
           <div>
             <h1 className="text-4xl font-black text-slate-900 dark:text-white tracking-tight uppercase leading-none">PVC ID Generator</h1>
-            <p className="text-slate-500 dark:text-slate-400 font-bold mt-2 uppercase text-xs tracking-widest">Digital Student Identity Portal</p>
+            <p className="text-slate-500 dark:text-slate-400 font-bold mt-2 uppercase text-xs tracking-widest">Digitally Verified Identity Portal</p>
           </div>
           <div className="flex flex-wrap gap-3">
             <button 
@@ -201,9 +203,9 @@ const IdCardGenerator: React.FC<IdCardGeneratorProps> = ({ user, schoolLogo }) =
             <button 
               onClick={handleDownloadPdf}
               disabled={selectedStudents.length === 0}
-              className="px-8 py-4 bg-indigo-600 text-white font-black rounded-2xl shadow-xl shadow-indigo-100 flex items-center gap-3 hover:bg-indigo-700 transition-all disabled:opacity-50 uppercase text-xs tracking-widest"
+              className="px-8 py-4 bg-indigo-600 text-white font-black rounded-2xl shadow-xl shadow-indigo-100 flex items-center justify-center gap-3 hover:bg-indigo-700 transition-all disabled:opacity-50 uppercase text-xs tracking-widest"
             >
-              <FileDown size={20} strokeWidth={3} /> Download PDF File
+              <FileDown size={20} strokeWidth={3} /> Download Identity PDF
             </button>
           </div>
         </div>
@@ -212,9 +214,9 @@ const IdCardGenerator: React.FC<IdCardGeneratorProps> = ({ user, schoolLogo }) =
           {/* Controls Sidebar */}
           <div className="xl:col-span-1 space-y-6">
             <div className="bg-white dark:bg-slate-900 p-8 rounded-[3rem] shadow-sm border border-slate-100 dark:border-slate-800 space-y-4">
-              <div className="flex items-center gap-3 mb-2">
+              <div className="flex items-center gap-3 mb-2 px-1">
                  <FileSignature className="text-indigo-600" size={22} />
-                 <h3 className="font-black text-slate-800 dark:text-white text-xs uppercase tracking-widest">Authority Sign</h3>
+                 <h3 className="font-black text-slate-800 dark:text-white text-xs uppercase tracking-widest">Authority Seal</h3>
               </div>
               <div 
                 onClick={() => signInputRef.current?.click()}
@@ -229,14 +231,14 @@ const IdCardGenerator: React.FC<IdCardGeneratorProps> = ({ user, schoolLogo }) =
                     </button>
                   </>
                 ) : (
-                  <div className="text-center p-2"><Upload size={24} className="text-slate-300 mx-auto mb-2"/><span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Upload Authority Sign</span></div>
+                  <div className="text-center p-2"><Upload size={24} className="text-slate-300 mx-auto mb-2"/><span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Upload Sign</span></div>
                 )}
               </div>
             </div>
 
             <div className="bg-white dark:bg-slate-900 p-8 rounded-[3rem] shadow-sm border border-slate-100 dark:border-slate-800 space-y-8">
               <div className="space-y-4">
-                <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Student Filtering</label>
+                <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Identity Filter</label>
                 <div className="relative">
                   <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
                   <input type="text" placeholder="Search by name or GR..." value={searchQuery} onChange={e => setSearchQuery(e.target.value)} className="w-full bg-slate-50 dark:bg-slate-800 border-none rounded-2xl pl-12 pr-4 py-4 font-bold text-slate-700 dark:text-white outline-none focus:ring-2 focus:ring-indigo-500 transition-all shadow-inner uppercase text-xs" />
@@ -246,36 +248,38 @@ const IdCardGenerator: React.FC<IdCardGeneratorProps> = ({ user, schoolLogo }) =
                   onChange={e => setSelectedClass(e.target.value)}
                   className="w-full bg-slate-50 dark:bg-slate-800 border-none rounded-2xl px-5 py-4 font-black text-slate-700 dark:text-white appearance-none cursor-pointer uppercase text-xs"
                 >
-                   <option value="All">All Grade Levels</option>
+                   <option value="All">All Grades</option>
                    {ALL_CLASSES.map(c => <option key={c} value={c}>Std {c}</option>)}
                 </select>
               </div>
 
               <div className="space-y-4">
                 <div className="flex items-center justify-between px-1">
-                  <h3 className="font-black text-slate-800 dark:text-white text-[10px] uppercase tracking-widest">Batch Registry</h3>
-                  <button onClick={selectAllFiltered} className="text-[10px] font-black text-indigo-600 dark:text-indigo-400 uppercase bg-indigo-50 dark:bg-indigo-900/30 px-3 py-1 rounded-lg hover:bg-indigo-600 hover:text-white transition-all">Select All</button>
+                  <h3 className="font-black text-slate-800 dark:text-white text-[10px] uppercase tracking-widest">Batch Selection</h3>
+                  <button onClick={selectAllFiltered} className="text-[10px] font-black text-indigo-600 dark:text-indigo-400 uppercase bg-indigo-50 dark:bg-indigo-900/30 px-3 py-1 rounded-lg hover:bg-indigo-600 hover:text-white transition-all">All</button>
                 </div>
 
                 <div className="max-h-[450px] overflow-y-auto pr-2 custom-scrollbar space-y-2">
                    {isLoading ? (
                      <div className="py-20 flex flex-col items-center justify-center opacity-50"><Loader2 className="animate-spin text-indigo-500" /></div>
-                   ) : filteredStudents.map(s => (
+                   ) : filteredStudents.length > 0 ? (
+                     filteredStudents.map(s => (
                       <div 
                         key={s.id} 
                         onClick={() => toggleSelection(s.id)} 
-                        className={`flex items-center gap-4 p-4 rounded-2xl border-2 transition-all cursor-pointer group ${selectedStudents.includes(s.id) ? 'bg-indigo-50 dark:bg-indigo-900/20 border-indigo-500 shadow-md translate-x-1' : 'bg-white dark:bg-slate-900 border-slate-50 dark:border-slate-800 hover:bg-slate-50'}`}
+                        className={`flex items-center gap-4 p-4 rounded-2xl border-2 transition-all cursor-pointer group ${selectedStudents.includes(s.id) ? 'bg-indigo-50 dark:bg-indigo-900/20 border-indigo-500 shadow-md' : 'bg-white dark:bg-slate-900 border-slate-50 dark:border-slate-800 hover:bg-slate-50'}`}
                       >
                          <div className={`w-10 h-10 rounded-xl flex items-center justify-center font-black text-xs shadow-inner overflow-hidden shrink-0 transition-all ${selectedStudents.includes(s.id) ? 'bg-indigo-600 text-white' : 'bg-slate-100 dark:bg-slate-800 text-slate-400'}`}>
                             {s.profileImage ? <img src={s.profileImage} className="w-full h-full object-cover" alt="S" /> : (s.fullName || s.name || '').charAt(0)}
                          </div>
-                         <div className="flex-1 min-w-0">
+                         <div className="flex-1 min-w-0 text-left">
                             <p className={`font-black text-xs truncate uppercase ${selectedStudents.includes(s.id) ? 'text-indigo-900 dark:text-indigo-300' : 'text-slate-800 dark:text-slate-200'}`}>{s.fullName || s.name}</p>
                             <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">GR: {s.grNumber} • Std {s.class}</p>
                          </div>
-                         {selectedStudents.includes(s.id) ? <div className="w-5 h-5 bg-indigo-600 text-white rounded-full flex items-center justify-center"><Check size={12} strokeWidth={4} /></div> : <div className="w-5 h-5 border-2 border-slate-100 rounded-full" />}
+                         {selectedStudents.includes(s.id) ? <div className="w-5 h-5 bg-indigo-600 text-white rounded-full flex items-center justify-center shadow-lg"><Check size={12} strokeWidth={4} /></div> : <div className="w-5 h-5 border-2 border-slate-100 rounded-full" />}
                       </div>
-                   ))}
+                   ))
+                   ) : searchQuery && <p className="text-center py-10 text-[10px] font-black text-slate-400 uppercase">No identity match</p>}
                 </div>
               </div>
             </div>
@@ -286,14 +290,14 @@ const IdCardGenerator: React.FC<IdCardGeneratorProps> = ({ user, schoolLogo }) =
              <div className="bg-white dark:bg-slate-900 p-12 rounded-[4rem] shadow-sm border border-slate-100 dark:border-slate-800 min-h-[600px] flex flex-col">
                 <div className="flex items-center justify-between mb-16">
                    <div>
-                      <h3 className="text-2xl font-black text-slate-900 dark:text-white uppercase tracking-tight">Active Rendering Engine</h3>
-                      <p className="text-[10px] font-bold text-slate-400 uppercase tracking-[0.4em] mt-1">Institutional Template Verification</p>
+                      <h3 className="text-2xl font-black text-slate-900 dark:text-white uppercase tracking-tight">Render Interface</h3>
+                      <p className="text-[10px] font-bold text-slate-400 uppercase tracking-[0.4em] mt-1">Official PVC Identity Template</p>
                    </div>
                    <div className="flex items-center gap-4 bg-indigo-50 dark:bg-indigo-900/30 p-4 rounded-3xl border border-indigo-100 dark:border-indigo-800">
                       <div className="w-10 h-10 bg-indigo-600 text-white rounded-xl flex items-center justify-center shadow-lg"><QrCode size={20}/></div>
                       <div className="pr-4">
                          <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest">Layout Node</p>
-                         <p className="text-xs font-black text-indigo-600 dark:text-indigo-400 uppercase">A4 Stack PDF</p>
+                         <p className="text-xs font-black text-indigo-600 dark:text-indigo-400 uppercase">Sequential PDF</p>
                       </div>
                    </div>
                 </div>
@@ -304,7 +308,7 @@ const IdCardGenerator: React.FC<IdCardGeneratorProps> = ({ user, schoolLogo }) =
                         <IdCardComponent student={selectedData[0]} schoolLogo={schoolLogo} principalSign={principalSign} />
                         <div className="mt-12 p-8 bg-slate-50 dark:bg-slate-800/50 rounded-[2.5rem] border border-slate-100 dark:border-slate-800 flex items-center gap-6 max-w-md mx-auto">
                            <Info size={24} className="text-indigo-500 shrink-0" />
-                           <p className="text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase leading-relaxed tracking-wider text-center">Batch Ready: <b>{selectedData.length}</b> identities will follow this vertical layout.</p>
+                           <p className="text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase leading-relaxed tracking-wider text-center">Batch Ready: <b>{selectedData.length}</b> identities bound to current template.</p>
                         </div>
                      </div>
                    ) : (
@@ -312,8 +316,7 @@ const IdCardGenerator: React.FC<IdCardGeneratorProps> = ({ user, schoolLogo }) =
                         <div className="w-32 h-32 bg-slate-50 dark:bg-slate-800 rounded-[3rem] flex items-center justify-center mb-8 mx-auto shadow-inner group-hover:scale-110 transition-transform">
                            <LayoutGrid size={64} className="text-slate-200 dark:text-slate-700" />
                         </div>
-                        <h4 className="text-2xl font-black text-slate-300 dark:text-slate-700 uppercase tracking-tighter">Rendering Matrix Idle</h4>
-                        <p className="text-xs font-black text-slate-400 uppercase mt-2 tracking-widest">Bind identity to start</p>
+                        <h4 className="text-2xl font-black text-slate-300 dark:text-slate-700 uppercase tracking-tighter">Sync Identity to Preview</h4>
                      </div>
                    )}
                 </div>
@@ -322,25 +325,24 @@ const IdCardGenerator: React.FC<IdCardGeneratorProps> = ({ user, schoolLogo }) =
         </div>
       </div>
 
-      {/* COMPACT BATCH PREVIEW MODAL (SMALL WINDOW) */}
+      {/* COMPACT BATCH PREVIEW MODAL */}
       {showPreviewModal && (
         <div className="fixed inset-0 z-[2000] bg-slate-950/60 backdrop-blur-md flex items-center justify-center p-4 no-print animate-in fade-in duration-300">
-           <div className="bg-white dark:bg-slate-900 rounded-[3rem] w-full max-w-lg h-[80vh] flex flex-col shadow-[0_50px_100px_-20px_rgba(0,0,0,0.5)] border border-slate-100 dark:border-slate-800 overflow-hidden animate-in zoom-in-95">
+           <div className="bg-white dark:bg-slate-900 rounded-[3rem] w-full max-w-lg h-[80vh] flex flex-col shadow-2xl border border-slate-100 dark:border-slate-800 overflow-hidden animate-in zoom-in-95">
               <div className="p-6 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between bg-slate-50/50 dark:bg-slate-800/30">
                  <div className="flex items-center gap-4">
                     <div className="w-10 h-10 bg-indigo-600 rounded-xl flex items-center justify-center text-white shadow-lg shadow-indigo-100">
                        <ShieldCheck size={20} />
                     </div>
                     <div>
-                       <h3 className="text-sm font-black uppercase tracking-tight text-slate-800 dark:text-white">Batch Proof</h3>
-                       <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest">{selectedData.length} Selected Identities</p>
+                       <h3 className="text-sm font-black uppercase tracking-tight text-slate-800 dark:text-white">Registry Proof</h3>
+                       <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest">{selectedData.length} Bound Identities</p>
                     </div>
                  </div>
                  <div className="flex items-center gap-2">
                     <button 
                       onClick={handleDownloadPdf}
                       className="p-3 bg-indigo-600 text-white rounded-xl shadow-lg hover:bg-indigo-700 transition-all"
-                      title="Download PDF"
                     >
                        <FileDown size={18} />
                     </button>
@@ -348,7 +350,6 @@ const IdCardGenerator: React.FC<IdCardGeneratorProps> = ({ user, schoolLogo }) =
                  </div>
               </div>
 
-              {/* Vertical sequential list for preview */}
               <div className="flex-1 overflow-y-auto p-8 custom-scrollbar bg-slate-100 dark:bg-slate-950/50 flex flex-col items-center gap-12">
                  {selectedData.map(s => (
                    <div key={s.id} className="shadow-2xl bg-white rounded-[2.5rem] transform hover:scale-[1.02] transition-transform">
@@ -358,7 +359,7 @@ const IdCardGenerator: React.FC<IdCardGeneratorProps> = ({ user, schoolLogo }) =
               </div>
 
               <div className="p-4 bg-slate-50 dark:bg-slate-900 border-t border-slate-100 dark:border-slate-800 text-center">
-                 <p className="text-[7px] font-black text-slate-400 uppercase tracking-[0.4em]">Official Registry Proofing Window</p>
+                 <p className="text-[7px] font-black text-slate-400 uppercase tracking-[0.4em]">Official Institutional Preview Window</p>
               </div>
            </div>
         </div>
@@ -369,7 +370,7 @@ const IdCardGenerator: React.FC<IdCardGeneratorProps> = ({ user, schoolLogo }) =
 
 const IdCardComponent: React.FC<{ student: Student, schoolLogo: string | null, principalSign: string | null }> = ({ student, schoolLogo, principalSign }) => {
   return (
-    <div className="w-[340px] h-[520px] bg-white rounded-[2.5rem] overflow-hidden flex flex-col shadow-2xl relative border border-slate-100 flex-shrink-0">
+    <div className="w-[340px] h-[520px] bg-white rounded-[2.5rem] overflow-hidden flex flex-col shadow-2xl relative border border-slate-100 flex-shrink-0 text-slate-900">
       <div className="h-44 bg-indigo-600 relative overflow-hidden p-8 flex flex-col items-center justify-center">
          <div className="absolute top-0 right-0 w-40 h-40 bg-white/10 rounded-full -mr-20 -mt-20"></div>
          <div className="absolute top-0 left-0 w-32 h-32 bg-white/5 rounded-full -ml-16 -mt-16"></div>
@@ -396,15 +397,11 @@ const IdCardComponent: React.FC<{ student: Student, schoolLogo: string | null, p
          <div className="w-full space-y-4 text-left border-t border-slate-50 pt-8">
             <div className="flex flex-col gap-2">
                <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">RESIDENCE ADDRESS</span>
-               <span className="text-[10px] font-bold text-slate-700 leading-tight line-clamp-2 uppercase italic">{student.residenceAddress || 'Campus Hostel / Local Resident'}</span>
+               <span className="text-[10px] font-bold text-slate-700 leading-tight line-clamp-2 uppercase italic">{student.residenceAddress || 'Campus Hostel'}</span>
             </div>
             <div className="flex items-center justify-between">
-               <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-2">CONTACT</span>
+               <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-2">PARENT CONTACT</span>
                <span className="text-xs font-black text-slate-800">{student.fatherMobile}</span>
-            </div>
-            <div className="flex items-center justify-between">
-               <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-2">DATE OF BIRTH</span>
-               <span className="text-xs font-black text-slate-800">{student.dob || 'N/A'}</span>
             </div>
             <div className="flex items-center justify-between">
                <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-2">GR NUMBER</span>
@@ -413,7 +410,6 @@ const IdCardComponent: React.FC<{ student: Student, schoolLogo: string | null, p
          </div>
       </div>
 
-      {/* Spacing adjusted: Reduced pt-4 and added negative margin to shift signature section higher */}
       <div className="px-10 pb-10 pt-0 flex justify-between items-end -mt-4">
          <div className="text-left flex flex-col items-center">
             <div className="h-10 w-28 relative flex items-center justify-center mb-1">

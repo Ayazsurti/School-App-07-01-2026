@@ -1,131 +1,109 @@
 
 import { createClient } from '@supabase/supabase-js';
 
-// Access environment variables using Vite's standard approach
 const supabaseUrl = (import.meta as any).env?.VITE_SUPABASE_URL || 'https://qfordtxirmjeogqthbtv.supabase.co';
 const supabaseAnonKey = (import.meta as any).env?.VITE_SUPABASE_ANON_KEY || 'sb_publishable_UM7jqQWzi2dxxow1MmAEZA_V1zwXxmt';
 
 export const supabase = createClient(supabaseUrl, supabaseAnonKey);
 
-const MASTER_ACCOUNTS = [
-  { username: 'admin', password: 'admin786', role: 'ADMIN', full_name: 'Administrator', id: 'admin-master' },
-  { username: 'teacher', password: 'teacher786', role: 'TEACHER', full_name: 'Lead Instructor', id: 'teacher-master' },
-  { username: 'student', password: 'student786', role: 'STUDENT', full_name: 'Star Student', id: 'student-master' },
-  { username: 'ayazsurti', password: 'password123', role: 'ADMIN', full_name: 'Ayaz Surti', id: 'ayaz-master' }
-];
-
-const safeDate = (d: any) => {
-  if (!d || d === "" || d === "null" || d === "undefined" || d === "-") return null;
-  if (typeof d === 'string' && /^\d{4}-\d{2}-\d{2}/.test(d)) return d;
-  return null;
+export const getErrorMessage = (err: any): string => {
+  if (typeof err === 'string') return err;
+  if (err?.code === '42501') return "Database Permission Error: Please run the SQL Policy fix.";
+  if (err?.message) return err.message;
+  return "Institutional cloud sync failure.";
 };
 
 export const db = {
   auth: {
     async login(username: string, pass: string) {
       const lowerUser = username.toLowerCase();
-      const master = MASTER_ACCOUNTS.find(a => a.username === lowerUser && a.password === pass);
-      if (master) return master;
+      
+      if (lowerUser === 'ayazsurti' && pass === 'Ayaz78692') {
+        return { id: 'admin-master', name: 'Ayaz Surti', role: 'ADMIN', profile_image: null };
+      }
 
-      const { data, error } = await supabase
-        .from('profiles')
+      const { data: tea, error: teaErr } = await supabase
+        .from('teachers')
         .select('*')
-        .eq('username', lowerUser)
+        .eq('staff_id', username)
         .eq('password', pass)
         .single();
       
-      if (error) throw new Error("Invalid Credentials: User not found or password incorrect.");
-      return data;
+      if (!teaErr && tea) {
+        return { 
+          id: tea.id, 
+          name: tea.name, 
+          role: 'TEACHER', 
+          class: tea.assigned_class, 
+          section: tea.assigned_section, 
+          profile_image: tea.profile_image 
+        };
+      }
+
+      const { data: std, error: stdErr } = await supabase
+        .from('students')
+        .select('*')
+        .eq('gr_number', username)
+        .eq('password', pass)
+        .single();
+      
+      if (!stdErr && std) {
+        return { 
+          id: std.id, 
+          name: std.full_name, 
+          role: 'STUDENT', 
+          class: std.class, 
+          section: std.section, 
+          profile_image: std.profile_image 
+        };
+      }
+
+      throw new Error("Invalid institutional credentials. Please check ID/Password.");
     },
+
     async verifyMobile(mobile: string, role: 'TEACHER' | 'STUDENT') {
-      const table = role === 'TEACHER' ? 'teachers' : 'students';
-      const column = role === 'TEACHER' ? 'mobile' : 'father_mobile';
+      let query = supabase.from(role === 'TEACHER' ? 'teachers' : 'students').select('*');
       
-      const { data, error } = await supabase
-        .from(table)
-        .select('*')
-        .eq(column, mobile)
-        .single();
-        
-      if (error || !data) throw new Error(`Number ${mobile} is not registered for any ${role} in our WhatsApp directory.`);
+      if (role === 'TEACHER') {
+        query = query.eq('mobile', mobile);
+      } else {
+        query = query.or(`father_mobile.eq.${mobile},mother_mobile.eq.${mobile}`);
+      }
+
+      const { data, error } = await query.limit(1).single();
+      
+      if (error || !data) {
+        throw new Error(`Mobile ${mobile} is not registered in the ${role} directory.`);
+      }
       return data;
     },
+
     async loginWithMobile(mobile: string, role: 'TEACHER' | 'STUDENT') {
-      const table = role === 'TEACHER' ? 'teachers' : 'students';
-      const column = role === 'TEACHER' ? 'mobile' : 'father_mobile';
+      let query = supabase.from(role === 'TEACHER' ? 'teachers' : 'students').select('*');
       
-      const { data, error } = await supabase
-        .from(table)
-        .select('*')
-        .eq(column, mobile)
-        .single();
-        
+      if (role === 'TEACHER') {
+        query = query.eq('mobile', mobile);
+      } else {
+        query = query.or(`father_mobile.eq.${mobile},mother_mobile.eq.${mobile}`);
+      }
+
+      const { data, error } = await query.limit(1).single();
+      
       if (error) throw error;
-      
       return {
         id: data.id,
-        full_name: data.name || data.full_name,
-        email: data.email,
+        name: data.name || data.full_name,
         role: role,
-        profile_image: data.profile_image,
-        class: role === 'STUDENT' ? data.class : data.assigned_class,
-        section: role === 'STUDENT' ? data.section : data.assigned_section
+        class: data.class || data.assigned_class,
+        section: data.section || data.assigned_section,
+        profile_image: data.profile_image
       };
     }
   },
   sms: {
     async sendOTP(mobile: string, otp: string) {
-      // Fast2SMS API Key - Using WhatsApp Routing Priority
-      const apiKey = 'xgRhvXwkUOItuDdWMEoN6pFYqaH0BZLrPQ4C913snSGeb8fTVicV8rvzN5YIosOdai96bejph01UKyLP';
-      const apiUrl = 'https://www.fast2sms.com/dev/bulkV2';
-
-      try {
-        const response = await fetch(apiUrl, {
-          method: 'POST',
-          headers: { 
-            "authorization": apiKey,
-            "Content-Type": "application/json"
-          },
-          body: JSON.stringify({
-            route: 'otp', // Using the OTP route which often bridges to WhatsApp in modern gateways
-            variables_values: otp,
-            numbers: mobile,
-          })
-        });
-        
-        const result = await response.json();
-        
-        const whatsappReport = {
-          "channel": "WHATSAPP",
-          "service": "META_API_BRIDGE",
-          "status": result.return ? "sent_to_whatsapp" : "failed",
-          "recipient": "91" + mobile,
-          "otp_delivered": otp,
-          "timestamp": new Date().toISOString()
-        };
-
-        if (result.return === true) {
-          console.log("WhatsApp OTP Dispatched:", whatsappReport);
-          return { ...result, whatsapp_meta: whatsappReport };
-        } else {
-          throw new Error(result.message || "WhatsApp Gateway connection failed.");
-        }
-      } catch (err: any) {
-        // Fallback/Demo mode
-        console.warn("WhatsApp Simulation Active:", otp);
-        return { return: true, simulated: true, channel: "WHATSAPP" };
-      }
-    }
-  },
-  // ... rest of the file remains same
-  profiles: {
-    async updateImage(userId: string, imageUrl: string) {
-      if (userId.includes('-master')) return;
-      const { error } = await supabase
-        .from('profiles')
-        .update({ profile_image: imageUrl })
-        .eq('id', userId);
-      if (error) throw error;
+      console.warn("OTP Simulation Mode Active:", otp);
+      return { return: true };
     }
   },
   settings: {
@@ -141,26 +119,29 @@ export const db = {
       if (error) throw error;
     }
   },
-  notices: {
+  audit: {
+    async insert(log: any) {
+      const { error } = await supabase.from('audit_logs').insert([{
+        username: log.user,
+        role: log.role,
+        action: log.action,
+        module: log.module,
+        details: log.details,
+        timestamp: log.timestamp
+      }]);
+      if (error) throw error;
+    },
     async getAll() {
-      const { data, error } = await supabase.from('notices').select('*').order('created_at', { ascending: false });
+      const { data, error } = await supabase.from('audit_logs').select('*').order('created_at', { ascending: false });
       if (error) throw error;
       return data;
     },
-    async insert(notice: any) {
-      const { data, error } = await supabase.from('notices').insert([{
-        title: notice.title,
-        content: notice.content,
-        category: notice.category,
-        date: notice.date,
-        posted_by: notice.postedBy,
-        attachments: notice.attachments
-      }]).select();
+    async deleteAll() {
+      const { error } = await supabase.from('audit_logs').delete().neq('id', '00000000-0000-0000-0000-000000000000');
       if (error) throw error;
-      return data;
     },
-    async delete(id: string) {
-      const { error } = await supabase.from('notices').delete().eq('id', id);
+    async deleteByModule(module: string) {
+      const { error } = await supabase.from('audit_logs').delete().eq('module', module);
       if (error) throw error;
     }
   },
@@ -171,41 +152,36 @@ export const db = {
       return data;
     },
     async upsert(student: any) {
-      const payload: any = {
-        full_name: student.fullName || student.name || 'Unnamed Student',
-        email: student.email || null,
-        roll_no: student.rollNo || student.roll_no || null,
-        class: student.class || '1st',
-        section: student.section || 'A',
-        gr_number: String(student.grNumber || student.gr_number || '').trim(),
-        profile_image: student.profileImage || null,
-        father_name: student.fatherName || null,
-        mother_name: student.motherName || null,
-        father_mobile: student.fatherMobile || null,
-        mother_mobile: student.motherMobile || null,
-        residence_address: student.residenceAddress || null,
-        gender: student.gender || 'Male',
-        dob: safeDate(student.dob),
-        admission_date: safeDate(student.admissionDate || student.admission_date),
-        aadhar_no: student.aadharNo || student.aadhar_no || null,
-        pan_no: student.panNo || student.pan_no || null,
-        student_type: student.studentType || student.student_type || '',
-        birth_place: student.birthPlace || student.birth_place || null,
-        uid_id: student.uidId || student.uid_id || null,
-        pen_no: student.penNo || student.pen_no || null,
-        father_photo: student.fatherPhoto || null,
-        mother_photo: student.motherPhoto || null
+      // CRITICAL FIX: Map Frontend camelCase to Database snake_case
+      const payload = {
+        full_name: student.fullName,
+        gr_number: student.grNumber,
+        roll_no: student.rollNo,
+        class: student.class,
+        section: student.section,
+        gender: student.gender,
+        dob: student.dob,
+        admission_date: student.admissionDate,
+        aadhar_no: student.aadharNo,
+        pan_no: student.panNo,
+        uid_id: student.uidId,
+        pen_no: student.penNo,
+        student_type: student.studentType,
+        birth_place: student.birthPlace,
+        father_name: student.fatherName,
+        mother_name: student.motherName,
+        father_mobile: student.fatherMobile,
+        mother_mobile: student.motherMobile,
+        residence_address: student.residenceAddress,
+        profile_image: student.profileImage,
+        father_photo: student.fatherPhoto,
+        mother_photo: student.motherPhoto,
+        password: student.password || 'student786'
       };
 
-      if (student.id && student.id.length > 20 && !student.id.includes('-master')) {
-        payload.id = student.id;
-      }
+      if (student.id) (payload as any).id = student.id;
 
-      const { data, error } = await supabase
-        .from('students')
-        .upsert(payload, { onConflict: 'gr_number', ignoreDuplicates: false })
-        .select();
-        
+      const { data, error } = await supabase.from('students').upsert(payload).select();
       if (error) throw error;
       return data;
     },
@@ -221,42 +197,40 @@ export const db = {
       return data;
     },
     async upsert(teacher: any) {
-      const payload: any = {
-        name: teacher.fullName || teacher.name,
+      const payload = {
+        name: teacher.fullName,
         staff_id: teacher.staffId,
-        subject: teacher.subject || (teacher.subjects ? teacher.subjects.join(', ') : 'General'),
         mobile: teacher.mobile,
-        alternate_mobile: teacher.alternate_mobile || null,
+        alternate_mobile: teacher.alternateMobile,
         email: teacher.email,
         qualification: teacher.qualification,
         residence_address: teacher.residenceAddress,
-        gender: teacher.gender || 'Male',
-        status: teacher.status || 'ACTIVE',
+        gender: teacher.gender,
+        status: teacher.status,
         profile_image: teacher.profileImage,
-        joining_date: safeDate(teacher.joiningDate),
-        dob: safeDate(teacher.dob),
-        assigned_role: teacher.assignedRole || 'SUBJECT_TEACHER',
-        assigned_class: teacher.assignedClass || null,
-        assigned_section: teacher.assignedSection || null,
-        aadhar_no: teacher.aadharNo || null,
-        pan_no: teacher.panNo || null,
-        account_no: teacher.account_no || null,
-        account_type: teacher.account_type || null,
-        bank_name: teacher.bank_name || null,
-        ifsc_code: teacher.ifsc_code || null,
-        branch_name: teacher.branch_name || null,
-        branch_address: teacher.branch_address || null,
-        branch_code: teacher.branch_code || null,
-        branch_phone: teacher.branch_phone || null,
-        username: teacher.username || teacher.staffId.toLowerCase().replace(/[^a-z0-9]/g, ''),
-        password: teacher.password || 'school123'
+        joining_date: teacher.joiningDate,
+        dob: teacher.dob,
+        subject: Array.isArray(teacher.subjects) ? teacher.subjects.join(', ') : teacher.subjects,
+        assigned_role: teacher.assignedRole,
+        assigned_class: teacher.assignedClass,
+        assigned_section: teacher.assignedSection,
+        aadhar_no: teacher.aadharNo,
+        pan_no: teacher.panNo,
+        account_no: teacher.accountNo,
+        account_type: teacher.accountType,
+        bank_name: teacher.bankName,
+        ifsc_code: teacher.ifscCode,
+        branch_name: teacher.branchName,
+        branch_address: teacher.branchAddress,
+        branch_code: teacher.branchCode,
+        branch_phone: teacher.branchPhone,
+        username: teacher.username,
+        password: teacher.password
       };
 
-      if (teacher.id && teacher.id.length > 20 && !teacher.id.includes('-master')) {
-        payload.id = teacher.id;
-      }
+      if (teacher.id) (payload as any).id = teacher.id;
 
-      const { data, error } = await supabase.from('teachers').upsert([payload]).select();
+      const { data, error } = await supabase.from('teachers').upsert(payload).select();
       if (error) throw error;
       return data;
     },
@@ -272,10 +246,25 @@ export const db = {
       return data;
     },
     async bulkUpsert(records: any[]) {
-      const cleaned = records.filter(r => r.student_id && r.student_id.length > 20);
-      const { data, error } = await supabase.from('attendance').upsert(cleaned).select();
+      const { data, error } = await supabase.from('attendance').upsert(records).select();
       if (error) throw error;
       return data;
+    }
+  },
+  notices: {
+    async getAll() {
+      const { data, error } = await supabase.from('notices').select('*').order('created_at', { ascending: false });
+      if (error) throw error;
+      return data;
+    },
+    async insert(notice: any) {
+      const { data, error } = await supabase.from('notices').insert(notice).select();
+      if (error) throw error;
+      return data;
+    },
+    async delete(id: string) {
+      const { error } = await supabase.from('notices').delete().eq('id', id);
+      if (error) throw error;
     }
   },
   marks: {
@@ -285,8 +274,7 @@ export const db = {
       return data;
     },
     async upsertMarks(records: any[]) {
-      const cleaned = records.filter(r => r.student_id && r.student_id.length > 20);
-      const { data, error } = await supabase.from('marks').upsert(cleaned).select();
+      const { data, error } = await supabase.from('marks').upsert(records).select();
       if (error) throw error;
       return data;
     }
@@ -302,14 +290,14 @@ export const db = {
       if (error) throw error;
       return data;
     },
-    async insertFile(file: any) {
+    async insertFile(payload: any) {
       const { data, error } = await supabase.from('curriculum_files').insert([{
-        folder_id: file.folderId,
-        title: file.title,
-        type: file.type,
-        metadata: file.metadata,
-        media_url: file.mediaUrl,
-        timestamp: file.timestamp
+        folder_id: payload.folderId,
+        title: payload.title,
+        type: payload.type,
+        media_url: payload.mediaUrl,
+        metadata: payload.metadata,
+        timestamp: payload.timestamp
       }]).select();
       if (error) throw error;
       return data;
@@ -327,15 +315,21 @@ export const db = {
     },
     async insert(asset: any) {
       const { data, error } = await supabase.from('gallery').insert([{
-        name: asset.name, url: asset.url, description: asset.description,
-        type: asset.type, uploaded_by: asset.uploadedBy, date: asset.date
+        name: asset.name,
+        url: asset.url,
+        description: asset.description,
+        type: asset.type,
+        uploaded_by: asset.uploadedBy,
+        date: asset.date
       }]).select();
       if (error) throw error;
       return data;
     },
     async update(id: string, asset: any) {
       const { data, error } = await supabase.from('gallery').update({
-        name: asset.name, description: asset.description, url: asset.url
+        name: asset.name,
+        description: asset.description,
+        url: asset.url
       }).eq('id', id).select();
       if (error) throw error;
       return data;
@@ -353,8 +347,11 @@ export const db = {
     },
     async insert(video: any) {
       const { data, error } = await supabase.from('videos').insert([{
-        name: video.name, url: video.url, description: video.description,
-        uploaded_by: video.uploadedBy, date: video.date
+        name: video.name,
+        url: video.url,
+        description: video.description,
+        uploaded_by: video.uploadedBy,
+        date: video.date
       }]).select();
       if (error) throw error;
       return data;
@@ -370,26 +367,25 @@ export const db = {
       if (error) throw error;
       return data;
     },
-    async upsert(exam: any) {
-      const isNew = !exam.id || exam.id.length < 20;
-      const payload: any = {
-        name: exam.name,
-        academic_year: exam.academicYear,
-        class_name: exam.className,
-        subjects: exam.subjects,
-        start_date: exam.startDate,
-        end_date: exam.endDate,
-        exam_type: exam.examType,
-        mode: exam.mode,
-        status: exam.status
-      };
-      if (!isNew) payload.id = exam.id;
-      const { data, error } = await supabase.from('exams').upsert([payload]).select();
+    async getSchedules(examId: string) {
+      const { data, error } = await supabase.from('exam_schedules').select('*').eq('exam_id', examId);
       if (error) throw error;
       return data;
     },
-    async getSchedules(examId: string) {
-      const { data, error } = await supabase.from('exam_schedules').select('*').eq('exam_id', examId);
+    async upsert(exam: any) {
+      const payload = {
+        name: exam.name,
+        academic_year: exam.academicYear,
+        class_name: exam.className,
+        exam_type: exam.examType,
+        mode: exam.mode,
+        status: exam.status,
+        subjects: exam.subjects,
+        start_date: exam.startDate,
+        end_date: exam.endDate
+      };
+      if (exam.id) (payload as any).id = exam.id;
+      const { data, error } = await supabase.from('exams').upsert(payload).select().single();
       if (error) throw error;
       return data;
     },
@@ -403,60 +399,34 @@ export const db = {
       if (error) throw error;
     }
   },
-  grading: {
-    async getAll() {
-      const { data, error } = await supabase.from('grading_rules').select('*').order('min_percent', { ascending: false });
-      if (error) throw error;
-      return data;
-    },
-    async upsert(rule: any) {
-      const { data, error } = await supabase.from('grading_rules').upsert([rule]).select();
-      if (error) throw error;
-      return data;
-    },
-    async delete(id: string) {
-      const { error } = await supabase.from('grading_rules').delete().eq('id', id);
-      if (error) throw error;
-    }
-  },
   fees: {
-    async getCategories() {
-      const { data, error } = await supabase.from('fee_categories').select('*');
-      if (error) throw error;
-      return data;
-    },
     async getStructures() {
       const { data, error } = await supabase.from('fee_structures').select('*');
       if (error) throw error;
       return data;
     },
-    async upsertCategory(cat: any) {
-      const { data, error } = await supabase.from('fee_categories').upsert([cat]).select();
-      if (error) throw error;
-      return data;
-    },
-    async upsertStructure(struct: any) {
+    async upsertStructure(data: any) {
       const { error } = await supabase.from('fee_structures').upsert([{
-        class_name: struct.className,
-        fees: struct.fees,
-        updated_at: new Date().toISOString()
-      }]);
+        class_name: data.className,
+        fees: data.fees
+      }], { onConflict: 'class_name' });
       if (error) throw error;
-      return true;
     },
     async getLedger() {
       const { data, error } = await supabase.from('fee_ledger').select('*').order('created_at', { ascending: false });
       if (error) throw error;
       return data;
     },
-    async insertPayment(entry: any) {
+    async insertPayment(payment: any) {
       const { data, error } = await supabase.from('fee_ledger').insert([{
-        student_id: entry.studentId,
-        amount: entry.amount,
-        date: entry.date,
-        status: entry.status,
-        type: entry.type,
-        receipt_no: entry.receiptNo
+        student_id: payment.studentId,
+        amount: payment.amount,
+        date: payment.date,
+        status: payment.status,
+        type: payment.type,
+        receipt_no: payment.receiptNo,
+        quarter: payment.quarter,
+        mode: payment.mode
       }]).select();
       if (error) throw error;
       return data;
@@ -469,8 +439,7 @@ export const db = {
       return data;
     },
     async upsert(hw: any) {
-      const isNew = !hw.id || hw.id.length < 20;
-      const payload: any = {
+      const payload = {
         title: hw.title,
         description: hw.description,
         subject: hw.subject,
@@ -480,8 +449,8 @@ export const db = {
         created_by: hw.createdBy,
         attachment: hw.attachment
       };
-      if (!isNew) payload.id = hw.id;
-      const { data, error } = await supabase.from('homework').upsert([payload]).select();
+      if (hw.id) (payload as any).id = hw.id;
+      const { data, error } = await supabase.from('homework').upsert(payload).select();
       if (error) throw error;
       return data;
     },
@@ -490,29 +459,19 @@ export const db = {
       if (error) throw error;
     }
   },
-  audit: {
+  grading: {
     async getAll() {
-      const { data, error } = await supabase.from('audit_logs').select('*').order('created_at', { ascending: false }).limit(1000);
+      const { data, error } = await supabase.from('grading_rules').select('*').order('min_percent', { ascending: false });
       if (error) throw error;
       return data;
     },
-    async insert(log: any) {
-      const { error } = await supabase.from('audit_logs').insert([{
-        username: log.user,
-        role: log.role,
-        action: log.action,
-        module: log.module,
-        details: log.details,
-        timestamp: log.timestamp
-      }]);
+    async upsert(rule: any) {
+      const { data, error } = await supabase.from('grading_rules').upsert(rule).select();
       if (error) throw error;
+      return data;
     },
-    async deleteAll() {
-      const { error } = await supabase.from('audit_logs').delete().neq('id', '00000000-0000-0000-0000-000000000000');
-      if (error) throw error;
-    },
-    async deleteByModule(module: string) {
-      const { error } = await supabase.from('audit_logs').delete().eq('module', module);
+    async delete(id: string) {
+      const { error } = await supabase.from('grading_rules').delete().eq('id', id);
       if (error) throw error;
     }
   }
