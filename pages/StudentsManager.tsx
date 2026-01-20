@@ -37,7 +37,7 @@ const StudentsManager: React.FC<StudentsManagerProps> = ({ user }) => {
     gender: 'Male', dob: '', admissionDate: '', aadharNo: '', panNo: '', uidId: '', penNo: '',
     studentType: '', birthPlace: '',
     fatherName: '', motherName: '', fatherMobile: '', motherMobile: '', residenceAddress: '',
-    fatherPhoto: '', motherPhoto: '', password: 'student786'
+    fatherPhoto: '', motherPhoto: '', password: 'student786', status: 'ACTIVE'
   };
 
   const [formData, setFormData] = useState<Partial<Student>>(initialFormData);
@@ -71,7 +71,8 @@ const StudentsManager: React.FC<StudentsManagerProps> = ({ user }) => {
         birthPlace: s.birth_place,
         fatherPhoto: s.father_photo,
         motherPhoto: s.mother_photo,
-        password: s.password
+        password: s.password,
+        status: s.status
       }));
       setStudents(mapped as Student[]);
     } catch (err: any) { 
@@ -174,6 +175,9 @@ const StudentsManager: React.FC<StudentsManagerProps> = ({ user }) => {
 
   const filteredStudents = useMemo(() => {
     let list = students.filter(s => {
+      // PER REQUEST: Exclude students with CANCELLED status from management view
+      if (s.status === 'CANCELLED') return false;
+
       const query = searchQuery.toLowerCase();
       const nameMatch = (s.fullName || '').toLowerCase().includes(query);
       const grMatch = (s.grNumber || '').toLowerCase().includes(query);
@@ -442,7 +446,7 @@ const StudentsManager: React.FC<StudentsManagerProps> = ({ user }) => {
                                     </div>
                                  </div>
                                  <div>
-                                    <p className="text-[10px] font-black text-indigo-600 uppercase tracking-widest leading-none">Father Identity</p>
+                                    <p className="text-[10px] font-black text-indigo-600 uppercase tracking-widest leading-none mb-1">Father Identity</p>
                                     <p className="text-[8px] font-bold text-slate-400 uppercase mt-1">Biometric Status: {formData.fatherPhoto ? 'LINKED' : 'NOT BOUND'}</p>
                                  </div>
                               </div>
@@ -483,7 +487,7 @@ const StudentsManager: React.FC<StudentsManagerProps> = ({ user }) => {
                                     </div>
                                  </div>
                                  <div>
-                                    <p className="text-[10px] font-black text-indigo-600 uppercase tracking-widest leading-none">Mother Identity</p>
+                                    <p className="text-[10px] font-black text-indigo-600 uppercase tracking-widest leading-none mb-1">Mother Identity</p>
                                     <p className="text-[8px] font-bold text-slate-400 uppercase mt-1">Biometric Status: {formData.motherPhoto ? 'LINKED' : 'NOT BOUND'}</p>
                                  </div>
                               </div>

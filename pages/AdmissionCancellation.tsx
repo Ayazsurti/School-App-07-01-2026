@@ -7,7 +7,7 @@ import {
   UserMinus, Search, Trash2, RotateCcw, X, AlertTriangle, 
   Calendar, Info, Loader2, RefreshCw, CheckCircle2, ShieldCheck,
   User as UserIcon, ArrowRight, ShieldAlert, FileText, UserCheck, Layers,
-  Clock, Shield, Terminal, Bug
+  Clock, Shield, Terminal, Bug, Wifi, WifiOff
 } from 'lucide-react';
 
 interface AdmissionCancellationProps { user: User; }
@@ -21,6 +21,7 @@ const AdmissionCancellation: React.FC<AdmissionCancellationProps> = ({ user }) =
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedClass, setSelectedClass] = useState('All');
   const [viewMode, setViewMode] = useState<'ACTIVE' | 'CANCELLED'>('ACTIVE');
+  const [isOnline, setIsOnline] = useState(navigator.onLine);
   
   // Modal states
   const [showCancelModal, setShowCancelModal] = useState(false);
@@ -33,6 +34,17 @@ const AdmissionCancellation: React.FC<AdmissionCancellationProps> = ({ user }) =
   const [cancelDate, setCancelDate] = useState(new Date().toISOString().split('T')[0]);
   const [isProcessing, setIsProcessing] = useState(false);
   const [showSuccess, setShowSuccess] = useState(false);
+
+  useEffect(() => {
+    const handleOnline = () => setIsOnline(true);
+    const handleOffline = () => setIsOnline(false);
+    window.addEventListener('online', handleOnline);
+    window.addEventListener('offline', handleOffline);
+    return () => {
+      window.removeEventListener('online', handleOnline);
+      window.removeEventListener('offline', handleOffline);
+    };
+  }, []);
 
   const fetchRegistry = async () => {
     try {
@@ -52,7 +64,7 @@ const AdmissionCancellation: React.FC<AdmissionCancellationProps> = ({ user }) =
 
   useEffect(() => {
     fetchRegistry();
-    const channel = supabase.channel('cancellation-sync-v10')
+    const channel = supabase.channel('cancellation-sync-v12')
       .on('postgres_changes', { event: '*', schema: 'public', table: 'students' }, () => {
         setIsSyncing(true);
         fetchRegistry().then(() => setTimeout(() => setIsSyncing(false), 800));
@@ -97,18 +109,24 @@ const AdmissionCancellation: React.FC<AdmissionCancellationProps> = ({ user }) =
   };
 
   const handleRevertAdmission = async (student: any) => {
-    const confirmMsg = `REVERT admission for ${student.full_name}? Identity will be restored to active pool.`;
+    if (!isOnline) {
+      alert("Internet required for cloud sync.");
+      return;
+    }
+    
+    const confirmMsg = `Restore ${student.full_name} to Active Pool?`;
     if (!window.confirm(confirmMsg)) return;
     
     setIsSyncing(true);
     try {
-      // 1. Perform Remote Update
-      await db.students.revertAdmission(student.id);
+      // 1. Database level update
+      const response = await db.students.revertAdmission(student.id);
       
-      // 2. Audit
-      await createAuditLog(user, 'UPDATE', 'Registry', `Admission Restored: ${student.full_name}`);
+      // 2. Clear Audit
+      await createAuditLog(user, 'UPDATE', 'Registry', `Restored Identity: ${student.full_name}`);
       
-      // 3. UI Update
+      // 3. FORCE LOCAL UI PURGE
+      // We manually remove it from state so UI updates even if the fetch is slow
       setStudents(prev => prev.map(s => {
         if (s.id === student.id) {
           return { ...s, status: 'ACTIVE', cancel_reason: null, cancel_date: null, cancelled_by: null };
@@ -118,15 +136,16 @@ const AdmissionCancellation: React.FC<AdmissionCancellationProps> = ({ user }) =
 
       setShowSuccess(true);
       setTimeout(() => setShowSuccess(false), 3000);
+      
+      // 4. Background Fetch to ensure full data sync
       await fetchRegistry();
       
     } catch (err: any) {
       const msg = getErrorMessage(err);
-      console.error("REVERT FAILURE DUMP:", err);
-      // Detailed error showing everything to debug
+      console.error("REVERT CRASH:", err);
       setShowErrorModal({ 
         message: msg, 
-        code: err?.code || 'FETCH_FAIL', 
+        code: err?.code || 'SYNC_ERROR', 
         raw: JSON.stringify(err, null, 2) 
       });
     } finally {
@@ -135,12 +154,12 @@ const AdmissionCancellation: React.FC<AdmissionCancellationProps> = ({ user }) =
   };
 
   const handlePermanentDelete = async (id: string) => {
-    if (!window.confirm("ARE YOU SURE? Irreversible identity purge.")) return;
+    if (!window.confirm("ARE YOU SURE? This cannot be undone.")) return;
     
     setIsSyncing(true);
     try {
       await db.students.delete(id);
-      await createAuditLog(user, 'DELETE', 'Registry', `Student Purged`);
+      await createAuditLog(user, 'DELETE', 'Registry', `Purged Identity Record`);
       setStudents(prev => prev.filter(s => s.id !== id));
       setShowDeleteConfirm(null);
       await fetchRegistry();
@@ -153,14 +172,16 @@ const AdmissionCancellation: React.FC<AdmissionCancellationProps> = ({ user }) =
 
   return (
     <div className="space-y-8 pb-20 animate-in fade-in duration-500 relative">
-      {isSyncing && (
-        <div className="fixed top-24 left-1/2 -translate-x-1/2 z-[1100] animate-bounce no-print">
-           <div className="bg-indigo-600 text-white px-6 py-2 rounded-full shadow-2xl flex items-center gap-3 border border-indigo-400">
-              <RefreshCw size={14} className="animate-spin" />
-              <span className="text-[10px] font-black uppercase tracking-widest text-white">Registry Resync...</span>
-           </div>
-        </div>
-      )}
+      <div className="flex flex-wrap gap-4 no-print">
+         <div className="flex items-center gap-2 bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 px-4 py-2 rounded-full shadow-sm">
+            {isOnline ? <Wifi size={14} className="text-emerald-500" /> : <WifiOff size={14} className="text-rose-500" />}
+            <span className="text-[8px] font-black text-slate-400 uppercase tracking-widest">{isOnline ? 'Cloud: Online' : 'Cloud: Offline'}</span>
+         </div>
+         <button onClick={() => { setIsSyncing(true); fetchRegistry().then(() => setIsSyncing(false)); }} className="flex items-center gap-2 bg-indigo-50 dark:bg-indigo-950/20 border border-indigo-100 dark:border-indigo-900 px-4 py-2 rounded-full shadow-sm hover:bg-indigo-100 transition-all">
+            <RefreshCw size={14} className={`text-indigo-500 ${isSyncing ? 'animate-spin' : ''}`} />
+            <span className="text-[8px] font-black text-indigo-700 dark:text-indigo-400 uppercase tracking-widest">Force Resync</span>
+         </button>
+      </div>
 
       {showSuccess && (
         <div className="fixed top-24 right-8 z-[1000] animate-in slide-in-from-right-8 duration-500">
@@ -168,7 +189,7 @@ const AdmissionCancellation: React.FC<AdmissionCancellationProps> = ({ user }) =
               <CheckCircle2 size={24} strokeWidth={3} />
               <div>
                  <p className="font-black text-xs uppercase tracking-widest">Operation Success</p>
-                 <p className="text-[10px] font-bold text-emerald-100 uppercase mt-0.5">Cloud Ledger Synced</p>
+                 <p className="text-[10px] font-bold text-emerald-100 uppercase mt-0.5">Cloud Matrix Balanced</p>
               </div>
            </div>
         </div>
@@ -177,7 +198,7 @@ const AdmissionCancellation: React.FC<AdmissionCancellationProps> = ({ user }) =
       <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6">
         <div>
           <h1 className="text-4xl font-black text-slate-900 dark:text-white tracking-tight flex items-center gap-3 uppercase">Admission Control <UserMinus className="text-rose-600" /></h1>
-          <p className="text-slate-500 dark:text-slate-400 font-medium text-lg uppercase tracking-tight">Identity Status Management.</p>
+          <p className="text-slate-500 dark:text-slate-400 font-medium text-lg uppercase tracking-tight">Identity Revocation Management Terminal.</p>
         </div>
         
         <div className="flex bg-slate-100 dark:bg-slate-800 p-1.5 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-sm">
@@ -185,7 +206,7 @@ const AdmissionCancellation: React.FC<AdmissionCancellationProps> = ({ user }) =
             onClick={() => setViewMode('ACTIVE')}
             className={`px-8 py-3 text-[11px] font-black uppercase tracking-widest rounded-xl transition-all ${viewMode === 'ACTIVE' ? 'bg-white dark:bg-slate-700 text-indigo-600 dark:text-indigo-400 shadow-md' : 'text-slate-500 hover:text-slate-700'}`}
            >
-              Active Registry
+              Active List
            </button>
            <button 
             onClick={() => setViewMode('CANCELLED')}
@@ -213,17 +234,17 @@ const AdmissionCancellation: React.FC<AdmissionCancellationProps> = ({ user }) =
         {isLoading ? (
           <div className="py-40 flex flex-col items-center justify-center animate-pulse">
             <Loader2 size={64} className="animate-spin text-indigo-600 mb-6" />
-            <p className="font-black text-xs uppercase tracking-widest text-slate-400">Loading Cloud Data...</p>
+            <p className="font-black text-xs uppercase tracking-widest text-slate-400">Pinging Database...</p>
           </div>
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full min-w-[1200px]">
               <thead>
                 <tr className="bg-slate-50 dark:bg-slate-800/50 text-slate-400 text-[10px] font-black uppercase tracking-widest border-b border-slate-100 dark:border-slate-800">
-                  <th className="px-8 py-6 text-left">Student Profile</th>
-                  <th className="px-8 py-6 text-left">Academic Info</th>
-                  <th className="px-8 py-6 text-left">Status Matrix</th>
-                  <th className="px-8 py-6 text-right">Action</th>
+                  <th className="px-8 py-6 text-left">Identity Profile</th>
+                  <th className="px-8 py-6 text-left">Academic Location</th>
+                  <th className="px-8 py-6 text-left">Status Trace</th>
+                  <th className="px-8 py-6 text-right">Registry Action</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
@@ -248,11 +269,11 @@ const AdmissionCancellation: React.FC<AdmissionCancellationProps> = ({ user }) =
                     </td>
                     <td className="px-8 py-8">
                       {student.status === 'CANCELLED' ? (
-                        <div className="bg-rose-50 dark:bg-rose-950/40 border border-rose-100 dark:border-rose-900/50 p-5 rounded-3xl max-w-sm shadow-sm">
+                        <div className="bg-rose-50 dark:bg-rose-950/40 border border-rose-100 dark:border-rose-900/50 p-5 rounded-3xl max-w-sm shadow-sm relative">
                            <div className="flex items-center justify-between mb-3">
                               <div className="flex items-center gap-2">
                                  <ShieldAlert size={14} className="text-rose-600" />
-                                 <span className="text-[9px] font-black text-rose-700 dark:text-rose-400 uppercase tracking-widest">Revoked</span>
+                                 <span className="text-[9px] font-black text-rose-700 dark:text-rose-400 uppercase tracking-widest">Revoked Identity</span>
                               </div>
                               <div className="px-2 py-0.5 bg-rose-600 text-white rounded-md text-[8px] font-black uppercase">Archived</div>
                            </div>
@@ -274,7 +295,7 @@ const AdmissionCancellation: React.FC<AdmissionCancellationProps> = ({ user }) =
                       ) : (
                         <div className="flex items-center gap-3 text-emerald-600 font-black text-[10px] uppercase tracking-widest bg-emerald-50 dark:bg-emerald-950/20 px-5 py-3 rounded-2xl border border-emerald-100 dark:border-emerald-900/30 w-fit">
                            <div className="w-2 h-2 bg-emerald-500 rounded-full animate-pulse"></div>
-                           Active Pool
+                           Active Status
                         </div>
                       )}
                     </td>
@@ -284,8 +305,8 @@ const AdmissionCancellation: React.FC<AdmissionCancellationProps> = ({ user }) =
                             <div className="flex items-center gap-2">
                                <button 
                                 onClick={() => handleRevertAdmission(student)} 
-                                disabled={isSyncing}
-                                className="px-6 py-3 bg-indigo-600 text-white rounded-xl font-black text-[10px] uppercase tracking-widest hover:bg-indigo-700 transition-all flex items-center gap-2 shadow-lg disabled:opacity-50 active:scale-95"
+                                disabled={isSyncing || !isOnline}
+                                className="px-6 py-3 bg-indigo-600 text-white rounded-xl font-black text-[10px] uppercase tracking-widest hover:bg-indigo-700 transition-all flex items-center gap-2 shadow-lg disabled:opacity-50 active:scale-95 border border-indigo-400"
                                >
                                   {isSyncing ? <Loader2 size={14} className="animate-spin" /> : <RotateCcw size={14}/>} 
                                   Revert Admission
@@ -322,16 +343,16 @@ const AdmissionCancellation: React.FC<AdmissionCancellationProps> = ({ user }) =
         )}
       </div>
 
-      {/* DEBUG ERROR MODAL */}
+      {/* ERROR MODAL */}
       {showErrorModal && (
-        <div className="fixed inset-0 z-[2000] flex items-center justify-center p-4 bg-slate-950/90 backdrop-blur-md animate-in fade-in duration-300">
+        <div className="fixed inset-0 z-[2000] flex items-center justify-center p-4 bg-slate-950/95 backdrop-blur-md animate-in fade-in duration-300">
            <div className="bg-white dark:bg-slate-900 rounded-[3rem] p-1 shadow-2xl max-w-2xl w-full overflow-hidden border border-rose-100 dark:border-rose-900/50 flex flex-col animate-in zoom-in-95">
               <div className="p-10 bg-rose-50 dark:bg-rose-950/20 border-b border-rose-100 dark:border-rose-900/50 text-center">
                  <div className="w-20 h-20 bg-rose-600 text-white rounded-[2rem] flex items-center justify-center mb-6 mx-auto shadow-2xl">
                     <Bug size={40} strokeWidth={2.5} />
                  </div>
-                 <h3 className="text-2xl font-black text-rose-900 dark:text-rose-100 uppercase tracking-tight">Technical Sync Failed</h3>
-                 <p className="text-rose-600/60 dark:text-rose-400 font-bold text-[10px] uppercase tracking-widest mt-3">Code: {showErrorModal.code || 'SYS'}</p>
+                 <h3 className="text-2xl font-black text-rose-900 dark:text-rose-100 uppercase tracking-tight">Sync Failure Diagnostic</h3>
+                 <p className="text-rose-600/60 dark:text-rose-400 font-bold text-[10px] uppercase tracking-widest mt-3">Error Ref: {showErrorModal.code || 'CLOUD_REF'}</p>
               </div>
               
               <div className="p-10 space-y-8">
@@ -342,11 +363,12 @@ const AdmissionCancellation: React.FC<AdmissionCancellationProps> = ({ user }) =
                  <div className="space-y-4">
                     <div className="flex items-center gap-3 text-indigo-600 dark:text-indigo-400">
                        <Terminal size={18} />
-                       <span className="font-black text-xs uppercase tracking-widest">Database Debug Object</span>
+                       <span className="font-black text-xs uppercase tracking-widest">Registry Stack Trace</span>
                     </div>
                     <div className="bg-slate-950 p-6 rounded-2xl font-mono text-[9px] text-indigo-300 overflow-auto shadow-inner leading-relaxed border border-white/5 max-h-[150px]">
-                      {showErrorModal.raw ? <pre>{showErrorModal.raw}</pre> : 'No raw trace available.'}
+                      {showErrorModal.raw ? <pre>{showErrorModal.raw}</pre> : 'No trace captured.'}
                     </div>
+                    <p className="text-[9px] font-bold text-slate-400 uppercase leading-relaxed tracking-wider">Note: If Error Code is 42501, you must run the SQL DROP POLICY command provided in the Supabase Dashboard.</p>
                  </div>
 
                  <button onClick={() => setShowErrorModal(null)} className="w-full py-5 bg-slate-900 dark:bg-slate-800 text-white font-black rounded-2xl uppercase text-[10px] tracking-widest shadow-xl">Close Terminal</button>
@@ -355,7 +377,7 @@ const AdmissionCancellation: React.FC<AdmissionCancellationProps> = ({ user }) =
         </div>
       )}
 
-      {/* CANCELLATION FORM MODAL */}
+      {/* CANCEL MODAL */}
       {showCancelModal && targetStudent && (
         <div className="fixed inset-0 z-[1200] flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-md animate-in fade-in">
            <div className="bg-white dark:bg-slate-900 rounded-[3rem] p-1 shadow-2xl max-w-md w-full overflow-hidden border border-slate-100 dark:border-slate-800 animate-in zoom-in-95">
@@ -364,13 +386,13 @@ const AdmissionCancellation: React.FC<AdmissionCancellationProps> = ({ user }) =
                  <button onClick={() => setShowCancelModal(false)} className="p-2 hover:bg-slate-100 rounded-xl transition-all"><X size={24} /></button>
               </div>
               <form onSubmit={handleProcessCancellation} className="p-8 space-y-6">
-                 <div className="flex items-center gap-5 p-5 bg-rose-50 rounded-[2rem] border border-rose-100">
+                 <div className="flex items-center gap-5 p-5 bg-rose-50 rounded-[2rem] border border-rose-100 shadow-inner">
                     <div className="w-14 h-14 rounded-2xl bg-white flex items-center justify-center font-black text-rose-600 shadow-md border border-rose-50 shrink-0">
                        {targetStudent.fullName?.charAt(0) || 'S'}
                     </div>
                     <div className="min-w-0">
                        <p className="text-[9px] font-black text-rose-400 uppercase tracking-widest leading-none mb-1">Target Account</p>
-                       <p className="text-lg font-black text-slate-900 truncate leading-tight">{targetStudent.fullName || targetStudent.full_name}</p>
+                       <p className="text-lg font-black text-slate-900 truncate leading-tight uppercase">{targetStudent.fullName || targetStudent.full_name}</p>
                     </div>
                  </div>
                  <div className="space-y-4">
@@ -411,7 +433,7 @@ const AdmissionCancellation: React.FC<AdmissionCancellationProps> = ({ user }) =
         </div>
       )}
 
-      {/* DELETE CONFIRMATION */}
+      {/* DELETE DIALOG */}
       {showDeleteConfirm && (
         <div className="fixed inset-0 z-[1300] flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-md animate-in fade-in">
            <div className="bg-white dark:bg-slate-900 rounded-[2.5rem] p-10 max-w-xs w-full shadow-2xl text-center border border-slate-100 animate-in zoom-in-95">
@@ -419,10 +441,10 @@ const AdmissionCancellation: React.FC<AdmissionCancellationProps> = ({ user }) =
                  <AlertTriangle size={32} strokeWidth={2.5} />
               </div>
               <h3 className="text-xl font-black text-slate-900 dark:text-white mb-2 uppercase tracking-tight">Purge Data?</h3>
-              <p className="text-slate-500 dark:text-slate-400 mb-8 font-medium text-[10px] leading-relaxed uppercase tracking-widest">Permanently erase this identity. This action is irreversible.</p>
+              <p className="text-slate-500 dark:text-slate-400 mb-8 font-medium text-[10px] uppercase tracking-widest leading-relaxed">Permanently erase this identity. This action is irreversible.</p>
               <div className="grid grid-cols-2 gap-3">
                  <button onClick={() => setShowDeleteConfirm(null)} className="py-4 bg-slate-100 dark:bg-slate-800 text-slate-600 font-black rounded-2xl uppercase text-[10px]">Cancel</button>
-                 <button onClick={() => handlePermanentDelete(showDeleteConfirm)} className="py-4 bg-rose-600 text-white font-black rounded-2xl shadow-lg shadow-rose-200 hover:bg-rose-700 transition-all uppercase text-[10px]">Purge</button>
+                 <button onClick={() => handlePermanentDelete(showDeleteConfirm)} className="py-4 bg-rose-600 text-white font-black rounded-2xl shadow-xl hover:bg-rose-700 transition-all uppercase text-[10px]">Purge</button>
               </div>
            </div>
         </div>

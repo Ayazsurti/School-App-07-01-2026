@@ -9,12 +9,13 @@ export const supabase = createClient(supabaseUrl, supabaseAnonKey);
 export const getErrorMessage = (err: any): string => {
   if (typeof err === 'string') return err;
   
-  if (err?.code === '42501') return "RLS Error: Update access is blocked by Supabase. Please run the Policy SQL fix.";
-  if (err?.code === '42703') return `Column Error: One or more columns (status, cancel_reason, etc.) are missing or misspelled in your table.`;
-  if (err?.code === '23502') return "Constraint Error: One of the columns is marked as 'NOT NULL' but we are trying to clear it. Run the 'DROP NOT NULL' SQL fix.";
+  if (err?.code === '42501') return "Database Permission Denied (42501). Please run the 'DROP POLICY' SQL fix in Supabase.";
+  if (err?.code === '42703') return "Database Column Mismatch. Check if 'status' column exists in 'students' table.";
+  if (err?.code === '23502') return "Constraint Violation: A required field is missing. Ensure 'status' has a default value.";
+  if (err?.code === 'PGRST116') return "Record not found in database. The ID might have changed.";
   
   if (err?.message) return err.message;
-  return "Database communication failure.";
+  return "Cloud Connection Error. Please refresh.";
 };
 
 export const db = {
@@ -200,9 +201,8 @@ export const db = {
       return data;
     },
     async revertAdmission(id: string) {
-      // Step 1: Direct Update attempt (Fastest)
-      // Note: We avoid .select() here to ensure the update hits the DB even if SELECT policies are restricted
-      const { error, count } = await supabase
+      // Force direct update without select trailing to avoid complex RLS issues
+      const { data, error } = await supabase
         .from('students')
         .update({
           status: 'ACTIVE',
@@ -210,15 +210,13 @@ export const db = {
           cancel_date: null,
           cancelled_by: null
         })
-        .eq('id', id);
+        .eq('id', id)
+        .select();
       
-      if (error) {
-        console.error("Supabase Direct Update Error:", error);
-        throw error;
-      }
-
-      // If count is returned (PostgREST usually returns it), we can verify
-      return { success: true };
+      if (error) throw error;
+      if (!data || data.length === 0) throw new Error("Update failed: No record matched this ID in the database.");
+      
+      return data;
     },
     async delete(id: string) {
       const { error } = await supabase.from('students').delete().eq('id', id);

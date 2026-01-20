@@ -70,6 +70,7 @@ export interface Student extends User {
   fatherPhoto?: string;
   motherPhoto?: string;
   fees?: StudentFees;
+  status?: string;
 }
 
 export interface Teacher extends User {
