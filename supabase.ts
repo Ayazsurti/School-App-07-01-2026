@@ -163,6 +163,8 @@ export const db = {
         roll_no: student.rollNo,
         class: student.class,
         section: student.section,
+        medium: student.medium,
+        wing: student.wing,
         gender: student.gender,
         dob: student.dob,
         admission_date: student.admissionDate,
@@ -201,7 +203,6 @@ export const db = {
       return data;
     },
     async revertAdmission(id: string) {
-      // Force direct update without select trailing to avoid complex RLS issues
       const { data, error } = await supabase
         .from('students')
         .update({
@@ -214,8 +215,6 @@ export const db = {
         .select();
       
       if (error) throw error;
-      if (!data || data.length === 0) throw new Error("Update failed: No record matched this ID in the database.");
-      
       return data;
     },
     async delete(id: string) {

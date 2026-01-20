@@ -6,48 +6,34 @@ import { createAuditLog } from '../utils/auditLogger';
 import { 
   Calendar as CalendarIcon, Check, X, Clock, UserCheck, Save, 
   CheckCircle2, Loader2, ChevronLeft, ChevronRight, 
-  ArrowLeft, ArrowRight, RefreshCw, LayoutGrid,
-  ShieldCheck, AlertCircle, Hash, Zap, CornerDownLeft, Users, UserX, ChevronDown, Layers
+  ArrowLeft, ArrowRight, RefreshCcw, LayoutGrid,
+  ShieldCheck, AlertCircle, Hash, Zap, CornerDownLeft, Users, UserX, ChevronDown, Layers, Globe
 } from 'lucide-react';
 
 interface AttendanceProps { user: User; }
 type AttendanceStatus = 'PRESENT' | 'ABSENT' | 'NOT_MARKED';
 
-type WingKey = 
-  | 'ENG_PRI_GIRLS' | 'ENG_SEC_GIRLS' | 'ENG_HSEC_GIRLS'
-  | 'ENG_PRI_BOYS' | 'ENG_SEC_BOYS' | 'ENG_HSEC_BOYS'
-  | 'GUJ_PRI_GIRLS' | 'GUJ_SEC_GIRLS' | 'GUJ_HSEC_GIRLS'
-  | 'GUJ_PRI_BOYS' | 'GUJ_SEC_BOYS' | 'GUJ_HSEC_BOYS';
-
-const WING_CONFIG: Record<WingKey, { label: string; classes: string[]; color: string }> = {
-  ENG_PRI_GIRLS: { label: 'Eng Med - Primary Girls', classes: ['1st', '2nd', '3rd', '4th', '5th', '6th', '7th', '8th'], color: 'text-pink-600' },
-  ENG_SEC_GIRLS: { label: 'Eng Med - Secondary Girls', classes: ['9th', '10th'], color: 'text-pink-700' },
-  ENG_HSEC_GIRLS: { label: 'Eng Med - Higher Sec Girls', classes: ['11th', '12th'], color: 'text-pink-800' },
-  ENG_PRI_BOYS: { label: 'Eng Med - Primary Boys', classes: ['1st', '2nd', '3rd', '4th', '5th', '6th', '7th', '8th'], color: 'text-indigo-600' },
-  ENG_SEC_BOYS: { label: 'Eng Med - Secondary Boys', classes: ['9th', '10th'], color: 'text-indigo-700' },
-  ENG_HSEC_BOYS: { label: 'Eng Med - Higher Sec Boys', classes: ['11th', '12th'], color: 'text-indigo-800' },
-  GUJ_PRI_GIRLS: { label: 'Guj Med - Primary Girls', classes: ['1st', '2nd', '3rd', '4th', '5th', '6th', '7th', '8th'], color: 'text-emerald-600' },
-  GUJ_SEC_GIRLS: { label: 'Guj Med - Secondary Girls', classes: ['9th', '10th'], color: 'text-emerald-700' },
-  GUJ_HSEC_GIRLS: { label: 'Guj Med - Higher Sec Girls', classes: ['11th', '12th'], color: 'text-emerald-800' },
-  GUJ_PRI_BOYS: { label: 'Guj Med - Primary Boys', classes: ['1st', '2nd', '3rd', '4th', '5th', '6th', '7th', '8th'], color: 'text-amber-600' },
-  GUJ_SEC_BOYS: { label: 'Guj Med - Secondary Boys', classes: ['9th', '10th'], color: 'text-amber-700' },
-  GUJ_HSEC_BOYS: { label: 'Guj Med - Higher Sec Boys', classes: ['11th', '12th'], color: 'text-amber-800' }
-};
+// Synchronized with StudentsManager.tsx
+const ALL_CLASSES = [
+  '1 - GIRLS', '2 - GIRLS', '3 - GIRLS', '4 - GIRLS', '5 - GIRLS', '6 - GIRLS', '7 - GIRLS', '8 - GIRLS', '9 - GIRLS', '10 - GIRLS', '11 - GIRLS', '12 - GIRLS',
+  '1 - BOYS', '2 - BOYS', '3 - BOYS', '4 - BOYS', '5 - BOYS', '6 - BOYS', '7 - BOYS', '8 - BOYS', '9 - BOYS', '10 - BOYS', '11 - BOYS', '12 - BOYS'
+];
 
 const ALL_SECTIONS = ['A', 'B', 'C', 'D'];
+const MEDIUMS = ['ENGLISH MEDIUM', 'GUJRATI MEDIUM'];
 
 const Attendance: React.FC<AttendanceProps> = ({ user }) => {
   const isStudent = user.role === 'STUDENT';
   
-  // Default date to today's YYYY-MM-DD
   const [selectedDate, setSelectedDate] = useState(new Date().toLocaleDateString('en-CA'));
   const [viewDate, setViewDate] = useState(new Date());
   
-  const [selectedWing, setSelectedWing] = useState<WingKey>('ENG_PRI_GIRLS');
-  const [selectedClass, setSelectedClass] = useState('1st');
+  // Selection States
+  const [selectedMedium, setSelectedMedium] = useState(MEDIUMS[0]);
+  const [selectedClass, setSelectedClass] = useState(ALL_CLASSES[0]);
   const [selectedSection, setSelectedSection] = useState('A');
-  const [absentRollInput, setAbsentRollInput] = useState('');
   
+  const [absentRollInput, setAbsentRollInput] = useState('');
   const [students, setStudents] = useState<Student[]>([]);
   const [attendance, setAttendance] = useState<Record<string, AttendanceStatus>>({});
   const [studentRecords, setStudentRecords] = useState<any[]>([]);
@@ -55,14 +41,6 @@ const Attendance: React.FC<AttendanceProps> = ({ user }) => {
   const [isSaving, setIsSaving] = useState(false);
   const [isSyncing, setIsSyncing] = useState(false);
   const [showSuccess, setShowSuccess] = useState(false);
-
-  // Sync available standard when wing changes
-  useEffect(() => {
-    const available = WING_CONFIG[selectedWing].classes;
-    if (!available.includes(selectedClass)) {
-      setSelectedClass(available[0]);
-    }
-  }, [selectedWing]);
 
   const fetchData = async () => {
     setIsLoading(true);
@@ -82,22 +60,36 @@ const Attendance: React.FC<AttendanceProps> = ({ user }) => {
         ]);
 
         const mappedStudents = studentData.map((s: any) => ({
-          id: s.id, fullName: s.full_name, name: s.full_name, grNumber: s.gr_number,
-          class: s.class, section: s.section, rollNo: s.roll_no, gender: s.gender
+          id: s.id, 
+          fullName: s.full_name, 
+          name: s.full_name, 
+          grNumber: s.gr_number,
+          class: s.class, 
+          section: s.section, 
+          rollNo: s.roll_no, 
+          gender: s.gender,
+          medium: s.medium,
+          status: s.status
         }));
-        setStudents(mappedStudents as Student[]);
+        
+        // Filter out cancelled students
+        const activeStudents = mappedStudents.filter(s => s.status !== 'CANCELLED');
+        setStudents(activeStudents as Student[]);
 
         const attendanceMap: Record<string, AttendanceStatus> = {};
         attendanceData.forEach((record: any) => {
           attendanceMap[record.student_id] = record.status as AttendanceStatus;
         });
         
-        const filteredIds = mappedStudents
-          .filter((s: any) => s.class === selectedClass && s.section === selectedSection)
-          .map((s: any) => s.id);
+        // Auto-fill PRESENT for current filtered set if no record exists
+        const currentSet = activeStudents.filter((s: any) => 
+          s.class === selectedClass && 
+          s.section === selectedSection && 
+          s.medium === selectedMedium
+        );
           
-        filteredIds.forEach((id: string) => {
-          if (!attendanceMap[id]) attendanceMap[id] = 'PRESENT';
+        currentSet.forEach((s: any) => {
+          if (!attendanceMap[s.id]) attendanceMap[s.id] = 'PRESENT';
         });
 
         setAttendance(attendanceMap);
@@ -111,14 +103,18 @@ const Attendance: React.FC<AttendanceProps> = ({ user }) => {
 
   useEffect(() => {
     fetchData();
-    const channel = supabase.channel('realtime-attendance-v22')
+    const channel = supabase.channel('realtime-attendance-v24')
       .on('postgres_changes', { event: '*', schema: 'public', table: 'attendance' }, () => {
+        setIsSyncing(true);
+        fetchData().then(() => setTimeout(() => setIsSyncing(false), 800));
+      })
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'students' }, () => {
         setIsSyncing(true);
         fetchData().then(() => setTimeout(() => setIsSyncing(false), 800));
       })
       .subscribe();
     return () => { supabase.removeChannel(channel); };
-  }, [selectedDate, user.id, selectedClass, selectedSection]);
+  }, [selectedDate, user.id, selectedClass, selectedSection, selectedMedium]);
 
   const calendarDays = useMemo(() => {
     const year = viewDate.getFullYear();
@@ -133,14 +129,18 @@ const Attendance: React.FC<AttendanceProps> = ({ user }) => {
 
   const { presentPool, absentRegistry } = useMemo(() => {
     if (isStudent) return { presentPool: [], absentRegistry: [] };
-    const baseList = students.filter(s => s.class === selectedClass && s.section === selectedSection);
+    const baseList = students.filter(s => 
+      s.class === selectedClass && 
+      s.section === selectedSection && 
+      s.medium === selectedMedium
+    );
     const sorted = baseList.sort((a, b) => (parseInt(a.rollNo) || 0) - (parseInt(b.rollNo) || 0));
     
     return {
       presentPool: sorted.filter(s => attendance[s.id] !== 'ABSENT'),
       absentRegistry: sorted.filter(s => attendance[s.id] === 'ABSENT')
     };
-  }, [students, attendance, selectedClass, selectedSection, isStudent]);
+  }, [students, attendance, selectedClass, selectedSection, selectedMedium, isStudent]);
 
   const handleStatusChange = (studentId: string, status: AttendanceStatus) => {
     setAttendance(prev => ({ ...prev, [studentId]: status }));
@@ -156,7 +156,7 @@ const Attendance: React.FC<AttendanceProps> = ({ user }) => {
         if (absentRegistry.find(s => s.rollNo === absentRollInput.trim())) {
            setAbsentRollInput('');
         } else {
-           alert(`Roll No ${absentRollInput} not found in Presence Pool.`);
+           alert(`Roll No ${absentRollInput} not found in current list.`);
         }
       }
     }
@@ -166,15 +166,21 @@ const Attendance: React.FC<AttendanceProps> = ({ user }) => {
     if (isStudent) return;
     setIsSaving(true);
     try {
-      const allFiltered = [...presentPool, ...absentRegistry];
-      const records = allFiltered.map(s => ({
+      const currentList = students.filter(s => 
+        s.class === selectedClass && 
+        s.section === selectedSection && 
+        s.medium === selectedMedium
+      );
+      
+      const records = currentList.map(s => ({
         student_id: s.id,
         date: selectedDate,
         status: attendance[s.id] || 'PRESENT',
         marked_by: user.name
       }));
+      
       await db.attendance.bulkUpsert(records);
-      await createAuditLog(user, 'CREATE', 'Attendance', `Synced registry for Std ${selectedClass}-${selectedSection} on ${selectedDate}`);
+      await createAuditLog(user, 'CREATE', 'Attendance', `Synced: Std ${selectedClass}-${selectedSection} (${selectedMedium}) on ${selectedDate}`);
       setShowSuccess(true);
       setTimeout(() => setShowSuccess(false), 3000);
     } catch (err) {
@@ -217,8 +223,9 @@ const Attendance: React.FC<AttendanceProps> = ({ user }) => {
       {isSyncing && (
         <div className="fixed top-24 left-1/2 -translate-x-1/2 z-[1100] animate-bounce">
            <div className="bg-indigo-600 text-white px-4 py-2 rounded-full shadow-2xl flex items-center gap-2 border border-indigo-400">
-              <RefreshCw size={12} className="animate-spin" />
-              <span className="text-[9px] font-black uppercase tracking-widest text-white">Updating Registry...</span>
+              {/* DO add comment above each fix. Fixed: Use RefreshCcw instead of RefreshCw */}
+              <RefreshCcw size={12} className="animate-spin" />
+              <span className="text-[9px] font-black uppercase tracking-widest text-white">Registry Resync...</span>
            </div>
         </div>
       )}
@@ -227,7 +234,7 @@ const Attendance: React.FC<AttendanceProps> = ({ user }) => {
         <div className="fixed top-24 right-8 z-[1000] animate-in slide-in-from-right-8 duration-500">
            <div className="bg-emerald-600 text-white px-6 py-4 rounded-2xl shadow-2xl flex items-center gap-3 border border-emerald-500/50 backdrop-blur-xl">
               <CheckCircle2 size={20} strokeWidth={3} />
-              <p className="font-black text-[10px] uppercase tracking-widest">Saved to Cloud</p>
+              <p className="font-black text-[10px] uppercase tracking-widest">Attendance Recorded</p>
            </div>
         </div>
       )}
@@ -238,14 +245,14 @@ const Attendance: React.FC<AttendanceProps> = ({ user }) => {
           <p className="text-slate-500 dark:text-slate-400 font-bold text-xs uppercase tracking-widest mt-2">Institutional Presence Registry</p>
         </div>
         <button onClick={handleSave} disabled={isSaving} className="px-8 py-4 bg-indigo-600 text-white font-black rounded-2xl shadow-xl hover:bg-indigo-700 transition-all uppercase text-[10px] tracking-widest flex items-center justify-center gap-3 disabled:opacity-50">
-          {isSaving ? <Loader2 size={18} className="animate-spin" /> : <ShieldCheck size={18} />} Commit Registry
+          {isSaving ? <Loader2 size={18} className="animate-spin" /> : <Save size={18} />} Save Attendance
         </button>
       </div>
 
       <div className="grid grid-cols-1 xl:grid-cols-12 gap-8">
         {/* LEFT SIDEBAR: WING & STANDARD SELECTORS */}
         <div className="xl:col-span-3 space-y-6">
-           {/* Calendar - Defaulting to Today */}
+           {/* Calendar */}
            <div className="bg-white dark:bg-slate-900 rounded-[2rem] shadow-sm border border-slate-100 dark:border-slate-800 overflow-hidden flex flex-col">
               <div className="p-4 border-b border-slate-50 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-800/30 flex items-center justify-between">
                  <button onClick={() => changeMonth(-1)} className="p-1.5 bg-white dark:bg-slate-900 rounded-lg text-slate-400 hover:text-indigo-600 shadow-sm transition-all"><ChevronLeft size={14}/></button>
@@ -255,11 +262,6 @@ const Attendance: React.FC<AttendanceProps> = ({ user }) => {
                  <button onClick={() => changeMonth(1)} className="p-1.5 bg-white dark:bg-slate-900 rounded-lg text-slate-400 hover:text-indigo-600 shadow-sm transition-all"><ChevronRight size={14}/></button>
               </div>
               <div className="p-4">
-                 <div className="grid grid-cols-7 mb-2">
-                    {['S', 'M', 'T', 'W', 'T', 'F', 'S'].map(d => (
-                      <div key={d} className="text-center text-[8px] font-black text-slate-300 uppercase">{d}</div>
-                    ))}
-                 </div>
                  <div className="grid grid-cols-7 gap-1">
                     {calendarDays.map((day, idx) => {
                       if (!day) return <div key={`empty-${idx}`} />;
@@ -284,50 +286,33 @@ const Attendance: React.FC<AttendanceProps> = ({ user }) => {
               </div>
            </div>
 
-           {/* Wing Selector (Medium & Wing & Gender) */}
+           {/* Granular Selection */}
            <div className="bg-white dark:bg-slate-900 rounded-[2rem] p-6 shadow-sm border border-slate-100 dark:border-slate-800 space-y-6">
-              <div>
-                 <label className="text-[8px] font-black text-slate-400 uppercase tracking-[0.2em] ml-1 block mb-3">MEDIUM & WING</label>
-                 <div className="relative">
-                    <select 
-                      value={selectedWing} 
-                      onChange={e => setSelectedWing(e.target.value as WingKey)} 
-                      className="w-full bg-slate-50 dark:bg-slate-800 border-2 border-slate-100 dark:border-slate-700 rounded-2xl px-4 py-4 font-black text-slate-800 dark:text-white outline-none focus:ring-2 focus:ring-indigo-500 shadow-sm appearance-none cursor-pointer uppercase text-[10px] tracking-widest pr-10"
-                    >
-                      <optgroup label="ENGLISH MEDIUM (GIRLS)">
-                        <option value="ENG_PRI_GIRLS">Primary Girls (1-8)</option>
-                        <option value="ENG_SEC_GIRLS">Secondary Girls (9-10)</option>
-                        <option value="ENG_HSEC_GIRLS">Higher Sec Girls (11-12)</option>
-                      </optgroup>
-                      <optgroup label="ENGLISH MEDIUM (BOYS)">
-                        <option value="ENG_PRI_BOYS">Primary Boys (1-8)</option>
-                        <option value="ENG_SEC_BOYS">Secondary Boys (9-10)</option>
-                        <option value="ENG_HSEC_BOYS">Higher Sec Boys (11-12)</option>
-                      </optgroup>
-                      <optgroup label="GUJARATI MEDIUM (GIRLS)">
-                        <option value="GUJ_PRI_GIRLS">Primary Girls (1-8)</option>
-                        <option value="GUJ_SEC_GIRLS">Secondary Girls (9-10)</option>
-                        <option value="GUJ_HSEC_GIRLS">Higher Sec Girls (11-12)</option>
-                      </optgroup>
-                      <optgroup label="GUJARATI MEDIUM (BOYS)">
-                        <option value="GUJ_PRI_BOYS">Primary Boys (1-8)</option>
-                        <option value="GUJ_SEC_BOYS">Secondary Boys (9-10)</option>
-                        <option value="GUJ_HSEC_BOYS">Higher Sec Boys (11-12)</option>
-                      </optgroup>
-                    </select>
-                    <ChevronDown className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" size={20} />
+              {/* Medium Selection (Side-by-side) */}
+              <div className="space-y-3">
+                 <label className="text-[8px] font-black text-slate-400 uppercase tracking-[0.2em] ml-1">Academic Medium</label>
+                 <div className="flex gap-2">
+                    {MEDIUMS.map(m => (
+                      <button 
+                        key={m}
+                        onClick={() => setSelectedMedium(m)} 
+                        className={`flex-1 py-3 rounded-xl text-[8px] font-black uppercase transition-all border ${selectedMedium === m ? 'bg-indigo-600 border-indigo-600 text-white shadow-lg' : 'bg-slate-50 dark:bg-slate-800 border-transparent text-slate-400'}`}
+                      >
+                        {m.split(' ')[0]}
+                      </button>
+                    ))}
                  </div>
               </div>
 
-              {/* Categorized Standard Buttons based on Wing */}
-              <div className="space-y-3">
-                 <label className="text-[8px] font-black text-slate-400 uppercase tracking-[0.2em] ml-1">STANDARD SELECTION</label>
-                 <div className="grid grid-cols-3 gap-2">
-                    {WING_CONFIG[selectedWing].classes.map(cls => (
+              {/* Standard Selection */}
+              <div className="space-y-3 pt-4 border-t border-slate-50 dark:border-slate-800">
+                 <label className="text-[8px] font-black text-slate-400 uppercase tracking-[0.2em] ml-1">Select Class (Std)</label>
+                 <div className="grid grid-cols-2 gap-2 max-h-[300px] overflow-y-auto custom-scrollbar pr-1">
+                    {ALL_CLASSES.map(cls => (
                       <button 
                         key={cls} 
                         onClick={() => setSelectedClass(cls)} 
-                        className={`py-2 rounded-xl text-[9px] font-black uppercase transition-all border ${selectedClass === cls ? 'bg-indigo-600 border-indigo-600 text-white shadow-md' : 'bg-slate-50 dark:bg-slate-800 border-transparent text-slate-500 hover:border-indigo-100'}`}
+                        className={`py-2.5 px-2 rounded-xl text-[8px] font-black uppercase transition-all border ${selectedClass === cls ? 'bg-indigo-600 border-indigo-600 text-white shadow-md' : 'bg-slate-50 dark:bg-slate-800 border-transparent text-slate-500 hover:border-indigo-100'}`}
                       >
                         {cls}
                       </button>
@@ -335,8 +320,9 @@ const Attendance: React.FC<AttendanceProps> = ({ user }) => {
                  </div>
               </div>
 
-              <div className="pt-4 border-t border-slate-100 dark:border-slate-800">
-                 <label className="text-[8px] font-black text-slate-400 uppercase tracking-[0.2em] ml-1 block mb-2">SECTION</label>
+              {/* Section Selection */}
+              <div className="space-y-3 pt-4 border-t border-slate-50 dark:border-slate-800">
+                 <label className="text-[8px] font-black text-slate-400 uppercase tracking-[0.2em] ml-1 block">Assigned Section</label>
                  <div className="flex gap-1.5">
                     {ALL_SECTIONS.map(sec => (
                       <button key={sec} onClick={() => setSelectedSection(sec)} className={`flex-1 py-3 rounded-xl text-[9px] font-black uppercase transition-all border ${selectedSection === sec ? 'bg-indigo-600 border-indigo-600 text-white shadow-md' : 'bg-slate-50 dark:bg-slate-800 border-transparent text-slate-500 hover:border-indigo-100'}`}>
@@ -350,23 +336,21 @@ const Attendance: React.FC<AttendanceProps> = ({ user }) => {
 
         {/* RIGHT: MAIN TERMINAL (DUAL PANE) */}
         <div className="xl:col-span-9 space-y-6">
-           {/* Header Controls */}
            <div className="bg-white dark:bg-slate-900 rounded-[2rem] p-6 shadow-sm border border-slate-100 dark:border-slate-800 flex flex-col sm:flex-row items-center justify-between gap-6">
               <div className="flex items-center gap-4">
                  <div className="w-10 h-10 bg-indigo-600 text-white rounded-xl flex items-center justify-center shadow-md"><LayoutGrid size={20} /></div>
                  <div>
-                    <h3 className="text-lg font-black text-slate-900 dark:text-white uppercase leading-none">Std {selectedClass}-{selectedSection}</h3>
-                    <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mt-1">{new Date(selectedDate).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })}</p>
+                    <h3 className="text-lg font-black text-slate-900 dark:text-white uppercase leading-none">{selectedClass}-{selectedSection}</h3>
+                    <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mt-1">{selectedMedium} • {new Date(selectedDate).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })}</p>
                  </div>
               </div>
 
-              {/* QUICK ABSENT ENTRY */}
               <div className="relative w-full sm:w-80 group">
                  <div className="relative">
                     <Zap className="absolute left-4 top-1/2 -translate-y-1/2 text-rose-500" size={14} />
                     <input 
                       type="number" 
-                      placeholder="MARK ABSENT BY ROLL NO..." 
+                      placeholder="ENTER ROLL NO TO MARK ABSENT..." 
                       value={absentRollInput}
                       onChange={e => setAbsentRollInput(e.target.value)}
                       onKeyDown={handleAbsentRollSubmit}
@@ -374,12 +358,10 @@ const Attendance: React.FC<AttendanceProps> = ({ user }) => {
                     />
                     <CornerDownLeft className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-300" size={14} />
                  </div>
-                 <label className="text-[8px] font-black text-rose-400 uppercase tracking-widest mt-1 ml-1">Type Roll No & Press Enter to move to Registry</label>
               </div>
            </div>
 
            <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 h-full min-h-[600px]">
-              {/* BOX 1: PRESENCE POOL */}
               <div className="bg-white dark:bg-slate-900 rounded-[3rem] shadow-sm border border-slate-100 dark:border-slate-800 overflow-hidden flex flex-col">
                  <div className="p-6 border-b border-slate-100 dark:border-slate-800 bg-emerald-50/30 dark:bg-emerald-950/10 flex items-center justify-between">
                     <div className="flex items-center gap-3">
@@ -408,14 +390,17 @@ const Attendance: React.FC<AttendanceProps> = ({ user }) => {
                       </div>
                     )) : (
                       <div className="h-full flex flex-col items-center justify-center opacity-20 py-20">
-                         <CheckCircle2 size={40} className="mb-2" />
-                         <p className="text-[10px] font-black uppercase tracking-widest">Presence Pool Clear</p>
+                         {isLoading ? <Loader2 size={32} className="animate-spin text-indigo-500" /> : (
+                           <>
+                             <CheckCircle2 size={40} className="mb-2" />
+                             <p className="text-[10px] font-black uppercase tracking-widest text-center">Empty Pool for Class<br/>Register Students in Management</p>
+                           </>
+                         )}
                       </div>
                     )}
                  </div>
               </div>
 
-              {/* BOX 2: ABSENT REGISTRY */}
               <div className="bg-white dark:bg-slate-900 rounded-[3rem] shadow-sm border border-slate-100 dark:border-slate-800 overflow-hidden flex flex-col">
                  <div className="p-6 border-b border-slate-100 dark:border-slate-800 bg-rose-50/30 dark:bg-rose-950/10 flex items-center justify-between">
                     <div className="flex items-center gap-3">
@@ -451,14 +436,6 @@ const Attendance: React.FC<AttendanceProps> = ({ user }) => {
                          <p className="text-[10px] font-black uppercase tracking-widest">Registry Empty</p>
                       </div>
                     )}
-                 </div>
-
-                 {/* Footer Status */}
-                 <div className="p-6 border-t border-slate-100 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-800/20">
-                    <div className="flex items-center justify-between">
-                       <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Total Present: <b>{presentPool.length}</b></p>
-                       <p className="text-[9px] font-black text-rose-400 uppercase tracking-widest">Total Absent: <b>{absentRegistry.length}</b></p>
-                    </div>
                  </div>
               </div>
            </div>

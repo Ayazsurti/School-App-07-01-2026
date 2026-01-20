@@ -26,6 +26,7 @@ const AdmissionCancellation: React.FC<AdmissionCancellationProps> = ({ user }) =
   // Modal states
   const [showCancelModal, setShowCancelModal] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState<string | null>(null);
+  const [showRevertConfirm, setShowRevertConfirm] = useState<any | null>(null);
   const [showErrorModal, setShowErrorModal] = useState<{message: string, code?: string, raw?: any} | null>(null);
   const [targetStudent, setTargetStudent] = useState<any>(null);
   
@@ -94,6 +95,15 @@ const AdmissionCancellation: React.FC<AdmissionCancellationProps> = ({ user }) =
       await db.students.cancelAdmission(targetStudent.id, reason, cancelDate, user.name);
 
       await createAuditLog(user, 'UPDATE', 'Registry', `Admission Cancelled: ${targetStudent.full_name} (GR: ${targetStudent.gr_number})`);
+      
+      // Update local state immediately for performance
+      setStudents(prev => prev.map(s => {
+        if (s.id === targetStudent.id) {
+           return { ...s, status: 'CANCELLED', cancel_reason: reason, cancel_date: cancelDate, cancelled_by: user.name };
+        }
+        return s;
+      }));
+
       setShowCancelModal(false);
       setCancelReason('');
       setTargetStudent(null);
@@ -108,25 +118,15 @@ const AdmissionCancellation: React.FC<AdmissionCancellationProps> = ({ user }) =
     }
   };
 
-  const handleRevertAdmission = async (student: any) => {
-    if (!isOnline) {
-      alert("Internet required for cloud sync.");
-      return;
-    }
+  const executeRevertAdmission = async () => {
+    if (!showRevertConfirm || !isOnline) return;
     
-    const confirmMsg = `Restore ${student.full_name} to Active Pool?`;
-    if (!window.confirm(confirmMsg)) return;
-    
+    const student = showRevertConfirm;
     setIsSyncing(true);
+    setShowRevertConfirm(null);
+    
     try {
-      // 1. Database level update
-      const response = await db.students.revertAdmission(student.id);
-      
-      // 2. Clear Audit
-      await createAuditLog(user, 'UPDATE', 'Registry', `Restored Identity: ${student.full_name}`);
-      
-      // 3. FORCE LOCAL UI PURGE
-      // We manually remove it from state so UI updates even if the fetch is slow
+      // 1. Force local state update for instant visual feedback
       setStudents(prev => prev.map(s => {
         if (s.id === student.id) {
           return { ...s, status: 'ACTIVE', cancel_reason: null, cancel_date: null, cancelled_by: null };
@@ -134,18 +134,30 @@ const AdmissionCancellation: React.FC<AdmissionCancellationProps> = ({ user }) =
         return s;
       }));
 
+      // 2. Trigger database level update
+      await db.students.revertAdmission(student.id);
+      
+      // 3. Record in institutional audit trail
+      await createAuditLog(user, 'UPDATE', 'Registry', `Restored Identity: ${student.full_name} (GR: ${student.gr_number})`);
+      
       setShowSuccess(true);
       setTimeout(() => setShowSuccess(false), 3000);
       
-      // 4. Background Fetch to ensure full data sync
-      await fetchRegistry();
+      // 4. Background Fetch to perfectly align state
+      setTimeout(async () => {
+         await fetchRegistry();
+      }, 500);
       
     } catch (err: any) {
       const msg = getErrorMessage(err);
-      console.error("REVERT CRASH:", err);
+      console.error("REVERT ACTION FAILURE:", err);
+      
+      // If db fails, roll back local UI state to show record as cancelled again
+      await fetchRegistry();
+      
       setShowErrorModal({ 
         message: msg, 
-        code: err?.code || 'SYNC_ERROR', 
+        code: err?.code || 'SYNC_TERMINAL_ERROR', 
         raw: JSON.stringify(err, null, 2) 
       });
     } finally {
@@ -154,12 +166,12 @@ const AdmissionCancellation: React.FC<AdmissionCancellationProps> = ({ user }) =
   };
 
   const handlePermanentDelete = async (id: string) => {
-    if (!window.confirm("ARE YOU SURE? This cannot be undone.")) return;
+    if (!window.confirm("FATAL ACTION: Permanently erase this record? This cannot be undone.")) return;
     
     setIsSyncing(true);
     try {
       await db.students.delete(id);
-      await createAuditLog(user, 'DELETE', 'Registry', `Purged Identity Record`);
+      await createAuditLog(user, 'DELETE', 'Registry', `Permanently Purged Student Identity Record`);
       setStudents(prev => prev.filter(s => s.id !== id));
       setShowDeleteConfirm(null);
       await fetchRegistry();
@@ -179,7 +191,7 @@ const AdmissionCancellation: React.FC<AdmissionCancellationProps> = ({ user }) =
          </div>
          <button onClick={() => { setIsSyncing(true); fetchRegistry().then(() => setIsSyncing(false)); }} className="flex items-center gap-2 bg-indigo-50 dark:bg-indigo-950/20 border border-indigo-100 dark:border-indigo-900 px-4 py-2 rounded-full shadow-sm hover:bg-indigo-100 transition-all">
             <RefreshCw size={14} className={`text-indigo-500 ${isSyncing ? 'animate-spin' : ''}`} />
-            <span className="text-[8px] font-black text-indigo-700 dark:text-indigo-400 uppercase tracking-widest">Force Resync</span>
+            <span className="text-[8px] font-black text-indigo-700 dark:text-indigo-400 uppercase tracking-widest">Manual Data Resync</span>
          </button>
       </div>
 
@@ -188,8 +200,8 @@ const AdmissionCancellation: React.FC<AdmissionCancellationProps> = ({ user }) =
            <div className="bg-emerald-600 text-white px-8 py-5 rounded-[2rem] shadow-2xl flex items-center gap-4 border border-emerald-500/50 backdrop-blur-xl">
               <CheckCircle2 size={24} strokeWidth={3} />
               <div>
-                 <p className="font-black text-xs uppercase tracking-widest">Operation Success</p>
-                 <p className="text-[10px] font-bold text-emerald-100 uppercase mt-0.5">Cloud Matrix Balanced</p>
+                 <p className="font-black text-xs uppercase tracking-widest">Operation Complete</p>
+                 <p className="text-[10px] font-bold text-emerald-100 uppercase mt-0.5">Central Hub Synchronized</p>
               </div>
            </div>
         </div>
@@ -198,7 +210,7 @@ const AdmissionCancellation: React.FC<AdmissionCancellationProps> = ({ user }) =
       <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6">
         <div>
           <h1 className="text-4xl font-black text-slate-900 dark:text-white tracking-tight flex items-center gap-3 uppercase">Admission Control <UserMinus className="text-rose-600" /></h1>
-          <p className="text-slate-500 dark:text-slate-400 font-medium text-lg uppercase tracking-tight">Identity Revocation Management Terminal.</p>
+          <p className="text-slate-500 dark:text-slate-400 font-medium text-lg uppercase tracking-tight">Identity Revocation and Restoration Manager.</p>
         </div>
         
         <div className="flex bg-slate-100 dark:bg-slate-800 p-1.5 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-sm">
@@ -222,7 +234,7 @@ const AdmissionCancellation: React.FC<AdmissionCancellationProps> = ({ user }) =
               <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-300" size={18} />
               <input type="text" placeholder="Search archive (Name/GR)..." value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} className="w-full pl-12 pr-4 py-4 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl font-bold outline-none focus:ring-2 focus:ring-indigo-500 transition-all shadow-inner dark:text-white uppercase text-sm" />
           </div>
-          <div className="flex gap-2 overflow-x-auto w-full pb-2 md:pb-0 custom-scrollbar">
+          <div className="flex gap-2 overflow-x-auto w-full pb-2 custom-scrollbar">
               <button onClick={() => setSelectedClass('All')} className={`whitespace-nowrap px-6 py-3 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${selectedClass === 'All' ? 'bg-indigo-600 text-white shadow-lg' : 'bg-slate-100 dark:bg-slate-800 text-slate-400'}`}>All Grades</button>
               {ALL_CLASSES.map(c => (
                 <button key={c} onClick={() => setSelectedClass(c)} className={`whitespace-nowrap px-4 py-3 rounded-xl text-[10px] font-black uppercase transition-all ${selectedClass === c ? 'bg-indigo-600 text-white shadow-lg' : 'bg-slate-100 dark:bg-slate-800 text-slate-400'}`}>{c}</button>
@@ -304,7 +316,7 @@ const AdmissionCancellation: React.FC<AdmissionCancellationProps> = ({ user }) =
                           {student.status === 'CANCELLED' ? (
                             <div className="flex items-center gap-2">
                                <button 
-                                onClick={() => handleRevertAdmission(student)} 
+                                onClick={() => setShowRevertConfirm(student)} 
                                 disabled={isSyncing || !isOnline}
                                 className="px-6 py-3 bg-indigo-600 text-white rounded-xl font-black text-[10px] uppercase tracking-widest hover:bg-indigo-700 transition-all flex items-center gap-2 shadow-lg disabled:opacity-50 active:scale-95 border border-indigo-400"
                                >
@@ -321,7 +333,7 @@ const AdmissionCancellation: React.FC<AdmissionCancellationProps> = ({ user }) =
                           ) : (
                             <button 
                               onClick={() => { setTargetStudent(student); setShowCancelModal(true); }}
-                              className="px-6 py-4 bg-rose-600 text-white rounded-2xl font-black text-[10px] uppercase tracking-widest shadow-xl shadow-rose-200 hover:bg-rose-700 transition-all flex items-center gap-3 border border-rose-500"
+                              className="px-6 py-4 bg-rose-600 text-white rounded-2xl font-black text-[10px] uppercase tracking-widest shadow-xl shadow-rose-200 hover:bg-rose-700 transition-all flex items-center gap-3 border border-rose-50"
                             >
                                <UserMinus size={16} strokeWidth={3} /> Cancel Admission
                             </button>
@@ -333,7 +345,7 @@ const AdmissionCancellation: React.FC<AdmissionCancellationProps> = ({ user }) =
                 {filteredStudents.length === 0 && (
                   <tr>
                     <td colSpan={4} className="py-40 text-center">
-                       <p className="text-slate-300 font-black uppercase text-xs tracking-widest">No matching results found.</p>
+                       <p className="text-slate-300 font-black uppercase text-xs tracking-widest">No matching results found in current registry pool.</p>
                     </td>
                   </tr>
                 )}
@@ -342,6 +354,27 @@ const AdmissionCancellation: React.FC<AdmissionCancellationProps> = ({ user }) =
           </div>
         )}
       </div>
+
+      {/* REVERT CONFIRMATION MODAL */}
+      {showRevertConfirm && (
+        <div className="fixed inset-0 z-[1400] flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-md animate-in fade-in">
+           <div className="bg-white dark:bg-slate-900 rounded-[3rem] p-10 max-w-sm w-full shadow-2xl text-center border border-indigo-100/20 animate-in zoom-in-95">
+              <div className="w-16 h-16 bg-indigo-50 dark:bg-indigo-900/20 text-indigo-600 rounded-[1.8rem] flex items-center justify-center mb-6 mx-auto shadow-inner border border-indigo-100">
+                 <RotateCcw size={32} strokeWidth={2.5} className="animate-neural-pulse" />
+              </div>
+              <h3 className="text-xl font-black text-slate-900 dark:text-white mb-2 uppercase tracking-tighter">Restore Admission?</h3>
+              <div className="bg-indigo-50/50 dark:bg-indigo-900/10 p-4 rounded-2xl mb-8 border border-indigo-50 dark:border-indigo-800">
+                 <p className="text-slate-800 dark:text-white font-black text-xs uppercase truncate leading-none mb-1">{showRevertConfirm.full_name}</p>
+                 <p className="text-[9px] font-bold text-indigo-500 uppercase tracking-widest">GR NO: {showRevertConfirm.gr_number}</p>
+              </div>
+              <p className="text-slate-500 dark:text-slate-400 mb-8 font-medium text-[10px] leading-relaxed uppercase tracking-widest">Return this identity to the active student pool. All academic logs will be re-synchronized.</p>
+              <div className="grid grid-cols-2 gap-3">
+                 <button onClick={() => setShowRevertConfirm(null)} className="py-4 bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 font-black rounded-2xl uppercase text-[10px]">Cancel</button>
+                 <button onClick={executeRevertAdmission} className="py-4 bg-indigo-600 text-white font-black rounded-2xl shadow-xl hover:bg-indigo-700 transition-all uppercase text-[10px]">Restore</button>
+              </div>
+           </div>
+        </div>
+      )}
 
       {/* ERROR MODAL */}
       {showErrorModal && (
@@ -366,9 +399,8 @@ const AdmissionCancellation: React.FC<AdmissionCancellationProps> = ({ user }) =
                        <span className="font-black text-xs uppercase tracking-widest">Registry Stack Trace</span>
                     </div>
                     <div className="bg-slate-950 p-6 rounded-2xl font-mono text-[9px] text-indigo-300 overflow-auto shadow-inner leading-relaxed border border-white/5 max-h-[150px]">
-                      {showErrorModal.raw ? <pre>{showErrorModal.raw}</pre> : 'No trace captured.'}
+                      {showErrorModal.raw ? <pre>{typeof showErrorModal.raw === 'string' ? showErrorModal.raw : JSON.stringify(showErrorModal.raw, null, 2)}</pre> : 'No trace captured.'}
                     </div>
-                    <p className="text-[9px] font-bold text-slate-400 uppercase leading-relaxed tracking-wider">Note: If Error Code is 42501, you must run the SQL DROP POLICY command provided in the Supabase Dashboard.</p>
                  </div>
 
                  <button onClick={() => setShowErrorModal(null)} className="w-full py-5 bg-slate-900 dark:bg-slate-800 text-white font-black rounded-2xl uppercase text-[10px] tracking-widest shadow-xl">Close Terminal</button>
@@ -388,11 +420,11 @@ const AdmissionCancellation: React.FC<AdmissionCancellationProps> = ({ user }) =
               <form onSubmit={handleProcessCancellation} className="p-8 space-y-6">
                  <div className="flex items-center gap-5 p-5 bg-rose-50 rounded-[2rem] border border-rose-100 shadow-inner">
                     <div className="w-14 h-14 rounded-2xl bg-white flex items-center justify-center font-black text-rose-600 shadow-md border border-rose-50 shrink-0">
-                       {targetStudent.fullName?.charAt(0) || 'S'}
+                       {targetStudent.full_name?.charAt(0) || 'S'}
                     </div>
                     <div className="min-w-0">
                        <p className="text-[9px] font-black text-rose-400 uppercase tracking-widest leading-none mb-1">Target Account</p>
-                       <p className="text-lg font-black text-slate-900 truncate leading-tight uppercase">{targetStudent.fullName || targetStudent.full_name}</p>
+                       <p className="text-lg font-black text-slate-900 truncate leading-tight uppercase">{targetStudent.full_name}</p>
                     </div>
                  </div>
                  <div className="space-y-4">
@@ -443,7 +475,7 @@ const AdmissionCancellation: React.FC<AdmissionCancellationProps> = ({ user }) =
               <h3 className="text-xl font-black text-slate-900 dark:text-white mb-2 uppercase tracking-tight">Purge Data?</h3>
               <p className="text-slate-500 dark:text-slate-400 mb-8 font-medium text-[10px] uppercase tracking-widest leading-relaxed">Permanently erase this identity. This action is irreversible.</p>
               <div className="grid grid-cols-2 gap-3">
-                 <button onClick={() => setShowDeleteConfirm(null)} className="py-4 bg-slate-100 dark:bg-slate-800 text-slate-600 font-black rounded-2xl uppercase text-[10px]">Cancel</button>
+                 <button onClick={() => setShowDeleteConfirm(null)} className="py-4 bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 font-black rounded-2xl uppercase text-[10px]">Cancel</button>
                  <button onClick={() => handlePermanentDelete(showDeleteConfirm)} className="py-4 bg-rose-600 text-white font-black rounded-2xl shadow-xl hover:bg-rose-700 transition-all uppercase text-[10px]">Purge</button>
               </div>
            </div>

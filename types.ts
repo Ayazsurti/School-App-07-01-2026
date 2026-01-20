@@ -66,6 +66,8 @@ export interface Student extends User {
   residenceAddress: string;
   class: string;
   section: string;
+  medium?: string;
+  wing?: string;
   remarks?: string;
   fatherPhoto?: string;
   motherPhoto?: string;
