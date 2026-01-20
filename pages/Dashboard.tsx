@@ -29,7 +29,10 @@ import {
   MapPin,
   Phone,
   Mail,
-  ShieldCheck
+  ShieldCheck,
+  BookOpen,
+  Layers,
+  Activity
 } from 'lucide-react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 import { db, supabase } from '../supabase';
@@ -53,10 +56,11 @@ const Dashboard: React.FC<DashboardProps> = ({ user, branding, onUpdateLogo }) =
   const [recentNotices, setRecentNotices] = useState<Notice[]>([]);
   const [isMounted, setIsMounted] = useState(false);
   
+  const isTeacher = user.role === 'TEACHER';
   const isStudent = user.role === 'STUDENT';
+  const isAdmin = user.role === 'ADMIN';
 
   useEffect(() => {
-    // Ensuring a clean layout before mounting the chart to avoid width(-1) error
     const timer = setTimeout(() => setIsMounted(true), 500);
     fetchRealtimeStats();
     
@@ -70,7 +74,15 @@ const Dashboard: React.FC<DashboardProps> = ({ user, branding, onUpdateLogo }) =
 
   const fetchRealtimeStats = async () => {
     try {
-      const { count } = await supabase.from('students').select('*', { count: 'exact', head: true });
+      let query = supabase.from('students').select('*', { count: 'exact', head: true });
+      
+      // If teacher, show count for assigned class
+      if (isTeacher && user.class) {
+        query = query.eq('class', user.class);
+        if (user.section) query = query.eq('section', user.section);
+      }
+      
+      const { count } = await query;
       setStudentCount(count || 0);
 
       const today = new Date().toISOString().split('T')[0];
@@ -84,12 +96,22 @@ const Dashboard: React.FC<DashboardProps> = ({ user, branding, onUpdateLogo }) =
     finally { setIsLoading(false); }
   };
 
-  const stats = [
-    { label: 'Cloud Students', value: studentCount.toLocaleString(), icon: <GraduationCap />, color: 'bg-indigo-600' },
-    { label: 'Active Faculty', value: '12', icon: <Users />, color: 'bg-emerald-600' },
-    { label: 'Daily Revenue', value: `₹${dailyFees.toLocaleString('en-IN')}`, icon: <HandCoins />, color: 'bg-amber-50', isDaily: true },
-    { label: 'Live Attendance', value: '94%', icon: <Calendar />, color: 'bg-rose-600' },
-  ];
+  const stats = useMemo(() => {
+    if (isTeacher) {
+      return [
+        { label: 'Class Strength', value: studentCount.toLocaleString(), icon: <Users />, color: 'bg-indigo-600' },
+        { label: 'Assigned Standard', value: `Std ${user.class || 'N/A'}-${user.section || ''}`, icon: <Layers />, color: 'bg-emerald-600' },
+        { label: 'Subjects', value: (user as any).subjects?.length || 0, icon: <BookOpen />, color: 'bg-amber-500' },
+        { label: 'Daily Presence', value: '94%', icon: <Calendar />, color: 'bg-rose-600' },
+      ];
+    }
+    return [
+      { label: 'Cloud Students', value: studentCount.toLocaleString(), icon: <GraduationCap />, color: 'bg-indigo-600' },
+      { label: 'Active Faculty', value: '12', icon: <Users />, color: 'bg-emerald-600' },
+      { label: 'Daily Revenue', value: `₹${dailyFees.toLocaleString('en-IN')}`, icon: <HandCoins />, color: 'bg-amber-50', isDaily: true },
+      { label: 'Live Attendance', value: '94%', icon: <Calendar />, color: 'bg-rose-600' },
+    ];
+  }, [isTeacher, studentCount, dailyFees, user]);
 
   const chartData = [
     { name: 'Mon', attendance: 85 }, { name: 'Tue', attendance: 92 }, { name: 'Wed', attendance: 88 }, { name: 'Thu', attendance: 95 }, { name: 'Fri', attendance: 90 }
@@ -103,16 +125,16 @@ const Dashboard: React.FC<DashboardProps> = ({ user, branding, onUpdateLogo }) =
            <div>
              <div className="flex items-center gap-2 mb-1">
                <Sparkles className="text-amber-500 animate-pulse" size={18} />
-               <span className="text-[10px] font-black text-indigo-600 dark:text-indigo-400 uppercase tracking-[0.3em]">Cloud Institutional Center</span>
+               <span className="text-[10px] font-black text-indigo-600 dark:text-indigo-400 uppercase tracking-[0.3em]">Institutional Node Terminal</span>
              </div>
              <h1 className="text-3xl lg:text-5xl font-black tracking-tighter leading-tight rainbow-text uppercase">
-               Management Hub.
+               {isTeacher ? 'Faculty Portal.' : 'Management Hub.'}
              </h1>
              <p className="text-slate-500 dark:text-slate-400 font-bold text-sm lg:text-lg mt-1">Hello, {user.name}. Centralized records are active.</p>
            </div>
         </div>
         
-        {user.role === 'ADMIN' && (
+        {isAdmin && (
           <button onClick={onUpdateLogo} className="px-8 py-4 bg-white/90 dark:bg-slate-900/90 backdrop-blur-md p-5 rounded-[2rem] flex items-center gap-4 group border border-white/20 dark:border-slate-800 shadow-xl hover:shadow-2xl transition-all">
              <div className="w-12 h-12 bg-indigo-600 rounded-2xl flex items-center justify-center text-white shadow-lg overflow-hidden group-hover:scale-110 transition-transform">
                 {branding.logo ? <img src={branding.logo} className="w-full h-full object-cover" alt="Logo" /> : <School size={20}/>}
@@ -123,6 +145,18 @@ const Dashboard: React.FC<DashboardProps> = ({ user, branding, onUpdateLogo }) =
              </div>
           </button>
         )}
+
+        {isTeacher && (
+          <div className="flex items-center gap-4 bg-indigo-50 dark:bg-indigo-900/20 p-5 rounded-[2rem] border border-indigo-100 dark:border-indigo-800 shadow-xl">
+             <div className="w-12 h-12 bg-indigo-600 rounded-2xl flex items-center justify-center text-white shadow-lg">
+                <ShieldCheck size={24}/>
+             </div>
+             <div className="text-left pr-4">
+                <p className="text-[9px] font-black text-indigo-400 uppercase tracking-widest mb-1">Teacher Identity</p>
+                <p className="text-xs font-black text-indigo-900 dark:text-indigo-200 uppercase tracking-tight">Verified Faculty Node</p>
+             </div>
+          </div>
+        )}
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-10 relative z-10">
@@ -131,16 +165,36 @@ const Dashboard: React.FC<DashboardProps> = ({ user, branding, onUpdateLogo }) =
             <div className={`${stat.color} p-4 rounded-2xl text-white shadow-lg group-hover:rotate-12 transition-all`}>{stat.icon}</div>
             <div>
               <p className="text-[10px] font-black text-slate-500 dark:text-slate-400 uppercase tracking-widest mb-1">{stat.label}</p>
-              <h3 className={`text-3xl font-black tracking-tighter ${stat.isDaily ? 'text-emerald-600' : 'text-slate-900 dark:text-white'}`}>{isLoading ? '...' : stat.value}</h3>
+              <h3 className={`text-3xl font-black tracking-tighter ${(stat as any).isDaily ? 'text-emerald-600' : 'text-slate-900 dark:text-white'}`}>{isLoading ? '...' : stat.value}</h3>
             </div>
           </div>
         ))}
       </div>
 
+      {isTeacher && (
+        <div className="mb-10 relative z-10 animate-in slide-in-from-bottom-4">
+          <div className="bg-white/90 dark:bg-slate-900/90 backdrop-blur-xl p-10 rounded-[3.5rem] border border-white/40 dark:border-slate-800 shadow-2xl overflow-hidden">
+             <div className="flex items-center gap-4 mb-8">
+                <BookOpen className="text-indigo-600" size={32} />
+                <h3 className="text-2xl font-black uppercase tracking-tight text-slate-900 dark:text-white">Teaching Portfolio / शिक्षण पोर्टफोलियो</h3>
+             </div>
+             <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+                {(user as any).subjects?.length > 0 ? (user as any).subjects.map((sub: string) => (
+                  <div key={sub} className="p-6 bg-slate-50 dark:bg-slate-800 rounded-3xl border border-slate-100 dark:border-slate-700 flex flex-col items-center text-center gap-3 group hover:border-indigo-300 transition-all">
+                     <div className="w-10 h-10 bg-indigo-100 dark:bg-indigo-900/40 text-indigo-600 rounded-xl flex items-center justify-center font-black group-hover:rotate-12 transition-transform">{sub.charAt(0)}</div>
+                     <span className="text-[10px] font-black uppercase tracking-widest text-slate-800 dark:text-slate-200">{sub}</span>
+                  </div>
+                )) : (
+                  <p className="col-span-full text-center py-10 text-slate-400 font-bold uppercase tracking-widest text-xs italic">No subjects assigned in cloud directory.</p>
+                )}
+             </div>
+          </div>
+        </div>
+      )}
+
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 relative z-10 mb-12">
         <div className="lg:col-span-2 bg-white/80 dark:bg-slate-900/80 backdrop-blur-xl p-8 rounded-[3rem] shadow-xl border border-white/50 dark:border-slate-800 min-h-[450px] flex flex-col">
           <h3 className="font-black text-slate-900 dark:text-white text-2xl tracking-tight flex items-center gap-3 mb-10 uppercase"><Star className="text-amber-500 fill-amber-500" /> Live Engagement</h3>
-          {/* Enhanced Wrapper with fixed height and relative pos to fix width(-1) chart error */}
           <div className="w-full flex-1 min-h-[300px] relative overflow-hidden px-2">
             {isMounted && (
               <ResponsiveContainer width="99%" height={300}>
@@ -170,7 +224,7 @@ const Dashboard: React.FC<DashboardProps> = ({ user, branding, onUpdateLogo }) =
               </div>
             )) : <p className="text-slate-500 font-bold text-xs uppercase text-center py-20 italic">No cloud broadcasts...</p>}
           </div>
-          <button onClick={() => window.location.hash = '/admin/notices'} className="w-full mt-10 py-5 bg-white/5 backdrop-blur text-white/60 text-[10px] font-black uppercase tracking-[0.3em] rounded-2xl hover:bg-indigo-600 hover:text-white transition-all border border-white/5 flex items-center justify-center gap-2">Archives <ChevronRight size={16}/></button>
+          <button onClick={() => window.location.hash = isTeacher ? '/teacher/notices' : '/admin/notices'} className="w-full mt-10 py-5 bg-white/5 backdrop-blur text-white/60 text-[10px] font-black uppercase tracking-[0.3em] rounded-2xl hover:bg-indigo-600 hover:text-white transition-all border border-white/5 flex items-center justify-center gap-2">Archives <ChevronRight size={16}/></button>
         </div>
       </div>
 

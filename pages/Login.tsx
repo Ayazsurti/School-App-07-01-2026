@@ -46,8 +46,8 @@ const Login: React.FC<LoginProps> = ({ onLogin, schoolLogo, schoolName }) => {
     setPassword('');
     setMobileNumber('');
     
-    // Per Request: Admin uses Password, Others use OTP as default
-    if (newRole === 'ADMIN') {
+    // Admin and Teachers both use Password by default
+    if (newRole === 'ADMIN' || newRole === 'TEACHER') {
       setAuthMode('PASSWORD');
     } else {
       setAuthMode('OTP');
@@ -112,8 +112,13 @@ const Login: React.FC<LoginProps> = ({ onLogin, schoolLogo, schoolName }) => {
         role: profile.role as UserRole,
         class: (profile as any).class,
         section: (profile as any).section,
-        profileImage: profile.profile_image
-      };
+        profileImage: profile.profile_image,
+        staffId: (profile as any).staffId,
+        mobile: (profile as any).mobile,
+        // Passing extended data for dashboard customization
+        assignedRole: (profile as any).assignedRole,
+        subjects: (profile as any).subjects || []
+      } as any;
       await createAuditLog(userObj, 'LOGIN', 'Auth', `Mobile OTP Login: ${mobileNumber}`);
       await executeLogin(userObj);
     } catch (err: any) { 
@@ -135,8 +140,13 @@ const Login: React.FC<LoginProps> = ({ onLogin, schoolLogo, schoolName }) => {
         role: profile.role as UserRole,
         class: profile.class,
         section: profile.section,
-        profileImage: profile.profile_image
-      };
+        profileImage: profile.profile_image,
+        staffId: (profile as any).staffId,
+        mobile: (profile as any).mobile,
+        // Passing extended data for dashboard customization
+        assignedRole: (profile as any).assignedRole,
+        subjects: (profile as any).subjects || []
+      } as any;
       await createAuditLog(userObj, 'LOGIN', 'Auth', `${role} Credential Login: ${username}`);
       await executeLogin(userObj);
     } catch (err: any) { 
@@ -159,7 +169,6 @@ const Login: React.FC<LoginProps> = ({ onLogin, schoolLogo, schoolName }) => {
         <div className="fixed inset-0 z-[2000] flex flex-col items-center justify-center bg-slate-950 animate-in fade-in duration-500">
           <div className="absolute inset-0 neural-grid-white opacity-10"></div>
           
-          {/* Cyber Scanning HUD Elements */}
           <div className="absolute top-10 left-10 text-cyan-500/30 font-mono text-[8px] space-y-1 hidden sm:block">
             <p>NODE_AUTH_V4</p>
             <p>LATENCY: 0.02ms</p>
@@ -171,23 +180,14 @@ const Login: React.FC<LoginProps> = ({ onLogin, schoolLogo, schoolName }) => {
             <p>DB_SYNC: 100%</p>
           </div>
 
-          <div className="w-full max-w-sm px-10 text-center space-y-12 relative">
-            {/* Pulsing Identity Core */}
+          <div className="w-full max-sm px-10 text-center space-y-12 relative">
             <div className="relative mx-auto w-32 h-32">
               <div className="absolute inset-0 bg-cyan-500/20 rounded-full blur-3xl animate-neural-pulse"></div>
-              
-              {/* Outer Ring */}
               <div className="absolute inset-0 border-4 border-dashed border-indigo-500/30 rounded-full animate-[spin_10s_linear_infinite]"></div>
-              
-              {/* Inner Rotating Ring */}
               <div className="absolute inset-4 border-2 border-cyan-400/50 rounded-full animate-[spin_3s_linear_infinite_reverse]"></div>
-              
-              {/* Central Identity Chip */}
               <div className="absolute inset-8 bg-indigo-600 rounded-3xl shadow-[0_0_40px_rgba(79,70,229,0.5)] flex items-center justify-center text-white border border-white/20">
                 <Fingerprint size={40} className="animate-pulse" />
               </div>
-
-              {/* Orbiting Particles */}
               <div className="absolute -top-2 left-1/2 w-2 h-2 bg-cyan-400 rounded-full shadow-[0_0_10px_#22d3ee]"></div>
             </div>
 
@@ -199,18 +199,11 @@ const Login: React.FC<LoginProps> = ({ onLogin, schoolLogo, schoolName }) => {
                    <p className="text-[9px] font-black uppercase tracking-[0.4em]">Biometric Verification</p>
                 </div>
               </div>
-              
               <div className="relative h-1 w-full bg-white/5 rounded-full overflow-hidden border border-white/10">
                 <div className="h-full bg-gradient-to-r from-indigo-500 via-cyan-400 to-indigo-500 rounded-full animate-[progress-grow_3s_linear] w-full origin-left relative">
                    <div className="absolute inset-0 bg-[length:20px_100%] bg-gradient-to-r from-transparent via-white/30 to-transparent animate-[scan-line-fast_1.5s_linear_infinite]"></div>
                 </div>
               </div>
-            </div>
-
-            <div className="grid grid-cols-3 gap-2 opacity-20">
-               {[...Array(3)].map((_, i) => (
-                 <div key={i} className="h-0.5 bg-indigo-500 rounded-full"></div>
-               ))}
             </div>
           </div>
         </div>
@@ -247,7 +240,7 @@ const Login: React.FC<LoginProps> = ({ onLogin, schoolLogo, schoolName }) => {
             <form onSubmit={handlePasswordLogin} className="space-y-6">
               <div className="space-y-1">
                 <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest ml-1">
-                  {role === 'ADMIN' ? 'admin username' : role === 'TEACHER' ? 'staff id code' : 'student gr number'}
+                  {role === 'ADMIN' ? 'admin username' : role === 'TEACHER' ? 'Teacher Username / आईडी' : 'student gr number'}
                 </label>
                 <div className="relative">
                   <Key className="absolute left-5 top-1/2 -translate-y-1/2 text-slate-300" size={18} />
@@ -258,13 +251,13 @@ const Login: React.FC<LoginProps> = ({ onLogin, schoolLogo, schoolName }) => {
                     value={username} 
                     onChange={e => setUsername(e.target.value)} 
                     className="w-full pl-14 pr-6 py-4 bg-slate-50 rounded-2xl font-black uppercase outline-none border-2 border-transparent focus:border-indigo-100 disabled:opacity-50" 
-                    placeholder=""
+                    placeholder={role === 'TEACHER' ? "ENTER USERNAME" : ""}
                   />
                 </div>
               </div>
               <div className="space-y-1">
                 <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest ml-1">
-                  {role === 'ADMIN' ? 'admin password' : 'passphrase'}
+                  {role === 'ADMIN' ? 'admin password' : role === 'TEACHER' ? 'Master Key / पासवर्ड' : 'passphrase / पासवर्ड'}
                 </label>
                 <div className="relative">
                   <Lock className="absolute left-5 top-1/2 -translate-y-1/2 text-slate-300" size={18} />
@@ -274,8 +267,8 @@ const Login: React.FC<LoginProps> = ({ onLogin, schoolLogo, schoolName }) => {
                     disabled={loading || isAuthenticating} 
                     value={password} 
                     onChange={e => setPassword(e.target.value)} 
-                    className="w-full pl-14 pr-14 py-4 bg-slate-50 rounded-2xl font-black outline-none border-2 border-transparent focus:border-indigo-100 disabled:opacity-50" 
-                    placeholder=""
+                    className="w-full pl-14 pr-14 py-4 bg-slate-50 rounded-2xl font-black outline-none border-2 border-transparent focus:border-indigo-100 disabled:opacity-50 tracking-widest" 
+                    placeholder={role === 'TEACHER' ? "ENTER MASTER KEY" : ""}
                   />
                   <button type="button" onClick={() => setShowPassword(!showPassword)} className="absolute right-5 top-1/2 -translate-y-1/2 text-slate-300">
                     {showPassword ? <EyeOff size={20} /> : <Eye size={20} />}
@@ -360,25 +353,6 @@ const Login: React.FC<LoginProps> = ({ onLogin, schoolLogo, schoolName }) => {
                   >
                     {loading ? <Loader2 className="animate-spin" size={20}/> : 'Authenticate Access'}
                   </button>
-                  
-                  <div className="flex flex-col items-center gap-4">
-                    <button 
-                      type="button" 
-                      disabled={loading || isAuthenticating || otpTimer > 0} 
-                      onClick={handleRequestOtp}
-                      className={`text-[9px] font-black uppercase tracking-widest ${otpTimer > 0 ? 'text-slate-300 cursor-not-allowed' : 'text-indigo-600 hover:text-indigo-700'}`}
-                    >
-                      {otpTimer > 0 ? `Wait ${otpTimer}s to Resend` : 'Request New Code'}
-                    </button>
-                    <button 
-                      type="button" 
-                      disabled={loading || isAuthenticating} 
-                      onClick={() => { setIsOtpSent(false); setOtpTimer(0); setAuthMode('PASSWORD'); }} 
-                      className="text-[9px] font-black text-slate-400 uppercase tracking-widest disabled:opacity-50"
-                    >
-                      Cancel & Reset Role
-                    </button>
-                  </div>
                 </form>
               )}
               <div className="p-5 bg-indigo-50/50 rounded-2xl border border-indigo-100 flex items-start gap-4">
@@ -391,13 +365,6 @@ const Login: React.FC<LoginProps> = ({ onLogin, schoolLogo, schoolName }) => {
           )}
         </div>
       </div>
-
-      <style>{`
-        @keyframes progress-grow {
-          from { width: 0%; }
-          to { width: 100%; }
-        }
-      `}</style>
     </div>
   );
 };

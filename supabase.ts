@@ -27,24 +27,31 @@ export const db = {
         return { id: 'admin-master', name: 'Ayaz Surti', role: 'ADMIN', profile_image: null };
       }
 
+      // Teacher Login Logic - Matches the 'Auth Hub' in Management
       const { data: tea, error: teaErr } = await supabase
         .from('teachers')
         .select('*')
-        .eq('staff_id', username)
+        .eq('username', username)
         .eq('password', pass)
         .single();
       
       if (!teaErr && tea) {
+        if (tea.status === 'BLOCKED') throw new Error("This account has been suspended by the administrator.");
         return { 
           id: tea.id, 
           name: tea.name, 
           role: 'TEACHER', 
           class: tea.assigned_class, 
           section: tea.assigned_section, 
-          profile_image: tea.profile_image 
+          profile_image: tea.profile_image,
+          assignedRole: tea.assigned_role,
+          subjects: tea.subject ? tea.subject.split(', ') : [],
+          staffId: tea.staff_id,
+          mobile: tea.mobile
         };
       }
 
+      // Student Login Logic - Uses GR Number as Username
       const { data: std, error: stdErr } = await supabase
         .from('students')
         .select('*')
@@ -53,6 +60,7 @@ export const db = {
         .single();
       
       if (!stdErr && std) {
+        if (std.status === 'CANCELLED') throw new Error("This student enrollment has been cancelled.");
         return { 
           id: std.id, 
           name: std.full_name, 
@@ -63,7 +71,7 @@ export const db = {
         };
       }
 
-      throw new Error("Invalid institutional credentials. Please check ID/Password.");
+      throw new Error("Invalid credentials. Please verify your Identity ID and Password.");
     },
 
     async verifyMobile(mobile: string, role: 'TEACHER' | 'STUDENT') {
@@ -101,7 +109,11 @@ export const db = {
         role: role,
         class: data.class || data.assigned_class,
         section: data.section || data.assigned_section,
-        profile_image: data.profile_image
+        profile_image: data.profile_image,
+        assignedRole: data.assigned_role,
+        subjects: data.subject ? data.subject.split(', ') : [],
+        staffId: data.staff_id || (data as any).staff_id,
+        mobile: data.mobile || data.father_mobile
       };
     }
   },
@@ -243,6 +255,7 @@ export const db = {
         joining_date: teacher.joiningDate,
         dob: teacher.dob,
         subject: Array.isArray(teacher.subjects) ? teacher.subjects.join(', ') : teacher.subjects,
+        classes_list: Array.isArray(teacher.classes) ? teacher.classes.join(', ') : teacher.classes,
         assigned_role: teacher.assignedRole,
         assigned_class: teacher.assignedClass,
         assigned_section: teacher.assignedSection,
