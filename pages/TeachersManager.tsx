@@ -22,10 +22,9 @@ const ALL_CLASSES = [
 
 const SUBJECTS_LIST = ['MATHEMATICS', 'SCIENCE', 'ENGLISH', 'HISTORY', 'GEOGRAPHY', 'HINDI', 'GUJRATI', 'ARABIC', 'ISLAMIC STUDIES', 'PHYSICAL ED'];
 
-// Added permissionMatrix constant to fix the reference error on line 510
 const permissionMatrix = [
   { key: 'attendance', label: 'Attendance Management / उपस्थिति प्रबंधन' },
-  { key: 'homework', label: 'Homework Assignment / होमवर्क असाइनमेंट' },
+  { key: 'homework', label: 'Homework Assignment / होमवर्क असाइमेंट' },
   { key: 'marks', label: 'Marks Entry / अंक प्रविष्टि' },
   { key: 'curriculum', label: 'Curriculum Access / पाठ्यक्रम पहुंच' },
   { key: 'gallery', label: 'Gallery Management / गैलरी प्रबंधन' },

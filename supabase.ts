@@ -444,6 +444,105 @@ export const db = {
       if (error) throw error;
     }
   },
+  idCards: {
+    async getTemplates() {
+      const { data, error } = await supabase.from('id_card_templates').select('*');
+      if (error) throw error;
+      return (data || []).map((t: any) => ({
+        id: t.id,
+        name: t.name,
+        orientation: t.orientation,
+        width: Number(t.width) || 0,
+        height: Number(t.height) || 0,
+        headerBg: t.header_bg,
+        headerHeight: Number(t.header_height) || 0,
+        headerText: t.header_text,
+        headerTextSize: Number(t.header_text_size) || 10,
+        headerTextColor: t.header_text_color,
+        headerAlignment: t.header_alignment,
+        cardBgType: t.card_bg_type,
+        cardBg: t.card_bg,
+        cardBgSecondary: t.card_bg_secondary,
+        cardBorderColor: t.card_border_color,
+        cardBorderWidth: Number(t.card_border_width) || 0,
+        cardRounding: Number(t.card_rounding) || 0,
+        photoX: Number(t.photo_x) || 0,
+        photoY: Number(t.photo_y) || 0,
+        photoSize: Number(t.photo_size) || 28,
+        photoShape: t.photo_shape,
+        photoBorderSize: Number(t.photo_border_size) || 0,
+        photoBorderColor: t.photo_border_color,
+        fields: (t.fields || []).map((f: any) => ({
+          ...f,
+          fontSize: Number(f.fontSize) || 8,
+          x: Number(f.x) || 0,
+          y: Number(f.y) || 0,
+          width: Number(f.width) || 50
+        })),
+        showBackSide: t.show_backside,
+        backsideContent: t.backside_content,
+        backsideX: Number(t.backside_x) || 0,
+        backsideY: Number(t.backside_y) || 0,
+        backsideWidth: Number(t.backside_width) || 0,
+        showQr: t.show_qr,
+        qrSize: Number(t.qr_size) || 0,
+        qrX: Number(t.qr_x) || 0,
+        qrY: Number(t.qr_y) || 0,
+        principalSign: t.principal_sign,
+        signX: Number(t.sign_x) || 0,
+        signY: Number(t.sign_y) || 0,
+        signWidth: Number(t.sign_width) || 0,
+        watermarkText: t.watermark_text,
+        logoInHeader: t.logo_in_header
+      }));
+    },
+    async upsertTemplate(template: any) {
+      const payload = {
+        name: template.name,
+        orientation: template.orientation,
+        width: template.width,
+        height: template.height,
+        header_bg: template.headerBg,
+        header_height: template.headerHeight,
+        header_text: template.headerText,
+        header_text_size: template.headerTextSize,
+        header_text_color: template.headerTextColor,
+        header_alignment: template.headerAlignment,
+        card_bg_type: template.cardBgType,
+        card_bg: template.cardBg,
+        card_bg_secondary: template.cardBgSecondary,
+        card_border_color: template.cardBorderColor,
+        card_border_width: template.cardBorderWidth,
+        card_rounding: template.cardRounding,
+        photo_x: template.photoX,
+        photo_y: template.photoY,
+        photo_size: template.photoSize,
+        photo_shape: template.photoShape,
+        photo_border_size: template.photoBorderSize,
+        photo_border_color: template.photoBorderColor,
+        fields: template.fields,
+        show_backside: template.showBackSide,
+        backside_content: template.backsideContent,
+        backside_x: template.backsideX,
+        backside_y: template.backsideY,
+        backside_width: template.backsideWidth,
+        show_qr: template.showQr,
+        qr_size: template.qrSize,
+        qr_x: template.qrX,
+        qr_y: template.qrY,
+        principal_sign: template.principalSign,
+        sign_x: template.signX,
+        sign_y: template.signY,
+        sign_width: template.signWidth,
+        watermark_text: template.watermarkText,
+        logo_in_header: template.logoInHeader
+      };
+      if (template.id && !template.id.startsWith('temp-')) (payload as any).id = template.id;
+      const { data, error } = await supabase.from('id_card_templates').upsert(payload).select();
+      if (error) throw error;
+      return data;
+    }
+  },
   fees: {
     async getStructures() {
       const { data, error } = await supabase.from('fee_structures').select('*');

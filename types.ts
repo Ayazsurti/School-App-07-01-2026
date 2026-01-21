@@ -73,6 +73,7 @@ export interface Student extends User {
   motherPhoto?: string;
   fees?: StudentFees;
   status?: string;
+  bloodGroup?: string;
 }
 
 export interface Teacher extends User {
@@ -103,6 +104,75 @@ export interface Teacher extends User {
   branchAddress?: string;
   branchCode?: string;
   branchPhone?: string;
+}
+
+export interface IdCardField {
+  key: string;
+  label: string;
+  visible: boolean;
+  fontSize: number;
+  color: string;
+  bold: boolean;
+  italic?: boolean;
+  alignment: 'left' | 'center' | 'right';
+  x: number; // Position in mm
+  y: number; // Position in mm
+  width: number; // Width in mm
+}
+
+export interface IdCardTemplate {
+  id: string;
+  name: string;
+  orientation: 'VERTICAL' | 'HORIZONTAL';
+  width: number; // in mm
+  height: number; // in mm
+  
+  // Design Layers
+  headerBg: string;
+  headerHeight: number;
+  headerText: string;
+  headerTextSize: number;
+  headerTextColor: string;
+  headerAlignment: 'left' | 'center' | 'right';
+  
+  // Body Elements
+  cardBgType: 'solid' | 'gradient' | 'mesh';
+  cardBg: string;
+  cardBgSecondary?: string;
+  cardBorderColor: string;
+  cardBorderWidth: number;
+  cardRounding: number;
+  
+  // Student Data (Positionable)
+  photoX: number;
+  photoY: number;
+  photoSize: number;
+  photoShape: 'SQUARE' | 'ROUNDED' | 'CIRCLE';
+  photoBorderSize: number;
+  photoBorderColor: string;
+  
+  fields: IdCardField[];
+  
+  // Back Side (Positionable)
+  showBackSide: boolean;
+  backsideContent: string;
+  backsideX: number;
+  backsideY: number;
+  backsideWidth: number;
+  
+  // Branding
+  showQr: boolean;
+  qrSize: number;
+  qrX: number;
+  qrY: number;
+  
+  principalSign?: string;
+  signX: number;
+  signY: number;
+  signWidth: number;
+  
+  watermarkText?: string;
+  logoInHeader: boolean;
 }
 
 export interface FeeCategory {
