@@ -330,8 +330,8 @@ export const db = {
       if (error) throw error;
       return data;
     },
-    async insertFolder(name: string, timestamp: string) {
-      const { data, error } = await supabase.from('curriculum_folders').insert([{ name, timestamp }]).select();
+    async insertFolder(name: string, timestamp: string, metadata?: any) {
+      const { data, error } = await supabase.from('curriculum_folders').insert([{ name, timestamp, metadata }]).select();
       if (error) throw error;
       return data;
     },
@@ -493,7 +493,7 @@ export const db = {
             width: Number(f.width) || 50
           })),
           showBackSide: t.show_backside,
-          backsideContent: t.backside_content,
+          backside_content: t.backside_content,
           backsideX: Number(t.backside_x) || 0,
           backsideY: Number(t.backside_y) || 0,
           backsideWidth: Number(t.backside_width) || 0,
