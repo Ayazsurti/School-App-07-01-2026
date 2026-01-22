@@ -48,6 +48,9 @@ export interface User {
 
 export interface Student extends User {
   fullName: string;
+  firstName?: string;
+  middleName?: string;
+  lastName?: string;
   grNumber: string;
   rollNo: string;
   gender: string;
@@ -118,6 +121,7 @@ export interface IdCardField {
   x: number; // Position in mm
   y: number; // Position in mm
   width: number; // Width in mm
+  zIndex?: number;
 }
 
 export interface IdCardTemplate {
@@ -134,11 +138,21 @@ export interface IdCardTemplate {
   headerTextSize: number;
   headerTextColor: string;
   headerAlignment: 'left' | 'center' | 'right';
+  headerX?: number;
+  headerY?: number;
+  
+  // Logo
+  logoInHeader: boolean;
+  logoX: number;
+  logoY: number;
+  logoSize: number;
+  customLogo?: string;
   
   // Body Elements
-  cardBgType: 'solid' | 'gradient' | 'mesh';
+  cardBgType: 'solid' | 'gradient' | 'image';
   cardBg: string;
   cardBgSecondary?: string;
+  cardBgImage?: string;
   cardBorderColor: string;
   cardBorderWidth: number;
   cardRounding: number;
@@ -172,7 +186,9 @@ export interface IdCardTemplate {
   signWidth: number;
   
   watermarkText?: string;
-  logoInHeader: boolean;
+  
+  // Guides
+  snapToGrid?: boolean;
 }
 
 export interface FeeCategory {

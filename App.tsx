@@ -64,7 +64,8 @@ import {
   Heart,
   Shield,
   Hash,
-  UserMinus
+  UserMinus,
+  Palette
 } from 'lucide-react';
 import { User, UserRole, DisplaySettings, Student } from './types';
 import Login from './pages/Login';
@@ -93,6 +94,7 @@ import ReceiptSetup from './pages/ReceiptSetup';
 import GeneralReceipt from './pages/GeneralReceipt';
 import FeeSearch from './pages/FeeSearch';
 import IdCardGenerator from './pages/IdCardGenerator';
+import IdCardDesigner from './pages/IdCardDesigner';
 import AuditLog from './pages/AuditLog';
 import Curriculum from './pages/Curriculum';
 import SchoolSettings from './pages/SchoolSettings';
@@ -540,10 +542,10 @@ const Layout: React.FC<LayoutProps> = ({ user, cloudSettings, branding, onUpdate
             <Route path="/" element={<Navigate to={`/${user.role.toLowerCase()}/dashboard`} />} />
             <Route path="/admin/dashboard" element={<Dashboard user={user} branding={branding} onUpdateLogo={() => navigate('/admin/branding')} />} />
             <Route path="/admin/branding" element={<SchoolSettings user={user} />} />
-            {/* Fixed: Changed handleUpdateDisplay to onUpdateDisplay prop */}
             <Route path="/admin/display-config" element={<DisplayConfigure user={user} settings={displaySettings} onUpdateSettings={onUpdateDisplay} />} />
             <Route path="/admin/students" element={<StudentsManager user={user} />} />
             <Route path="/admin/cancel-admission" element={<AdmissionCancellation user={user} />} />
+            <Route path="/admin/id-designer" element={<IdCardDesigner user={user} />} />
             <Route path="/admin/id-cards" element={<IdCardGenerator user={user} schoolLogo={schoolLogo} />} />
             <Route path="/admin/teachers" element={<TeachersManager user={user} />} />
             <Route path="/admin/homework" element={<Homework user={user} />} />

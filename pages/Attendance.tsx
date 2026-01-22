@@ -20,7 +20,7 @@ const ALL_CLASSES = [
 ];
 
 const ALL_SECTIONS = ['A', 'B', 'C', 'D'];
-const MEDIUMS = ['ENGLISH MEDIUM', 'GUJRATI MEDIUM'];
+const MEDIUMS = ['ENGLISH MEDIUM'];
 
 const Attendance: React.FC<AttendanceProps> = ({ user }) => {
   const isStudent = user.role === 'STUDENT';
@@ -179,13 +179,23 @@ const Attendance: React.FC<AttendanceProps> = ({ user }) => {
     if (isStudent) return;
     setIsSaving(true);
     try {
-      const records = baseList.map(s => ({
-        id: recordIds[s.id] || undefined, 
-        student_id: s.id,
-        date: selectedDate,
-        status: attendance[s.id] || 'PRESENT',
-        marked_by: user.name
-      }));
+      // FIX: Conditionally add 'id' only if it exists in recordIds
+      // If we send id: undefined or id: null, Supabase throws the 23502 constraint error
+      const records = baseList.map(s => {
+        const entry: any = {
+          student_id: s.id,
+          date: selectedDate,
+          status: attendance[s.id] || 'PRESENT',
+          marked_by: user.name
+        };
+        
+        // Only include ID if we are updating an existing row
+        if (recordIds[s.id]) {
+          entry.id = recordIds[s.id];
+        }
+        
+        return entry;
+      });
       
       const savedData = await db.attendance.bulkUpsert(records);
       
