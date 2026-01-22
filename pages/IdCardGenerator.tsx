@@ -38,11 +38,27 @@ const IdCardGenerator: React.FC<IdCardGeneratorProps> = ({ user, schoolLogo }) =
       ]);
       
       const mapped = (studentData || []).map((s: any) => ({
-        id: s.id, fullName: s.full_name, name: s.full_name, email: s.email, rollNo: s.roll_no,
-        class: s.class, section: s.section, grNumber: s.gr_number, profileImage: s.profile_image,
-        fatherName: s.father_name, motherName: s.mother_name, fatherMobile: s.father_mobile,
-        residenceAddress: s.residence_address, aadharNo: s.aadhar_no || '',
-        dob: s.dob
+        id: s.id, 
+        fullName: s.full_name, 
+        name: s.full_name, 
+        email: s.email, 
+        rollNo: s.roll_no,
+        class: s.class, 
+        section: s.section, 
+        grNumber: s.gr_number, 
+        profileImage: s.profile_image,
+        fatherName: s.father_name, 
+        motherName: s.mother_name, 
+        fatherMobile: s.father_mobile,
+        residenceAddress: s.residence_address, 
+        aadharNo: s.aadhar_no || '',
+        panNo: s.pan_no || '',
+        penNo: s.pen_no || '',
+        uidId: s.uid_id || '',
+        dob: s.dob,
+        bloodGroup: s.blood_group || 'N/A',
+        studentType: s.student_type || 'GENERAL',
+        birthPlace: s.birth_place || 'N/A'
       }));
       
       setStudents(mapped as Student[]);
@@ -56,7 +72,7 @@ const IdCardGenerator: React.FC<IdCardGeneratorProps> = ({ user, schoolLogo }) =
 
   useEffect(() => {
     fetchData();
-    const channel = supabase.channel('id-gen-realtime-v21')
+    const channel = supabase.channel('id-gen-realtime-v22')
       .on('postgres_changes', { event: '*', schema: 'public', table: 'students' }, () => {
         setIsSyncing(true);
         fetchData().then(() => setTimeout(() => setIsSyncing(false), 800));
@@ -229,7 +245,7 @@ const IdCardGenerator: React.FC<IdCardGeneratorProps> = ({ user, schoolLogo }) =
                    {isLoading ? (
                      <div className="py-20 flex flex-col items-center justify-center opacity-50"><Loader2 className="animate-spin text-indigo-500" /></div>
                    ) : filteredStudents.length > 0 ? filteredStudents.map(s => (
-                    <div key={s.id} onClick={() => toggleSelection(s.id)} className={`flex items-center gap-4 p-4 rounded-[2rem] border-2 transition-all cursor-pointer ${selectedStudentIds.includes(s.id) ? 'bg-indigo-50 dark:bg-indigo-900/30 border-indigo-500 shadow-md' : 'bg-white dark:bg-slate-900 border-slate-50 dark:border-slate-800'}`}>
+                    <div key={s.id} onClick={() => toggleSelection(s.id)} className={`flex items-center gap-4 p-4 rounded-[2rem] border-2 transition-all cursor-pointer ${selectedStudentIds.includes(s.id) ? 'bg-indigo-50 dark:bg-indigo-900/20 border-indigo-500 shadow-md' : 'bg-white dark:bg-slate-900 border-slate-50 dark:border-slate-800'}`}>
                        <div className={`w-10 h-10 rounded-2xl flex items-center justify-center font-black text-xs shrink-0 ${selectedStudentIds.includes(s.id) ? 'bg-indigo-600 text-white' : 'bg-slate-100 dark:bg-slate-800 text-slate-400'}`}>
                           {s.profileImage ? <img src={s.profileImage} className="w-full h-full object-cover rounded-xl" /> : <Users size={16} />}
                        </div>

@@ -13,9 +13,7 @@ interface FeeSetupProps { user: User; }
 
 type CategoryKey = 
   | 'PRIMARY_GIRLS' | 'SECONDARY_GIRLS' | 'HIGHER_SECONDARY_GIRLS'
-  | 'PRIMARY_BOYS' | 'SECONDARY_BOYS' | 'HIGHER_SECONDARY_BOYS'
-  | 'GUJ_PRIMARY_GIRLS' | 'GUJ_SECONDARY_GIRLS' | 'GUJ_HIGHER_SECONDARY_GIRLS'
-  | 'GUJ_PRIMARY_BOYS' | 'GUJ_SECONDARY_BOYS' | 'GUJ_HIGHER_SECONDARY_BOYS';
+  | 'PRIMARY_BOYS' | 'SECONDARY_BOYS' | 'HIGHER_SECONDARY_BOYS';
 
 const GRADE_RANGES = {
   PRIMARY: ['1st', '2nd', '3rd', '4th', '5th', '6th', '7th', '8th'],
@@ -29,13 +27,7 @@ const CATEGORY_MAP: Record<CategoryKey, { label: string, grades: string[], color
   HIGHER_SECONDARY_GIRLS: { label: 'Higher Sec Girls (11-12)', grades: GRADE_RANGES.HIGHER, color: 'text-pink-700' },
   PRIMARY_BOYS: { label: 'Primary Boys (1-8)', grades: GRADE_RANGES.PRIMARY, color: 'text-blue-500' },
   SECONDARY_BOYS: { label: 'Secondary Boys (9-10)', grades: GRADE_RANGES.SECONDARY, color: 'text-blue-600' },
-  HIGHER_SECONDARY_BOYS: { label: 'Higher Sec Boys (11-12)', grades: GRADE_RANGES.HIGHER, color: 'text-blue-700' },
-  GUJ_PRIMARY_GIRLS: { label: 'GUJ Primary Girls (1-8)', grades: GRADE_RANGES.PRIMARY, color: 'text-orange-500' },
-  GUJ_SECONDARY_GIRLS: { label: 'GUJ Secondary Girls (9-10)', grades: GRADE_RANGES.SECONDARY, color: 'text-orange-600' },
-  GUJ_HIGHER_SECONDARY_GIRLS: { label: 'GUJ Higher Sec Girls (11-12)', grades: GRADE_RANGES.HIGHER, color: 'text-orange-700' },
-  GUJ_PRIMARY_BOYS: { label: 'GUJ Primary Boys (1-8)', grades: GRADE_RANGES.PRIMARY, color: 'text-emerald-500' },
-  GUJ_SECONDARY_BOYS: { label: 'GUJ Secondary Boys (9-10)', grades: GRADE_RANGES.SECONDARY, color: 'text-emerald-600' },
-  GUJ_HIGHER_SECONDARY_BOYS: { label: 'GUJ Higher Sec Boys (11-12)', grades: GRADE_RANGES.HIGHER, color: 'text-emerald-700' }
+  HIGHER_SECONDARY_BOYS: { label: 'Higher Sec Boys (11-12)', grades: GRADE_RANGES.HIGHER, color: 'text-blue-700' }
 };
 
 const QUARTERS = ['Q1', 'Q2', 'Q3', 'Q4'] as const;
@@ -70,7 +62,6 @@ const FeeSetup: React.FC<FeeSetupProps> = ({ user }) => {
       const allPossibleGrades = ['1st', '2nd', '3rd', '4th', '5th', '6th', '7th', '8th', '9th', '10th', '11th', '12th'];
       allPossibleGrades.forEach(cls => {
         initialDraft[cls] = {};
-        // Fixed: Access correctly mapped className property
         const struct = structs.find(s => s.className === cls);
         if (struct && Array.isArray(struct.fees)) {
           struct.fees.forEach((f: any) => {
@@ -88,7 +79,7 @@ const FeeSetup: React.FC<FeeSetupProps> = ({ user }) => {
 
   useEffect(() => {
     fetchCloudData();
-    const channel = supabase.channel('fee-setup-realtime-v7')
+    const channel = supabase.channel('fee-setup-realtime-v8')
       .on('postgres_changes', { event: '*', schema: 'public', table: 'fee_structures' }, () => {
         if (!savingClass) fetchCloudData();
       })
@@ -238,29 +229,19 @@ const FeeSetup: React.FC<FeeSetupProps> = ({ user }) => {
       {/* Category Selector */}
       <div className="bg-white dark:bg-slate-900 p-8 rounded-[3rem] shadow-sm border border-slate-100 dark:border-slate-800 flex flex-col md:flex-row items-center gap-8">
          <div className="flex-1 w-full">
-            <label className="text-[10px] font-black text-slate-400 uppercase ml-1 tracking-[0.2em] mb-2 block">Institution Medium & Wing</label>
+            <label className="text-[10px] font-black text-slate-400 uppercase ml-1 tracking-[0.2em] mb-2 block">Institution Wing (English Medium)</label>
             <div className="relative group">
                <select 
                 value={selectedCategory} 
                 onChange={e => setSelectedCategory(e.target.value as CategoryKey)} 
                 className="w-full bg-slate-50 dark:bg-slate-800 border-2 border-slate-100 dark:border-slate-700 rounded-2xl px-6 py-5 font-black text-slate-800 dark:text-white outline-none focus:ring-2 focus:ring-indigo-500 transition-all shadow-sm appearance-none cursor-pointer uppercase text-sm tracking-widest"
                >
-                 <optgroup label="ENGLISH MEDIUM">
-                   <option value="PRIMARY_GIRLS">Primary Girls (1-8)</option>
-                   <option value="PRIMARY_BOYS">Primary Boys (1-8)</option>
-                   <option value="SECONDARY_GIRLS">Secondary Girls (9-10)</option>
-                   <option value="SECONDARY_BOYS">Secondary Boys (9-10)</option>
-                   <option value="HIGHER_SECONDARY_GIRLS">Higher Secondary Girls (11-12)</option>
-                   <option value="HIGHER_SECONDARY_BOYS">Higher Secondary Boys (11-12)</option>
-                 </optgroup>
-                 <optgroup label="GUJARATI MEDIUM">
-                   <option value="GUJ_PRIMARY_GIRLS">GUJ MED Primary Girls (1-8)</option>
-                   <option value="GUJ_PRIMARY_BOYS">GUJ MED Primary Boys (1-8)</option>
-                   <option value="GUJ_SECONDARY_GIRLS">GUJ MED Secondary Girls (9-10)</option>
-                   <option value="GUJ_SECONDARY_BOYS">GUJ MED Secondary Boys (9-10)</option>
-                   <option value="GUJ_HIGHER_SECONDARY_GIRLS">GUJ MED Higher Secondary Girls (11-12)</option>
-                   <option value="GUJ_HIGHER_SECONDARY_BOYS">GUJ MED Higher Secondary Boys (11-12)</option>
-                 </optgroup>
+                  <option value="PRIMARY_GIRLS">Primary Girls (1-8)</option>
+                  <option value="PRIMARY_BOYS">Primary Boys (1-8)</option>
+                  <option value="SECONDARY_GIRLS">Secondary Girls (9-10)</option>
+                  <option value="SECONDARY_BOYS">Secondary Boys (9-10)</option>
+                  <option value="HIGHER_SECONDARY_GIRLS">Higher Secondary Girls (11-12)</option>
+                  <option value="HIGHER_SECONDARY_BOYS">Higher Secondary Boys (11-12)</option>
                </select>
                <ChevronDown className="absolute right-6 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" size={24} />
             </div>
@@ -285,7 +266,6 @@ const FeeSetup: React.FC<FeeSetupProps> = ({ user }) => {
             const classDraft = draftFees[cls] || {};
             const totalAnnual = QUARTERS.reduce((acc, q) => acc + (parseInt(classDraft[q] || '0') || 0), 0);
             
-            // Fixed: Access correctly mapped className property
             const originalStruct = structures.find(s => s.className === cls);
             const isModified = QUARTERS.some(q => {
                const original = originalStruct?.fees?.find((f: any) => f.quarter === q)?.amount || 0;
@@ -308,7 +288,7 @@ const FeeSetup: React.FC<FeeSetupProps> = ({ user }) => {
                    <div className="flex gap-2">
                       <button 
                         onClick={() => bulkApplyToCategory(cls)}
-                        className="p-3 bg-white dark:bg-slate-800 text-slate-400 hover:text-indigo-600 rounded-xl border border-slate-200 dark:border-slate-700 transition-all shadow-sm flex items-center gap-2 text-[9px] font-black uppercase tracking-widest"
+                        className="p-3 bg-white dark:bg-slate-900 text-slate-400 hover:text-indigo-600 rounded-xl border border-slate-200 dark:border-slate-700 transition-all shadow-sm flex items-center gap-2 text-[9px] font-black uppercase tracking-widest"
                         title="Copy to all in category"
                       >
                         <Copy size={14} /> Bulk

@@ -448,53 +448,67 @@ export const db = {
     async getTemplates() {
       const { data, error } = await supabase.from('id_card_templates').select('*');
       if (error) throw error;
-      return (data || []).map((t: any) => ({
-        id: t.id,
-        name: t.name,
-        orientation: t.orientation,
-        width: Number(t.width) || 0,
-        height: Number(t.height) || 0,
-        headerBg: t.header_bg,
-        headerHeight: Number(t.header_height) || 0,
-        headerText: t.header_text,
-        headerTextSize: Number(t.header_text_size) || 10,
-        headerTextColor: t.header_text_color,
-        headerAlignment: t.header_alignment,
-        cardBgType: t.card_bg_type,
-        cardBg: t.card_bg,
-        cardBgSecondary: t.card_bg_secondary,
-        cardBorderColor: t.card_border_color,
-        cardBorderWidth: Number(t.card_border_width) || 0,
-        cardRounding: Number(t.card_rounding) || 0,
-        photoX: Number(t.photo_x) || 0,
-        photoY: Number(t.photo_y) || 0,
-        photoSize: Number(t.photo_size) || 28,
-        photoShape: t.photo_shape,
-        photoBorderSize: Number(t.photo_border_size) || 0,
-        photoBorderColor: t.photo_border_color,
-        fields: (t.fields || []).map((f: any) => ({
-          ...f,
-          fontSize: Number(f.fontSize) || 8,
-          x: Number(f.x) || 0,
-          y: Number(f.y) || 0,
-          width: Number(f.width) || 50
-        })),
-        showBackSide: t.show_backside,
-        backsideContent: t.backside_content,
-        backsideX: Number(t.backside_x) || 0,
-        backsideY: Number(t.backside_y) || 0,
-        backsideWidth: Number(t.backside_width) || 0,
-        showQr: t.show_qr,
-        qrSize: Number(t.qr_size) || 0,
-        qrX: Number(t.qr_x) || 0,
-        qrY: Number(t.qr_y) || 0,
-        principalSign: t.principal_sign,
-        signX: Number(t.sign_x) || 0,
-        signY: Number(t.sign_y) || 0,
-        signWidth: Number(t.sign_width) || 0,
-        watermarkText: t.watermark_text,
-        logoInHeader: t.logo_in_header
-      }));
+      return (data || []).map((t: any) => {
+        // Robust handling of the 'fields' column which might be an array, an object, or a JSON string
+        let rawFields = t.fields;
+        if (typeof rawFields === 'string') {
+          try {
+            rawFields = JSON.parse(rawFields);
+          } catch (e) {
+            rawFields = [];
+          }
+        }
+        
+        const fieldsArray = Array.isArray(rawFields) ? rawFields : [];
+
+        return {
+          id: t.id,
+          name: t.name,
+          orientation: t.orientation,
+          width: Number(t.width) || 0,
+          height: Number(t.height) || 0,
+          headerBg: t.header_bg,
+          headerHeight: Number(t.header_height) || 0,
+          headerText: t.header_text,
+          headerTextSize: Number(t.header_text_size) || 10,
+          headerTextColor: t.header_text_color,
+          headerAlignment: t.header_alignment,
+          cardBgType: t.card_bg_type,
+          cardBg: t.card_bg,
+          cardBgSecondary: t.card_bg_secondary,
+          cardBorderColor: t.card_border_color,
+          cardBorderWidth: Number(t.card_border_width) || 0,
+          cardRounding: Number(t.card_rounding) || 0,
+          photoX: Number(t.photo_x) || 0,
+          photoY: Number(t.photo_y) || 0,
+          photoSize: Number(t.photo_size) || 28,
+          photoShape: t.photo_shape,
+          photoBorderSize: Number(t.photo_border_size) || 0,
+          photoBorderColor: t.photo_border_color,
+          fields: fieldsArray.map((f: any) => ({
+            ...f,
+            fontSize: Number(f.fontSize) || 8,
+            x: Number(f.x) || 0,
+            y: Number(f.y) || 0,
+            width: Number(f.width) || 50
+          })),
+          showBackSide: t.show_backside,
+          backsideContent: t.backside_content,
+          backsideX: Number(t.backside_x) || 0,
+          backsideY: Number(t.backside_y) || 0,
+          backsideWidth: Number(t.backside_width) || 0,
+          showQr: t.show_qr,
+          qrSize: Number(t.qr_size) || 0,
+          qrX: Number(t.qr_x) || 0,
+          qrY: Number(t.qr_y) || 0,
+          principalSign: t.principal_sign,
+          signX: Number(t.sign_x) || 0,
+          signY: Number(t.sign_y) || 0,
+          signWidth: Number(t.sign_width) || 0,
+          watermarkText: t.watermark_text,
+          logoInHeader: t.logo_in_header
+        };
+      });
     },
     async upsertTemplate(template: any) {
       const payload = {
@@ -535,7 +549,7 @@ export const db = {
         sign_y: template.signY,
         sign_width: template.signWidth,
         watermark_text: template.watermarkText,
-        logo_in_header: template.logoInHeader
+        logo_in_header: template.logo_in_header
       };
       if (template.id && !template.id.startsWith('temp-')) (payload as any).id = template.id;
       const { data, error } = await supabase.from('id_card_templates').upsert(payload).select();

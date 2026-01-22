@@ -7,7 +7,7 @@ import {
   CheckCircle2, ShieldCheck, Smartphone, Loader2, RefreshCw,
   GraduationCap, FileSpreadsheet, FileDown, FileSearch, MapPin, 
   CreditCard, Calendar, Eye, StopCircle, Mail, Fingerprint, Tags,
-  Users, Check, ArrowRight, AlertTriangle, Layers, Globe, ChevronDown, Heart
+  Users, Check, ArrowRight, AlertTriangle, Layers, Globe, ChevronDown, Heart, Shield, Hash
 } from 'lucide-react';
 import { db, supabase, getErrorMessage } from '../supabase';
 
@@ -40,7 +40,7 @@ const StudentsManager: React.FC<StudentsManagerProps> = ({ user }) => {
 
   const initialFormData: Partial<Student> = {
     fullName: '', firstName: '', middleName: '', lastName: '', email: '', grNumber: '', class: '1 - GIRLS', section: 'A', rollNo: '', profileImage: '',
-    gender: 'Male', dob: '', admissionDate: new Date().toISOString().split('T')[0], aadharNo: '', panNo: '', uidId: '', penNo: '',
+    gender: 'Male', dob: '', admissionDate: new Date().toISOString().split('T')[0], aadharNo: '', panNo: '', uidId: '',
     studentType: '', birthPlace: '', medium: 'ENGLISH MEDIUM',
     fatherName: '', motherName: '', fatherMobile: '', motherMobile: '', residenceAddress: '',
     fatherPhoto: '', motherPhoto: '', password: 'student786', status: 'ACTIVE'
@@ -52,7 +52,6 @@ const StudentsManager: React.FC<StudentsManagerProps> = ({ user }) => {
     try {
       const data = await db.students.getAll();
       const mapped = (data || []).map((s: any) => {
-        // Name Splitting Logic for UI
         const nameParts = (s.full_name || '').trim().split(/\s+/);
         let fName = '', mName = '', lName = '';
         
@@ -93,7 +92,6 @@ const StudentsManager: React.FC<StudentsManagerProps> = ({ user }) => {
           aadharNo: s.aadhar_no,
           panNo: s.pan_no,
           uidId: s.uid_id,
-          penNo: s.pen_no,
           student_type: s.student_type,
           birthPlace: s.birth_place,
           fatherPhoto: s.father_photo,
@@ -173,8 +171,6 @@ const StudentsManager: React.FC<StudentsManagerProps> = ({ user }) => {
 
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
-    
-    // Combine First, Middle, and Last Name
     const combinedFullName = [formData.firstName, formData.middleName, formData.lastName]
       .filter(Boolean)
       .join(' ')
@@ -335,7 +331,6 @@ const StudentsManager: React.FC<StudentsManagerProps> = ({ user }) => {
         )}
       </div>
 
-      {/* Enrollment Modal */}
       {showModal && (
         <div className="fixed inset-0 z-[1000] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-md animate-in fade-in no-print">
           <div className="bg-white dark:bg-slate-900 rounded-[3rem] p-1 shadow-2xl max-w-3xl w-full max-h-[95vh] overflow-hidden flex flex-col border border-slate-100 dark:border-slate-800">
@@ -348,9 +343,7 @@ const StudentsManager: React.FC<StudentsManagerProps> = ({ user }) => {
             </div>
             
             <form onSubmit={handleSave} className="flex-1 overflow-y-auto p-8 custom-scrollbar space-y-10 bg-white dark:bg-slate-900">
-               {/* 3 PHOTO UPLOADERS IN ROW */}
                <div className="flex flex-wrap items-center justify-center gap-10 py-4">
-                  {/* STUDENT PHOTO */}
                   <div className="flex flex-col items-center gap-3">
                     <div className="w-32 h-32 bg-slate-50 dark:bg-slate-800 rounded-[2rem] border-4 border-white dark:border-slate-700 shadow-xl overflow-hidden flex items-center justify-center relative group">
                        {isCameraActive && captureTarget === 'profileImage' ? (
@@ -372,7 +365,6 @@ const StudentsManager: React.FC<StudentsManagerProps> = ({ user }) => {
                     <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest">Student Photo</p>
                   </div>
 
-                  {/* FATHER PHOTO */}
                   <div className="flex flex-col items-center gap-3">
                     <div className="w-32 h-32 bg-slate-50 dark:bg-slate-800 rounded-[2rem] border-4 border-white dark:border-slate-700 shadow-xl overflow-hidden flex items-center justify-center relative group">
                        {isCameraActive && captureTarget === 'fatherPhoto' ? (
@@ -394,7 +386,6 @@ const StudentsManager: React.FC<StudentsManagerProps> = ({ user }) => {
                     <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest">Father Photo</p>
                   </div>
 
-                  {/* MOTHER PHOTO */}
                   <div className="flex flex-col items-center gap-3">
                     <div className="w-32 h-32 bg-slate-50 dark:bg-slate-800 rounded-[2rem] border-4 border-white dark:border-slate-700 shadow-xl overflow-hidden flex items-center justify-center relative group">
                        {isCameraActive && captureTarget === 'motherPhoto' ? (
@@ -441,7 +432,6 @@ const StudentsManager: React.FC<StudentsManagerProps> = ({ user }) => {
                            <input type="text" value={formData.rollNo} onChange={e => setFormData({...formData, rollNo: e.target.value})} className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 font-bold text-xs outline-none focus:ring-2 focus:ring-indigo-500" />
                         </div>
 
-                        {/* Splitted Name Fields */}
                         <div className="space-y-1">
                            <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">First Name</label>
                            <input type="text" required value={formData.firstName} onChange={e => setFormData({...formData, firstName: e.target.value})} className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 font-bold text-xs uppercase outline-none focus:ring-2 focus:ring-indigo-500" />
@@ -472,6 +462,29 @@ const StudentsManager: React.FC<StudentsManagerProps> = ({ user }) => {
                            <select value={formData.gender} onChange={e => setFormData({...formData, gender: e.target.value})} className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 font-bold text-xs outline-none focus:ring-2 focus:ring-indigo-500">
                              <option value="Male">Male</option><option value="Female">Female</option>
                            </select>
+                        </div>
+                        
+                        {/* New Identification Fields */}
+                        <div className="space-y-1">
+                           <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Aadhar Number</label>
+                           <div className="relative">
+                              <Shield className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-300" size={14} />
+                              <input type="text" maxLength={12} value={formData.aadharNo} onChange={e => setFormData({...formData, aadharNo: e.target.value.replace(/[^0-9]/g, '')})} className="w-full bg-slate-50 border border-slate-200 rounded-xl pl-9 pr-4 py-2.5 font-bold text-xs outline-none focus:ring-2 focus:ring-indigo-500" placeholder="12-digit number" />
+                           </div>
+                        </div>
+                        <div className="space-y-1">
+                           <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">UID ID / Number</label>
+                           <div className="relative">
+                              <Fingerprint className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-300" size={14} />
+                              <input type="text" value={formData.uidId} onChange={e => setFormData({...formData, uidId: e.target.value.toUpperCase()})} className="w-full bg-slate-50 border border-slate-200 rounded-xl pl-9 pr-4 py-2.5 font-bold text-xs outline-none focus:ring-2 focus:ring-indigo-500" placeholder="UID Identity" />
+                           </div>
+                        </div>
+                        <div className="space-y-1">
+                           <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">PAN Card Number</label>
+                           <div className="relative">
+                              <CreditCard className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-300" size={14} />
+                              <input type="text" maxLength={10} value={formData.panNo} onChange={e => setFormData({...formData, panNo: e.target.value.toUpperCase()})} className="w-full bg-slate-50 border border-slate-200 rounded-xl pl-9 pr-4 py-2.5 font-bold text-xs outline-none focus:ring-2 focus:ring-indigo-500" placeholder="ABCDE1234F" />
+                           </div>
                         </div>
                      </div>
                   </div>
@@ -515,7 +528,6 @@ const StudentsManager: React.FC<StudentsManagerProps> = ({ user }) => {
         </div>
       )}
 
-      {/* Delete Dialog */}
       {deleteId && (
         <div className="fixed inset-0 z-[2000] flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-md no-print animate-in fade-in">
            <div className="bg-white dark:bg-slate-900 rounded-[3rem] p-8 max-w-xs w-full shadow-2xl text-center border border-rose-100/20 animate-in zoom-in-95">

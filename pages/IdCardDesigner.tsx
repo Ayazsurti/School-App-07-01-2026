@@ -31,7 +31,10 @@ import {
   Minus,
   Trash2,
   Database,
-  PlusCircle
+  PlusCircle,
+  Hash,
+  Fingerprint,
+  CreditCard
 } from 'lucide-react';
 import { MOCK_STUDENTS, APP_NAME } from '../constants';
 
@@ -43,45 +46,39 @@ interface IdCardDesignerProps {
 const CR80_WIDTH = 85.60; // mm
 const CR80_HEIGHT = 53.98; // mm
 
-// List of all available student fields from Student Management
+// Comprehensive list of all fields from Student Management module
 const AVAILABLE_STUDENT_FIELDS = [
-  { key: 'fullName', label: 'Student Full Name' },
-  { key: 'firstName', label: 'First Name' },
-  { key: 'middleName', label: 'Middle Name' },
-  { key: 'lastName', label: 'Last Name' },
+  { key: 'fullName', label: 'Full Name' },
   { key: 'grNumber', label: 'GR Number' },
   { key: 'rollNo', label: 'Roll Number' },
-  { key: 'class', label: 'Class/Grade' },
+  { key: 'class', label: 'Class' },
   { key: 'section', label: 'Section' },
-  { key: 'medium', label: 'Medium' },
-  { key: 'wing', label: 'Wing' },
-  { key: 'gender', label: 'Gender' },
   { key: 'dob', label: 'Date of Birth' },
-  { key: 'bloodGroup', label: 'Blood Group' },
-  { key: 'aadharNo', label: 'Aadhar Card No' },
+  { key: 'aadharNo', label: 'Aadhar Number' },
+  { key: 'uidId', label: 'UID Number' },
   { key: 'panNo', label: 'PAN Card No' },
-  { key: 'uidId', label: 'UID ID' },
   { key: 'penNo', label: 'PEN Number' },
+  { key: 'bloodGroup', label: 'Blood Group' },
+  { key: 'gender', label: 'Gender' },
+  { key: 'admissionDate', label: 'Admission Date' },
   { key: 'fatherName', label: "Father's Name" },
   { key: 'motherName', label: "Mother's Name" },
   { key: 'fatherMobile', label: "Father's Mobile" },
   { key: 'motherMobile', label: "Mother's Mobile" },
   { key: 'residenceAddress', label: 'Address' },
-  { key: 'admissionDate', label: 'Admission Date' },
-  { key: 'studentType', label: 'Student Category' },
+  { key: 'studentType', label: 'Category' },
   { key: 'birthPlace', label: 'Birth Place' },
 ];
 
 const DEFAULT_FIELDS: IdCardField[] = [
-  { key: 'fullName', label: 'NAME', visible: true, fontSize: 10, color: '#0f172a', bold: true, alignment: 'center', x: 2, y: 46, width: 50 },
-  { key: 'class', label: 'STD', visible: true, fontSize: 7, color: '#4f46e5', bold: true, alignment: 'left', x: 5, y: 52, width: 25 },
-  { key: 'grNumber', label: 'GR NO', visible: true, fontSize: 7, color: '#4f46e5', bold: true, alignment: 'right', x: 25, y: 52, width: 23 },
-  { key: 'fatherMobile', label: 'MOBILE', visible: true, fontSize: 7, color: '#0f172a', bold: true, alignment: 'center', x: 2, y: 64, width: 50 },
+  { key: 'fullName', label: 'NAME', visible: true, fontSize: 9.5, color: '#0f172a', bold: true, alignment: 'center', x: 2, y: 44, width: 50 },
+  { key: 'class', label: 'STD', visible: true, fontSize: 6.5, color: '#4f46e5', bold: true, alignment: 'left', x: 5, y: 49, width: 25 },
+  { key: 'grNumber', label: 'GR NO', visible: true, fontSize: 6.5, color: '#4f46e5', bold: true, alignment: 'right', x: 25, y: 49, width: 23 },
 ];
 
 const INITIAL_TEMPLATE: IdCardTemplate = {
   id: '',
-  name: 'Standard PVC Master v4',
+  name: 'Standard PVC Master v6',
   orientation: 'VERTICAL',
   width: CR80_HEIGHT,
   height: CR80_WIDTH,
@@ -106,7 +103,7 @@ const INITIAL_TEMPLATE: IdCardTemplate = {
   cardRounding: 3.18, 
   photoX: 14.5,
   photoY: 22,
-  photoSize: 25,
+  photoSize: 22,
   photoShape: 'ROUNDED',
   photoBorderSize: 1.5,
   photoBorderColor: '#ffffff',
@@ -122,7 +119,7 @@ const INITIAL_TEMPLATE: IdCardTemplate = {
   qrY: 4,
   principalSign: '',
   signX: 30,
-  signY: 65,
+  signY: 72,
   signWidth: 20,
   watermarkText: 'OFFICIAL',
   snapToGrid: true
@@ -133,17 +130,12 @@ const IdCardDesigner: React.FC<IdCardDesignerProps> = ({ user }) => {
   const [templates, setTemplates] = useState<IdCardTemplate[]>([]);
   const [activeTemplate, setActiveTemplate] = useState<IdCardTemplate | null>(null);
   const [activeSide, setActiveSide] = useState<'FRONT' | 'BACK'>('FRONT');
-  
-  // Initial zoom set to 20 (representing 20% scale) for a "small" open state
-  const [zoom, setZoom] = useState(20);
-  
+  const [zoom, setZoom] = useState(25);
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
   const [showSuccess, setShowSuccess] = useState(false);
-  
   const [mainTab, setMainTab] = useState<'TEMPLATE' | 'ELEMENTS'>('TEMPLATE');
   const [elementCategory, setElementCategory] = useState<'BRANDING' | 'PROFILE' | 'DATA' | 'SECURITY'>('BRANDING');
-  
   const [selectedElement, setSelectedElement] = useState<string | null>('PHOTO');
   
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -248,7 +240,6 @@ const IdCardDesigner: React.FC<IdCardDesignerProps> = ({ user }) => {
     const fieldDef = AVAILABLE_STUDENT_FIELDS.find(f => f.key === fieldKey);
     if (!fieldDef) return;
 
-    // Check if field already exists
     if (activeTemplate.fields.some(f => f.key === fieldKey)) {
       alert("This field is already present on the card.");
       return;
@@ -256,7 +247,7 @@ const IdCardDesigner: React.FC<IdCardDesignerProps> = ({ user }) => {
 
     const newField: IdCardField = {
       key: fieldKey,
-      label: fieldDef.label.split(' ')[0].toUpperCase(),
+      label: fieldDef.label.toUpperCase(),
       visible: true,
       fontSize: 7,
       color: '#0f172a',
@@ -278,10 +269,6 @@ const IdCardDesigner: React.FC<IdCardDesignerProps> = ({ user }) => {
   };
 
   const previewStudent = MOCK_STUDENTS[0] as Student;
-
-  // Actual scale passed to IdCardComponent. 
-  // Adjusted to ensure scale remains useful within the new 1-50% constraints.
-  // Multiply zoom by 0.15 so that 50% results in a scale of 7.5 (close to previous default).
   const currentScale = useMemo(() => zoom * 0.15, [zoom]);
 
   return (
@@ -318,10 +305,8 @@ const IdCardDesigner: React.FC<IdCardDesignerProps> = ({ user }) => {
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start px-4">
-        {/* Left Column: Side Panel Controls */}
         <div className="lg:col-span-4 xl:col-span-3 space-y-6">
            <div className="bg-white dark:bg-slate-900 rounded-[3rem] shadow-sm border border-slate-100 dark:border-slate-800 overflow-hidden flex flex-col min-h-[750px]">
-              {/* Primary Navigation */}
               <div className="flex bg-slate-50 dark:bg-slate-800/50 p-2 gap-2 border-b border-slate-100 dark:border-slate-800">
                  <button 
                   onClick={() => setMainTab('TEMPLATE')} 
@@ -337,10 +322,9 @@ const IdCardDesigner: React.FC<IdCardDesignerProps> = ({ user }) => {
                  </button>
               </div>
 
-              <div className="p-8 flex-1 flex flex-col">
+              <div className="p-8 flex-1 flex flex-col overflow-y-auto custom-scrollbar">
                 {activeTemplate && (
                   <>
-                    {/* EDIT TEMPLATE (Global Styles) */}
                     {mainTab === 'TEMPLATE' && (
                       <div className="space-y-8 animate-in slide-in-from-left-4">
                          <div className="space-y-4">
@@ -415,10 +399,8 @@ const IdCardDesigner: React.FC<IdCardDesignerProps> = ({ user }) => {
                       </div>
                     )}
 
-                    {/* CUSTOMIZE ELEMENTS (Object Editor) */}
                     {mainTab === 'ELEMENTS' && (
                       <div className="space-y-8 animate-in slide-in-from-right-4 h-full flex flex-col">
-                         {/* Element Category Selector */}
                          <div className="grid grid-cols-4 gap-2 no-print">
                             {[
                                { id: 'BRANDING', icon: <Sparkles size={14}/> },
@@ -437,7 +419,6 @@ const IdCardDesigner: React.FC<IdCardDesignerProps> = ({ user }) => {
                             ))}
                          </div>
 
-                         {/* Contextual Sub-panel */}
                          <div className="space-y-6 flex-1 overflow-y-auto custom-scrollbar pr-2">
                             {elementCategory === 'BRANDING' && (
                                <div className="space-y-6 animate-in fade-in">
@@ -447,6 +428,22 @@ const IdCardDesigner: React.FC<IdCardDesignerProps> = ({ user }) => {
                                         <button onClick={() => setSelectedElement('HEADER_TEXT')} className="p-2 bg-indigo-50 dark:bg-indigo-900/30 text-indigo-600 rounded-lg hover:bg-indigo-600 hover:text-white transition-all"><Move size={14}/></button>
                                      </div>
                                      <input type="text" value={activeTemplate.headerText} onChange={e => handleUpdate({ headerText: e.target.value })} className="w-full bg-slate-50 dark:bg-slate-800 border-none rounded-2xl px-5 py-4 font-black uppercase text-xs outline-none focus:ring-2 focus:ring-indigo-500 shadow-inner" />
+                                     
+                                     <div className="space-y-2">
+                                        <label className="text-[8px] font-black text-slate-400 uppercase tracking-widest ml-1">Text Alignment</label>
+                                        <div className="flex gap-2 bg-slate-50 dark:bg-slate-800 p-1 rounded-xl">
+                                           {(['left', 'center', 'right'] as const).map(align => (
+                                             <button 
+                                              key={align} 
+                                              onClick={() => handleUpdate({ headerAlignment: align })} 
+                                              className={`flex-1 py-2 rounded-lg transition-all flex items-center justify-center ${activeTemplate.headerAlignment === align ? 'bg-white dark:bg-slate-700 text-indigo-600 shadow-sm' : 'text-slate-400 hover:text-slate-600'}`}
+                                             >
+                                                {align === 'left' ? <AlignLeft size={16}/> : align === 'center' ? <AlignCenter size={16}/> : <AlignRight size={16}/>}
+                                             </button>
+                                           ))}
+                                        </div>
+                                     </div>
+
                                      <div className="grid grid-cols-2 gap-4">
                                         <div className="space-y-1.5">
                                            <span className="text-[8px] font-black text-slate-400 uppercase">Header Height</span>
@@ -514,7 +511,6 @@ const IdCardDesigner: React.FC<IdCardDesignerProps> = ({ user }) => {
 
                             {elementCategory === 'DATA' && (
                                <div className="space-y-6 flex-1 flex flex-col animate-in fade-in">
-                                  {/* Field Addition Toolbar */}
                                   <div className="bg-indigo-50 dark:bg-indigo-950/20 p-5 rounded-3xl border border-indigo-100 dark:border-indigo-800 space-y-3">
                                      <div className="flex items-center gap-2 text-[10px] font-black text-indigo-600 dark:text-indigo-400 uppercase tracking-widest">
                                         <PlusCircle size={14}/> Add Metadata Field
@@ -627,7 +623,6 @@ const IdCardDesigner: React.FC<IdCardDesignerProps> = ({ user }) => {
                             )}
                          </div>
 
-                         {/* Common Movement Controls (Only visible when mainTab === 'ELEMENTS') */}
                          <div className="pt-6 border-t border-slate-50 dark:border-slate-800 space-y-4">
                             <div className="flex justify-between items-center mb-2 px-1">
                                <p className="text-[8px] font-black text-indigo-600 uppercase tracking-widest leading-none">Active Object Control</p>
@@ -670,7 +665,6 @@ const IdCardDesigner: React.FC<IdCardDesignerProps> = ({ user }) => {
            </div>
         </div>
 
-        {/* Right Column: High Fidelity Preview */}
         <div className="lg:col-span-8 xl:col-span-9 flex flex-col items-center justify-center min-h-[850px] relative bg-white dark:bg-slate-900 rounded-[4rem] p-12 border border-slate-100 dark:border-slate-800 overflow-hidden shadow-sm">
            <div className="absolute inset-0 neural-grid-white opacity-20 pointer-events-none"></div>
            
@@ -681,7 +675,6 @@ const IdCardDesigner: React.FC<IdCardDesignerProps> = ({ user }) => {
 
            {activeTemplate && (
               <div className="animate-in zoom-in-95 duration-700 relative">
-                 {/* Visual Guides */}
                  <div className="absolute -inset-[2mm] border-2 border-dashed border-rose-500/10 pointer-events-none rounded-sm hidden lg:block" style={{ width: `${(activeTemplate.width + 4) * currentScale}mm`, height: `${(activeTemplate.height + 4) * currentScale}mm`, left: '-2mm', top: '-2mm' }}>
                     <span className="absolute -top-6 left-0 text-[8px] font-black text-rose-500 uppercase">2mm Trim Bleed</span>
                  </div>
@@ -689,7 +682,6 @@ const IdCardDesigner: React.FC<IdCardDesignerProps> = ({ user }) => {
                     <span className="absolute -bottom-6 left-0 text-[8px] font-black text-emerald-500 uppercase">3mm Safety Zone</span>
                  </div>
 
-                 {/* Grid Overlay for Visual Snap */}
                  {activeTemplate.snapToGrid && (
                    <div className="absolute inset-0 z-10 pointer-events-none opacity-[0.03]" style={{ backgroundImage: `radial-gradient(circle at 1px 1px, #6366f1 1px, transparent 0)`, backgroundSize: `${5 * currentScale}mm ${5 * currentScale}mm` }}></div>
                  )}
@@ -698,7 +690,6 @@ const IdCardDesigner: React.FC<IdCardDesignerProps> = ({ user }) => {
                  <IdCardComponent template={activeTemplate} student={previewStudent} scale={currentScale} side={activeSide} onSelectElement={(key) => {
                     setSelectedElement(key);
                     setMainTab('ELEMENTS');
-                    // Automatically jump to the right element category if possible
                     if (['PHOTO'].includes(key)) setElementCategory('PROFILE');
                     else if (['LOGO', 'HEADER_TEXT'].includes(key)) setElementCategory('BRANDING');
                     else if (key.startsWith('FIELD_')) setElementCategory('DATA');
@@ -717,7 +708,6 @@ const IdCardDesigner: React.FC<IdCardDesignerProps> = ({ user }) => {
         </div>
       </div>
       
-      {/* Active Element Feedback Floating Tooltip */}
       <div className="fixed bottom-6 right-8 no-print flex gap-3 z-[1100]">
          {selectedElement && (
            <div className="bg-slate-900/90 backdrop-blur-xl px-8 py-4 rounded-3xl text-white shadow-2xl flex items-center gap-6 border border-white/10 animate-in slide-in-from-bottom-4">
@@ -799,14 +789,12 @@ export const IdCardComponent: React.FC<{
 
   return (
     <div style={cardStyle} onClick={(e) => handleElClick(e, 'CANVAS')}>
-       {/* Background Watermark */}
        {template.watermarkText && (
          <div className="absolute inset-0 flex items-center justify-center opacity-[0.02] pointer-events-none rotate-[-35deg]">
             <span style={{ fontSize: `${10 * scale}${unit}` }} className="font-black uppercase">{template.watermarkText}</span>
          </div>
        )}
 
-       {/* Floating Branded Elements */}
        <div style={{ position: 'absolute', width: '100%', height: `${(template.headerHeight || 18) * scale}${unit}`, backgroundColor: template.headerBg, zIndex: 5 }} />
        
        {template.logoInHeader && (
@@ -839,14 +827,15 @@ export const IdCardComponent: React.FC<{
             zIndex: 20,
             display: 'flex',
             alignItems: 'center',
-            justifyContent: 'center'
+            justifyContent: template.headerAlignment === 'left' ? 'flex-start' : template.headerAlignment === 'right' ? 'flex-end' : 'center',
+            paddingLeft: template.headerAlignment === 'left' ? `${5 * scale}${unit}` : 0,
+            paddingRight: template.headerAlignment === 'right' ? `${5 * scale}${unit}` : 0
           }} 
           className="font-black uppercase tracking-tight leading-none text-center cursor-move hover:bg-white/5 transition-colors"
         >
            {template.headerText}
         </h2>
 
-       {/* Student Portrait */}
        <div 
           onClick={(e) => handleElClick(e, 'PHOTO')}
           style={{ 
@@ -865,20 +854,20 @@ export const IdCardComponent: React.FC<{
           {student.profileImage ? <img src={student.profileImage} className="w-full h-full object-cover" /> : <UserIconLucide size={32 * (scale/4)} className="text-slate-300" />}
        </div>
 
-       {/* Data Grid / Fields */}
        {template.fields.filter(f => f.visible).map(f => {
          let displayValue = (student as any)[f.key];
          
-         // Special formatting for complex fields
+         // Custom formatting for specific complex fields
          if (f.key === 'class') displayValue = `${student.class}-${student.section || 'A'}`;
-         else if (f.key === 'fullName') displayValue = student.fullName;
-         else if (f.key === 'grNumber') displayValue = student.grNumber;
-         else if (f.key === 'residenceAddress') displayValue = student.residenceAddress;
+         else if (f.key === 'aadharNo') displayValue = student.aadharNo ? `AADHAR: ${student.aadharNo}` : 'AADHAR: N/A';
+         else if (f.key === 'uidId') displayValue = student.uidId ? `UID: ${student.uidId}` : 'UID: N/A';
+         else if (f.key === 'panNo') displayValue = student.panNo ? `PAN: ${student.panNo}` : 'PAN: N/A';
+         else if (f.key === 'penNo') displayValue = student.penNo ? `PEN: ${student.penNo}` : 'PEN: N/A';
          
          if (!displayValue) displayValue = 'N/A';
 
          const finalLabel = f.label ? `${f.label}: ` : '';
-         const content = f.key === 'fullName' ? displayValue : `${finalLabel}${displayValue}`;
+         const content = (f.key === 'fullName' || f.key === 'aadharNo' || f.key === 'uidId' || f.key === 'panNo') ? displayValue : `${finalLabel}${displayValue}`;
 
          return (
           <div 
@@ -907,7 +896,6 @@ export const IdCardComponent: React.FC<{
          );
        })}
 
-       {/* Security Dynamic QR */}
        {template.showQr && (
          <div 
             onClick={(e) => handleElClick(e, 'QR')}
@@ -929,7 +917,6 @@ export const IdCardComponent: React.FC<{
          </div>
        )}
 
-       {/* Validation Signature */}
        <div 
           onClick={(e) => handleElClick(e, 'SIGN')}
           style={{ 
@@ -948,10 +935,8 @@ export const IdCardComponent: React.FC<{
           <p style={{ fontSize: `${1.2 * scale}${unit}`, marginTop: `${0.5 * scale}${unit}` }} className="font-black uppercase text-slate-400 tracking-widest">Authority Sign</p>
        </div>
 
-       {/* Institutional Security Bar */}
        <div className="absolute right-0 top-0 h-full w-1 bg-indigo-600 opacity-20"></div>
 
-       {/* Footer Node ID */}
        <div className="absolute bottom-1.5 left-2 opacity-15 flex flex-col items-start z-50">
           <p style={{ fontSize: `${1.0 * scale}${unit}` }} className="font-black uppercase tracking-[0.4em] leading-none">Security Node: 2026-DIS-0{Math.floor(Math.random()*9)}</p>
        </div>
