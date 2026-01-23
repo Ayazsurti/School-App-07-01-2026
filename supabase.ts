@@ -53,7 +53,7 @@ export const db = {
         return { ...std, role: 'STUDENT', id: std.id, name: std.full_name, class: std.class, section: std.section };
       }
 
-      throw new Error("Invalid Node Access Key.");
+      throw new Error("Invalid Node Access Key. Check Username or Master Key.");
     },
 
     async verifyMobile(mobile: string, role: 'TEACHER' | 'STUDENT') {
@@ -77,14 +77,12 @@ export const db = {
       console.log(`[SMS] OTP ${otp} -> ${mobile}`);
       return { success: true };
     },
-    // New: Dedicated SMS History Tracker
     async getHistory() {
       const { data, error } = await supabase
         .from('sms_history')
         .select('*')
         .order('created_at', { ascending: false });
       
-      // Fallback to audit_logs if specialized table not yet migrated, but we prefer dedicated
       if (error) {
         console.warn("SMS dedicated table not found, falling back to audit logs.");
         const { data: auditData } = await supabase.from('audit_logs').select('*').eq('module', 'SMS').order('created_at', { ascending: false });
@@ -108,10 +106,7 @@ export const db = {
         sent_by: payload.sent_by,
         timestamp: new Date().toLocaleString('en-GB')
       }]).select();
-      if (error) {
-        // If dedicated table fails, we still have audit_logs as backup in createAuditLog call
-        throw error;
-      }
+      if (error) throw error;
       return data;
     }
   },
@@ -168,9 +163,41 @@ export const db = {
       if (error) throw error;
       return data;
     },
-    async upsert(teacher: any) {
-      const { error } = await supabase.from('teachers').upsert([teacher]);
+    async upsert(t: any) {
+      const payload = {
+        name: t.fullName,
+        staff_id: t.staffId,
+        mobile: t.mobile,
+        alternate_mobile: t.alternateMobile,
+        email: t.email,
+        qualification: t.qualification,
+        residence_address: t.residenceAddress,
+        gender: t.gender,
+        status: t.status,
+        profile_image: t.profileImage,
+        joining_date: t.joiningDate,
+        dob: t.dob,
+        subject: Array.isArray(t.subjects) ? t.subjects.join(', ') : t.subjects,
+        classes_list: Array.isArray(t.classes) ? t.classes.join(', ') : t.classes,
+        permissions: Array.isArray(t.permissions) ? t.permissions.join(', ') : t.permissions,
+        assigned_role: t.assignedRole,
+        assigned_class: t.assignedClass,
+        assigned_section: t.assignedSection,
+        aadhar_no: t.aadharNo,
+        pan_no: t.panNo,
+        account_no: t.accountNo,
+        account_type: t.accountType,
+        bank_name: t.bankName,
+        ifsc_code: t.ifscCode,
+        username: (t.username || '').toLowerCase().trim(),
+        password: t.password
+      };
+      
+      if (t.id) (payload as any).id = t.id;
+      
+      const { data, error } = await supabase.from('teachers').upsert([payload]).select();
       if (error) throw error;
+      return data;
     },
     async delete(id: string) {
       const { error } = await supabase.from('teachers').delete().eq('id', id);

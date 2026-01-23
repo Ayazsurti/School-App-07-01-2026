@@ -72,10 +72,10 @@ const TeachersManager: React.FC<TeachersManagerProps> = ({ user }) => {
         fullName: t.name,
         staffId: t.staff_id,
         mobile: t.mobile,
-        alternate_mobile: t.alternate_mobile,
+        alternateMobile: t.alternate_mobile,
         email: t.email,
         qualification: t.qualification,
-        residence_address: t.residence_address,
+        residenceAddress: t.residence_address,
         gender: t.gender,
         status: t.status,
         profileImage: t.profile_image,
@@ -106,7 +106,7 @@ const TeachersManager: React.FC<TeachersManagerProps> = ({ user }) => {
 
   useEffect(() => {
     fetchCloudData();
-    const channel = supabase.channel('teachers-master-sync-v31')
+    const channel = supabase.channel('teachers-master-sync-v32')
       .on('postgres_changes', { event: '*', schema: 'public', table: 'teachers' }, () => {
         setIsSyncing(true);
         fetchCloudData().then(() => setTimeout(() => setIsSyncing(false), 800));
@@ -206,7 +206,7 @@ const TeachersManager: React.FC<TeachersManagerProps> = ({ user }) => {
       setShowModal(false);
       setShowSuccess(true);
       setTimeout(() => setShowSuccess(false), 3000);
-      createAuditLog(user, editingTeacher ? 'UPDATE' : 'CREATE', 'Faculty', `Cloud Synced Teacher: ${formData.fullName} with Auth Credentials`);
+      createAuditLog(user, editingTeacher ? 'UPDATE' : 'CREATE', 'Faculty', `Cloud Synced Teacher: ${formData.fullName} (Login: ${formData.username})`);
       setEditingTeacher(null);
       setFormData(initialFormData);
       fetchCloudData();
@@ -404,11 +404,11 @@ const TeachersManager: React.FC<TeachersManagerProps> = ({ user }) => {
                           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                              <div className="space-y-1">
                                 <label className="text-[8px] font-black text-slate-400 uppercase tracking-widest ml-1">Full Teacher Name</label>
-                                <input type="text" required value={formData.fullName} onChange={e => setFormData({...formData, fullName: e.target.value})} className="w-full bg-slate-50 dark:bg-slate-800 border-2 border-transparent focus:border-indigo-100 rounded-xl px-5 py-3.5 font-black text-slate-800 dark:text-white outline-none uppercase shadow-inner text-sm" placeholder="E.G. PROF. ROBERT MILLER" />
+                                <input type="text" required value={formData.fullName} onChange={e => setFormData({...formData, fullName: e.target.value.toUpperCase()})} className="w-full bg-slate-50 dark:bg-slate-800 border-2 border-transparent focus:border-indigo-100 rounded-xl px-5 py-3.5 font-black text-slate-800 dark:text-white outline-none uppercase shadow-inner text-sm" placeholder="E.G. PROF. ROBERT MILLER" />
                              </div>
                              <div className="space-y-1">
                                 <label className="text-[8px] font-black text-slate-400 uppercase tracking-widest ml-1">Qualification</label>
-                                <input type="text" value={formData.qualification} onChange={e => setFormData({...formData, qualification: e.target.value})} className="w-full bg-slate-50 dark:bg-slate-800 border-2 border-transparent focus:border-indigo-100 rounded-xl px-5 py-3.5 font-bold text-slate-800 dark:text-white outline-none uppercase shadow-inner text-sm" placeholder="E.G. PHD IN MATHEMATICS" />
+                                <input type="text" value={formData.qualification} onChange={e => setFormData({...formData, qualification: e.target.value.toUpperCase()})} className="w-full bg-slate-50 dark:bg-slate-800 border-2 border-transparent focus:border-indigo-100 rounded-xl px-5 py-3.5 font-bold text-slate-800 dark:text-white outline-none uppercase shadow-inner text-sm" placeholder="E.G. PHD IN MATHEMATICS" />
                              </div>
                              <div className="space-y-1">
                                 <label className="text-[8px] font-black text-slate-400 uppercase tracking-widest ml-1">Date of Birth</label>
@@ -471,7 +471,7 @@ const TeachersManager: React.FC<TeachersManagerProps> = ({ user }) => {
                              <div className="space-y-6">
                                 <div className="space-y-2">
                                    <label className="text-[8px] font-black text-slate-400 uppercase ml-1">Staff ID Code</label>
-                                   <input type="text" required value={formData.staffId} onChange={e => setFormData({...formData, staffId: e.target.value})} className="w-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl px-4 py-3 font-black text-slate-800 dark:text-white outline-none uppercase shadow-sm text-sm" placeholder="T-2026-001" />
+                                   <input type="text" required value={formData.staffId} onChange={e => setFormData({...formData, staffId: e.target.value.toUpperCase()})} className="w-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl px-4 py-3 font-black text-slate-800 dark:text-white outline-none uppercase shadow-sm text-sm" placeholder="T-2026-001" />
                                 </div>
 
                                 <div className="space-y-2">
@@ -503,7 +503,6 @@ const TeachersManager: React.FC<TeachersManagerProps> = ({ user }) => {
                        </div>
 
                        <div className="lg:col-span-8 space-y-8">
-                          {/* ACCESS RIGHTS GRID - ONLY ADMIN CAN MODIFY */}
                           <div className="bg-slate-950 rounded-[2.5rem] p-8 text-white relative overflow-hidden group border border-white/5">
                              <div className="absolute top-0 right-0 w-32 h-32 bg-indigo-500/5 rounded-full -mr-16 -mt-16"></div>
                              <div className="flex items-center justify-between mb-6">
@@ -588,7 +587,7 @@ const TeachersManager: React.FC<TeachersManagerProps> = ({ user }) => {
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                        <div className="space-y-1">
                           <label className="text-[8px] font-black text-slate-400 uppercase ml-1">Bank Name</label>
-                          <input type="text" value={formData.bankName} onChange={e => setFormData({...formData, bankName: e.target.value})} className="w-full bg-slate-50 dark:bg-slate-800 border-2 border-transparent focus:border-indigo-100 rounded-xl px-5 py-3.5 font-black uppercase text-sm outline-none shadow-inner" />
+                          <input type="text" value={formData.bankName} onChange={e => setFormData({...formData, bankName: e.target.value.toUpperCase()})} className="w-full bg-slate-50 dark:bg-slate-800 border-2 border-transparent focus:border-indigo-100 rounded-xl px-5 py-3.5 font-black uppercase text-sm outline-none shadow-inner" />
                        </div>
                        <div className="space-y-1">
                           <label className="text-[8px] font-black text-slate-400 uppercase ml-1">Bank Account Number</label>
@@ -620,12 +619,16 @@ const TeachersManager: React.FC<TeachersManagerProps> = ({ user }) => {
                        </div>
 
                        <div className="space-y-6 relative z-10">
-                          <div className="space-y-1">
-                             <label className="text-[8px] font-black text-slate-500 uppercase ml-1">Teacher Username</label>
-                             <input type="text" required value={formData.username} onChange={e => setFormData({...formData, username: e.target.value})} className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 font-black text-white outline-none focus:border-indigo-500 transition-all text-sm" placeholder="T.USERNAME" />
+                          <div className="bg-amber-900/20 border border-amber-500/30 p-4 rounded-xl flex items-start gap-3 mb-2">
+                             <ShieldAlert size={18} className="text-amber-500 shrink-0" />
+                             <p className="text-[9px] font-bold text-amber-200 uppercase leading-relaxed">Admin: Set unique credentials. These are mandatory for teacher login.</p>
                           </div>
                           <div className="space-y-1">
-                             <label className="text-[8px] font-black text-slate-500 uppercase ml-1">Master Key</label>
+                             <label className="text-[8px] font-black text-slate-500 uppercase ml-1">Teacher Username (Login ID)</label>
+                             <input type="text" required value={formData.username} onChange={e => setFormData({...formData, username: e.target.value.toLowerCase().trim()})} className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 font-black text-white outline-none focus:border-indigo-500 transition-all text-sm" placeholder="T.USERNAME" />
+                          </div>
+                          <div className="space-y-1">
+                             <label className="text-[8px] font-black text-slate-500 uppercase ml-1">Master Key (Password)</label>
                              <div className="relative">
                                 <input type={showPassword ? 'text' : 'password'} required value={formData.password} onChange={e => setFormData({...formData, password: e.target.value})} className="w-full bg-white/5 border border-white/10 rounded-xl pl-4 pr-12 py-3 font-black text-white outline-none focus:border-indigo-500 transition-all text-sm" />
                                 <button type="button" onClick={() => setShowPassword(!showPassword)} className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-600 hover:text-white transition-colors">
@@ -633,7 +636,7 @@ const TeachersManager: React.FC<TeachersManagerProps> = ({ user }) => {
                                 </button>
                              </div>
                           </div>
-                          <button type="button" onClick={() => setFormData({...formData, password: 'tea' + Math.floor(1000+Math.random()*9000)})} className="w-full py-3 bg-white/5 border border-white/10 rounded-lg text-[8px] font-black uppercase tracking-widest text-indigo-400 hover:bg-white/10 transition-all">Regenerate Key</button>
+                          <button type="button" onClick={() => setFormData({...formData, password: 'tea' + Math.floor(1000+Math.random()*9000)})} className="w-full py-3 bg-white/5 border border-white/10 rounded-lg text-[8px] font-black uppercase tracking-widest text-indigo-400 hover:bg-white/10 transition-all">Generate Master Key</button>
                        </div>
                     </div>
 
