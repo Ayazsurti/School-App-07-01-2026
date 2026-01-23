@@ -23,12 +23,11 @@ export const db = {
     async login(username: string, pass: string) {
       const lowerUser = username.toLowerCase();
       
-      // Admin Master Login
       if (lowerUser === 'ayazsurti' && pass === 'Ayaz78692') {
         return { id: 'admin-master', name: 'Ayaz Surti', role: 'ADMIN', profile_image: null };
       }
 
-      // Teacher Login Logic - Matches the 'Auth Hub' defined in Teacher Management
+      // Teacher Login Logic - Strictly matches Admin-set credentials
       const { data: tea, error: teaErr } = await supabase
         .from('teachers')
         .select('*')
@@ -73,7 +72,7 @@ export const db = {
         };
       }
 
-      throw new Error("Invalid credentials. Please verify your identity username and password.");
+      throw new Error("Invalid credentials. Please verify your Identity ID and Password.");
     },
 
     async verifyMobile(mobile: string, role: 'TEACHER' | 'STUDENT') {
