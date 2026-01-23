@@ -123,8 +123,14 @@ const DEFAULT_DISPLAY_SETTINGS: DisplaySettings = {
 
 const App: React.FC = () => {
   const [user, setUser] = useState<User | null>(() => {
-    const saved = localStorage.getItem('school_app_user');
-    return saved ? JSON.parse(saved) : null;
+    try {
+      const saved = localStorage.getItem('school_app_user');
+      if (!saved || saved === 'undefined' || saved === 'null') return null;
+      return JSON.parse(saved);
+    } catch (e) {
+      console.error("Auth state recovery failed:", e);
+      return null;
+    }
   });
 
   const [darkMode, setDarkMode] = useState<boolean>(() => {
@@ -132,8 +138,12 @@ const App: React.FC = () => {
   });
 
   const [displaySettings, setDisplaySettings] = useState<DisplaySettings>(() => {
-    const saved = localStorage.getItem('display_settings');
-    return saved ? JSON.parse(saved) : DEFAULT_DISPLAY_SETTINGS;
+    try {
+      const saved = localStorage.getItem('display_settings');
+      return saved ? JSON.parse(saved) : DEFAULT_DISPLAY_SETTINGS;
+    } catch {
+      return DEFAULT_DISPLAY_SETTINGS;
+    }
   });
 
   const [schoolLogo, setSchoolLogo] = useState<string | null>(null);
@@ -263,9 +273,10 @@ const Layout: React.FC<LayoutProps> = ({ user, cloudSettings, branding, onUpdate
   const [isCustomizing, setIsCustomizing] = useState(false);
   const [isSavingNav, setIsSavingNav] = useState(false);
   const [fullStudentData, setFullStudentData] = useState<any>(null);
-  
-  const isStudent = user.role === 'STUDENT';
-  const isAdmin = user.role === 'ADMIN';
+
+  // Use optional chaining for safety during re-renders/hydration
+  const isStudent = user?.role === 'STUDENT';
+  const isAdmin = user?.role === 'ADMIN';
 
   // State to hold navigation order
   const [orderedNav, setOrderedNav] = useState<any[]>([]);
@@ -274,23 +285,23 @@ const Layout: React.FC<LayoutProps> = ({ user, cloudSettings, branding, onUpdate
 
   // Sync Navigation from Cloud or Local
   useEffect(() => {
+    if (!user?.role) return;
+
     const defaultNav = (NAVIGATION as any)[user.role] || [];
     
-    // PERMISSION FILTERING FOR TEACHERS
+    // STRICT PERMISSION FILTERING FOR TEACHERS
     let permittedNav = defaultNav;
     if (user.role === 'TEACHER') {
       const perms = ((user as any).permissions || []) as string[];
       
-      // Strict mapping of teacher nav names to their required permission keys
+      // Map teacher nav items to their specific permission keys
       const nameKeyMap: Record<string, string> = {
         'Attendance': 'attendance',
         'Curriculum': 'curriculum',
         'Homework': 'homework',
-        'Timetable': 'curriculum', 
-        'Food Chart': 'curriculum',
+        'Timetable': 'timetable', 
+        'Food Chart': 'food_chart',
         'SMS Panel': 'sms',
-        'Fee Management': 'attendance', 
-        'Online Fees Payment': 'attendance',
         'Gallery': 'gallery',
         'Notices': 'notices',
         'Marks Entry': 'marks'
@@ -310,18 +321,11 @@ const Layout: React.FC<LayoutProps> = ({ user, cloudSettings, branding, onUpdate
     if (savedOrder) {
       try {
         const savedNames = typeof savedOrder === 'string' ? JSON.parse(savedOrder) : savedOrder;
-        
-        // Rebuild order based on names, using the permitted list
         const ordered = savedNames
           .map((name: string) => permittedNav.find((item: any) => item.name === name))
           .filter(Boolean);
-        
-        // Append any items that weren't in the saved order (new features)
         const remaining = permittedNav.filter((item: any) => !savedNames.includes(item.name));
-        
         const finalNav = [...ordered, ...remaining];
-        
-        // Only update if actually different to prevent flickering
         const currentNames = orderedNav.map(i => i.name).join(',');
         const incomingNames = finalNav.map(i => i.name).join(',');
         
@@ -334,30 +338,26 @@ const Layout: React.FC<LayoutProps> = ({ user, cloudSettings, branding, onUpdate
     } else {
       setOrderedNav(permittedNav);
     }
-  }, [user.role, cloudSettings, (user as any).permissions]);
+  }, [user?.role, cloudSettings, (user as any)?.permissions]);
 
   const handleDragStart = (index: number) => { if (!isStudent) dragItem.current = index; };
   const handleDragEnter = (index: number) => { if (!isStudent) dragOverItem.current = index; };
   
   const handleDragEnd = async () => {
-    if (isStudent || dragItem.current === null || dragOverItem.current === null) return;
+    if (isStudent || dragItem.current === null || dragOverItem.current === null || !user?.role) return;
     
     if (dragItem.current !== dragOverItem.current) {
       const copyListItems = [...orderedNav];
       const dragItemContent = copyListItems[dragItem.current];
       copyListItems.splice(dragItem.current, 1);
       copyListItems.splice(dragOverItem.current, 0, dragItemContent);
-      
-      // 1. Update Local State (Instant Feedback)
       setOrderedNav(copyListItems);
       
-      // 2. Persist Locally
       const orderNames = copyListItems.map(i => i.name);
       const jsonOrder = JSON.stringify(orderNames);
       const cloudKey = `nav_order_${user.role}`;
       localStorage.setItem(cloudKey, jsonOrder);
       
-      // 3. Persist to Cloud (Background)
       setIsSavingNav(true);
       try { 
         await db.settings.update(cloudKey, jsonOrder); 
@@ -367,7 +367,6 @@ const Layout: React.FC<LayoutProps> = ({ user, cloudSettings, branding, onUpdate
         setTimeout(() => setIsSavingNav(false), 800); 
       }
     }
-    
     dragItem.current = null;
     dragOverItem.current = null;
   };
@@ -375,9 +374,8 @@ const Layout: React.FC<LayoutProps> = ({ user, cloudSettings, branding, onUpdate
   const location = useLocation();
   const navigate = useNavigate();
 
-  // Fetch full student data if isStudent
   useEffect(() => {
-    if (isStudent) {
+    if (isStudent && user?.id) {
       const fetchStudentDetails = async () => {
         try {
           const { data } = await supabase.from('students').select('*').eq('id', user.id).single();
@@ -386,7 +384,9 @@ const Layout: React.FC<LayoutProps> = ({ user, cloudSettings, branding, onUpdate
       };
       fetchStudentDetails();
     }
-  }, [isStudent, user.id]);
+  }, [isStudent, user?.id]);
+
+  if (!user) return null;
 
   return (
     <div className="min-h-screen flex transition-colors duration-300 relative bg-slate-50 dark:bg-slate-950 app-container">
@@ -407,7 +407,6 @@ const Layout: React.FC<LayoutProps> = ({ user, cloudSettings, branding, onUpdate
         </div>
       )}
 
-      {/* ADMIN COMPACT PROFILE POPUP */}
       {showProfileModal && isAdmin && (
         <div className="fixed inset-0 z-[2000] pointer-events-auto" onClick={() => setShowProfileModal(false)}>
            <div className="absolute top-20 right-8 w-64 bg-white dark:bg-slate-900 rounded-[2rem] p-6 shadow-2xl border border-slate-100 dark:border-slate-800 animate-in slide-in-from-top-2 duration-300 glass-card" onClick={e => e.stopPropagation()}>
@@ -427,28 +426,23 @@ const Layout: React.FC<LayoutProps> = ({ user, cloudSettings, branding, onUpdate
         </div>
       )}
 
-      {/* STUDENT/TEACHER PROFILE MODAL */}
       {showProfileModal && !isAdmin && (
         <div className="fixed inset-0 z-[2000] flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-xl animate-in fade-in duration-500">
            <div className="bg-white dark:bg-slate-900 rounded-[3.5rem] p-1 shadow-2xl max-w-2xl w-full border border-slate-100 dark:border-slate-800 overflow-hidden relative group">
               <button onClick={() => setShowProfileModal(false)} className="absolute top-8 right-8 p-3 bg-slate-100 dark:bg-slate-800 rounded-full text-slate-400 hover:bg-rose-500 hover:text-white transition-all z-50"><X size={24}/></button>
-              
               <div className="h-32 bg-indigo-600 relative overflow-hidden">
                  <div className="absolute inset-0 neural-grid-white opacity-20"></div>
                  <div className="absolute inset-0 bg-gradient-to-br from-indigo-500/20 to-transparent"></div>
               </div>
-
               <div className="p-8 lg:p-12 -mt-20 relative z-10 flex flex-col items-center">
                  <div className="w-44 h-44 bg-white dark:bg-slate-800 rounded-[3rem] border-8 border-white dark:border-slate-900 shadow-2xl overflow-hidden relative group/img">
                     {user.profileImage ? <img src={user.profileImage} className="w-full h-full object-cover" /> : <UserCircle size={80} className="text-slate-200 m-auto mt-8" />}
                  </div>
-
                  <h2 className="text-3xl font-black text-slate-900 dark:text-white mt-6 uppercase tracking-tight text-center">{fullStudentData?.full_name || user.name}</h2>
                  <div className="flex gap-2 mt-2">
                     <span className="px-4 py-1.5 bg-indigo-50 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400 rounded-full text-[10px] font-black uppercase tracking-widest border border-indigo-100 dark:border-indigo-800">Std {fullStudentData?.class || user.class}-{fullStudentData?.section || user.section}</span>
                     <span className="px-4 py-1.5 bg-emerald-50 dark:bg-emerald-900/30 text-emerald-600 dark:text-emerald-400 rounded-full text-[10px] font-black uppercase tracking-widest border border-emerald-100 dark:border-emerald-800">Verified identity</span>
                  </div>
-
                  {isStudent && (
                     <div className="w-full grid grid-cols-1 md:grid-cols-2 gap-4 mt-12">
                        <div className="p-6 bg-slate-50 dark:bg-slate-800/50 rounded-3xl border border-slate-100 dark:border-slate-800 flex items-start gap-4">
@@ -474,7 +468,6 @@ const Layout: React.FC<LayoutProps> = ({ user, cloudSettings, branding, onUpdate
                        </div>
                     </div>
                  )}
-
                  <button onClick={() => setShowLogoutConfirm(true)} className="mt-10 w-full py-4 bg-rose-50 dark:bg-rose-950/30 text-rose-600 hover:bg-rose-600 hover:text-white rounded-2xl transition-all font-black text-[10px] uppercase tracking-widest shadow-sm border border-rose-100 dark:border-rose-900/50">Logout Account</button>
               </div>
            </div>
@@ -497,7 +490,6 @@ const Layout: React.FC<LayoutProps> = ({ user, cloudSettings, branding, onUpdate
                  {darkMode ? <Sun size={18} /> : <Moon size={18} />}
                </button>
             </div>
-
             {!isStudent && (
               <button onClick={() => setIsCustomizing(!isCustomizing)} className={`w-full flex items-center justify-center gap-2 py-2.5 mt-2 rounded-xl text-[8px] font-black uppercase tracking-widest border transition-all ${isCustomizing ? 'bg-indigo-600 text-white border-indigo-500 shadow-lg' : 'bg-slate-50 dark:bg-slate-800 text-slate-400 border-slate-100 dark:border-slate-700 hover:text-indigo-600'}`}>
                 {isSavingNav ? <Loader2 size={12} className="animate-spin" /> : <LayoutTemplate size={12} />} 
@@ -505,7 +497,6 @@ const Layout: React.FC<LayoutProps> = ({ user, cloudSettings, branding, onUpdate
               </button>
             )}
           </div>
-
           <nav className="flex-1 px-4 space-y-1 overflow-y-auto custom-scrollbar relative z-10">
             {orderedNav.map((item: any, index: number) => {
               const isActive = location.pathname === item.path;
@@ -536,7 +527,6 @@ const Layout: React.FC<LayoutProps> = ({ user, cloudSettings, branding, onUpdate
               );
             })}
           </nav>
-
           <div className="p-4 border-t border-slate-100 dark:border-slate-800 space-y-3 relative z-10">
             <div className={`px-4 py-2 flex items-center justify-between text-[8px] font-black uppercase tracking-widest rounded-lg border ${true ? 'bg-emerald-50 dark:bg-emerald-950/20 text-emerald-600 border-emerald-100 dark:border-emerald-900' : 'bg-rose-50 dark:bg-rose-950/20 text-rose-600 border-rose-100 dark:border-rose-900'}`}>
               <div className="flex items-center gap-2"><Activity size={10} className="animate-pulse" /><span>Cloud Active</span></div>
@@ -550,9 +540,7 @@ const Layout: React.FC<LayoutProps> = ({ user, cloudSettings, branding, onUpdate
       <div className="flex-1 flex flex-col min-w-0 relative z-10">
         <header className="h-16 bg-white/80 dark:bg-slate-900/80 backdrop-blur-md border-b border-slate-200 dark:border-slate-800 px-4 lg:px-8 flex items-center justify-between sticky top-0 z-30 no-print glass-card">
           <button className="lg:hidden p-2 text-slate-600 dark:text-slate-400" onClick={() => setSidebarOpen(true)}><Menu size={24} /></button>
-          
           <div className="flex items-center gap-6 ml-auto">
-             {/* PROFILE TRIGGER */}
              <div className="flex items-center gap-3 pl-2 cursor-pointer group" onClick={() => setShowProfileModal(true)}>
                 <div className="text-right hidden sm:block">
                   <p className="text-sm font-black text-slate-800 dark:text-white leading-none group-hover:text-indigo-600 transition-colors">{fullStudentData?.full_name || user.name}</p>

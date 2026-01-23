@@ -1,4 +1,3 @@
-
 import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { User, Teacher } from '../types';
 import { createAuditLog } from '../utils/auditLogger';
@@ -10,7 +9,8 @@ import {
   UserCheck, Calendar, Info, StopCircle,
   Printer, ShieldAlert, Key, Eye, EyeOff, Activity, AlertTriangle,
   Building2, Fingerprint, Lock, Zap, Cpu, Shield, GraduationCap, Layers, BookOpen, ClipboardList, Clock,
-  Check, CreditCard, ChevronDown, CalendarCheck, PencilRuler, FileSpreadsheet, Images, Bell, MessageSquareQuote
+  Check, CreditCard, ChevronDown, CalendarCheck, PencilRuler, FileSpreadsheet, Images, Bell, MessageSquareQuote,
+  UtensilsCrossed, CalendarDays
 } from 'lucide-react';
 
 interface TeachersManagerProps { user: User; }
@@ -27,6 +27,8 @@ const permissionMatrix = [
   { key: 'homework', label: 'Homework Assignment', icon: <PencilRuler size={16} /> },
   { key: 'marks', label: 'Marks Entry', icon: <FileSpreadsheet size={16} /> },
   { key: 'curriculum', label: 'Curriculum Access', icon: <BookOpen size={16} /> },
+  { key: 'timetable', label: 'Timetable Access', icon: <CalendarDays size={16} /> },
+  { key: 'food_chart', label: 'Food Chart Access', icon: <UtensilsCrossed size={16} /> },
   { key: 'gallery', label: 'Gallery Management', icon: <Images size={16} /> },
   { key: 'notices', label: 'Notice Board', icon: <Bell size={16} /> },
   { key: 'sms', label: 'SMS Panel', icon: <MessageSquareQuote size={16} /> },
@@ -106,7 +108,7 @@ const TeachersManager: React.FC<TeachersManagerProps> = ({ user }) => {
 
   useEffect(() => {
     fetchCloudData();
-    const channel = supabase.channel('teachers-master-sync-v32')
+    const channel = supabase.channel('teachers-master-sync-v33')
       .on('postgres_changes', { event: '*', schema: 'public', table: 'teachers' }, () => {
         setIsSyncing(true);
         fetchCloudData().then(() => setTimeout(() => setIsSyncing(false), 800));
@@ -642,7 +644,7 @@ const TeachersManager: React.FC<TeachersManagerProps> = ({ user }) => {
 
                     <div className="bg-slate-950 rounded-[2.5rem] p-8 border border-white/5 flex flex-col items-center justify-center text-center space-y-6">
                        <p className="text-[9px] font-black text-slate-500 uppercase tracking-[0.3em]">Access Grid State</p>
-                       <div className={`px-6 py-2 rounded-full font-black text-sm uppercase tracking-widest border ${formData.status === 'ACTIVE' ? 'text-emerald-400 border-emerald-400/50 bg-emerald-400/5' : 'text-rose-500 border-rose-500/50 bg-rose-500/5'}`}>
+                       <div className={`px-6 py-2 rounded-full font-black text-sm uppercase tracking-widest border ${formData.status === 'ACTIVE' ? 'text-emerald-400 border-emerald-400/50 bg-emerald-400/5' : 'text-rose-50 border-rose-500/50 bg-rose-500/5'}`}>
                           {formData.status}
                        </div>
                        <button 
