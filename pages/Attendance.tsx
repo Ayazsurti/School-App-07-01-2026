@@ -37,6 +37,7 @@ const Attendance: React.FC<AttendanceProps> = ({ user }) => {
   const [attendance, setAttendance] = useState<Record<string, AttendanceStatus>>({});
   const [recordIds, setRecordIds] = useState<Record<string, string>>({}); 
   const [studentRecords, setStudentRecords] = useState<any[]>([]);
+  const [monthlyMarkedDates, setMonthlyMarkedDates] = useState<Set<string>>(new Set());
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
   const [isSyncing, setIsSyncing] = useState(false);
@@ -58,6 +59,28 @@ const Attendance: React.FC<AttendanceProps> = ({ user }) => {
     }
     return days;
   }, [viewDate]);
+
+  const fetchMonthlyStatus = async () => {
+    try {
+      const year = viewDate.getFullYear();
+      const month = viewDate.getMonth() + 1;
+      const startDate = `${year}-${String(month).padStart(2, '0')}-01`;
+      const endDate = `${year}-${String(month).padStart(2, '0')}-31`;
+
+      const { data, error } = await supabase
+        .from('attendance')
+        .select('date')
+        .gte('date', startDate)
+        .lte('date', endDate);
+
+      if (!error && data) {
+        const uniqueDates = new Set(data.map((item: any) => item.date));
+        setMonthlyMarkedDates(uniqueDates);
+      }
+    } catch (e) {
+      console.error("Monthly Status Fetch Error:", e);
+    }
+  };
 
   const fetchData = async () => {
     setIsLoading(true);
@@ -113,6 +136,8 @@ const Attendance: React.FC<AttendanceProps> = ({ user }) => {
         setAttendance(attendanceMap);
         setRecordIds(idMap);
       }
+      // Refresh monthly dots
+      fetchMonthlyStatus();
     } catch (err) {
       console.error("Attendance Sync Error:", err);
     } finally {
@@ -122,14 +147,14 @@ const Attendance: React.FC<AttendanceProps> = ({ user }) => {
 
   useEffect(() => {
     fetchData();
-    const channel = supabase.channel('realtime-attendance-v26')
+    const channel = supabase.channel('realtime-attendance-v27')
       .on('postgres_changes', { event: '*', schema: 'public', table: 'attendance' }, () => {
         setIsSyncing(true);
         fetchData().then(() => setTimeout(() => setIsSyncing(false), 800));
       })
       .subscribe();
     return () => { supabase.removeChannel(channel); };
-  }, [selectedDate, user.id, selectedClass, selectedSection, selectedMedium]);
+  }, [selectedDate, user.id, selectedClass, selectedSection, selectedMedium, viewDate]);
 
   const baseList = useMemo(() => {
     return students.filter(s => 
@@ -203,6 +228,10 @@ const Attendance: React.FC<AttendanceProps> = ({ user }) => {
       setRecordIds(nextIds);
 
       await createAuditLog(user, 'UPDATE', 'Attendance', `Synced: Std ${selectedClass}-${selectedSection} (${selectedMedium}) on ${selectedDate}`);
+      
+      // Manually add to marked dates for instant UI feedback
+      setMonthlyMarkedDates(prev => new Set(prev).add(selectedDate));
+      
       setShowSuccess(true);
       setTimeout(() => setShowSuccess(false), 3000);
     } catch (err: any) {
@@ -341,17 +370,23 @@ const Attendance: React.FC<AttendanceProps> = ({ user }) => {
                       const dateStr = day.toLocaleDateString('en-CA');
                       const isSelected = selectedDate === dateStr;
                       const isToday = new Date().toLocaleDateString('en-CA') === dateStr;
+                      const isMarked = monthlyMarkedDates.has(dateStr);
+
                       return (
                         <button
                           key={dateStr}
                           onClick={() => setSelectedDate(dateStr)}
-                          className={`aspect-square rounded-lg flex items-center justify-center transition-all border ${
+                          className={`aspect-square rounded-lg flex flex-col items-center justify-center transition-all border relative ${
                             isSelected ? 'bg-indigo-600 border-indigo-600 text-white shadow-lg z-10 scale-110' : 
-                            isToday ? 'bg-indigo-50 dark:bg-indigo-900/30 border-indigo-200 dark:border-indigo-800 text-indigo-600 font-black' : 
+                            isMarked ? 'bg-emerald-50 dark:bg-emerald-900/20 border-emerald-100 dark:border-emerald-800 text-emerald-700 dark:text-emerald-400 font-black' :
+                            isToday ? 'bg-slate-100 dark:bg-slate-800 border-indigo-200 dark:border-indigo-800 text-indigo-600 font-black' : 
                             'bg-slate-50 dark:bg-slate-800/50 border-transparent text-slate-500 text-[10px] font-bold hover:border-indigo-100'
                           }`}
                         >
-                           {day.getDate()}
+                           <span>{day.getDate()}</span>
+                           {isMarked && !isSelected && (
+                             <div className="absolute bottom-1 w-1 h-1 bg-emerald-500 rounded-full"></div>
+                           )}
                         </button>
                       );
                     })}
@@ -376,7 +411,7 @@ const Attendance: React.FC<AttendanceProps> = ({ user }) => {
               </div>
 
               <div className="space-y-3 pt-4 border-t border-slate-50 dark:border-slate-800">
-                 <label className="text-[8px] font-black text-slate-400 uppercase tracking-[0.2em] ml-1">Select Class (Std)</label>
+                 <label className="text-[8px] font-black text-slate-400 uppercase tracking-[0.2em] ml-1 block">Select Class (Std)</label>
                  <div className="grid grid-cols-2 gap-2 max-h-[300px] overflow-y-auto custom-scrollbar pr-1">
                     {ALL_CLASSES.map(cls => (
                       <button 
@@ -534,7 +569,7 @@ const Attendance: React.FC<AttendanceProps> = ({ user }) => {
          </div>
          <div>
             <h4 className="text-sm font-black text-indigo-900 dark:text-indigo-200 uppercase tracking-widest mb-1">Marking Protocol</h4>
-            <p className="text-[10px] font-bold text-indigo-700/60 dark:text-indigo-400/60 uppercase leading-relaxed tracking-wider">Attendance entries are committed to the institutional cloud registry and are visible to parents via the student portal in real-time. Use master tick boxes for rapid status distribution.</p>
+            <p className="text-[10px] font-bold text-indigo-700/60 dark:text-indigo-400/60 uppercase leading-relaxed tracking-wider">Attendance entries are committed to the institutional cloud registry and are visible to parents via the student portal in real-time. Days marked in emerald (green) indicate that a presence registry has been submitted for that date.</p>
          </div>
       </div>
     </div>
