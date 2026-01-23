@@ -193,8 +193,9 @@ const TeachersManager: React.FC<TeachersManagerProps> = ({ user }) => {
       return;
     }
     
+    // MANDATORY AUTH HUB CHECK
     if (!formData.username || !formData.password) {
-      alert("Teacher login credentials (Username/Password) are mandatory. Please set them in the Security tab.");
+      alert("CRITICAL: Teacher Username and Master Key are required for account login. Please configure them in the Security tab.");
       setActiveTab('security');
       return;
     }
@@ -205,7 +206,7 @@ const TeachersManager: React.FC<TeachersManagerProps> = ({ user }) => {
       setShowModal(false);
       setShowSuccess(true);
       setTimeout(() => setShowSuccess(false), 3000);
-      createAuditLog(user, editingTeacher ? 'UPDATE' : 'CREATE', 'Faculty', `Cloud Synced Teacher: ${formData.fullName}`);
+      createAuditLog(user, editingTeacher ? 'UPDATE' : 'CREATE', 'Faculty', `Cloud Synced Teacher: ${formData.fullName} with Auth Credentials`);
       setEditingTeacher(null);
       setFormData(initialFormData);
       fetchCloudData();
