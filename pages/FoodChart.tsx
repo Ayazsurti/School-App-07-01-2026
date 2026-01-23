@@ -90,11 +90,13 @@ const FoodChart: React.FC<FoodChartProps> = ({ user }) => {
   };
 
   const initiateSave = () => {
+    if (user.role !== 'ADMIN') return;
     if (!newItem.name) return;
     setSaveConfirm(true);
   };
 
   const handleFinalSave = () => {
+    if (user.role !== 'ADMIN') return;
     if (editingItem) {
       setMenu(prev => prev.map(d => d.day === activeDay ? {
         ...d,
@@ -119,7 +121,7 @@ const FoodChart: React.FC<FoodChartProps> = ({ user }) => {
   };
 
   const confirmDelete = () => {
-    if (!deleteConfirm) return;
+    if (user.role !== 'ADMIN' || !deleteConfirm) return;
     const { day, item } = deleteConfirm;
     setMenu(prev => prev.map(d => d.day === day ? { ...d, items: d.items.filter(i => i.id !== item.id) } : d));
     createAuditLog(user, 'DELETE', 'Catering', `Purged ${item.name} from ${day} menu`);
@@ -130,7 +132,8 @@ const FoodChart: React.FC<FoodChartProps> = ({ user }) => {
     setTimeout(() => setShowSuccess(false), 3000);
   };
 
-  const canManage = user.role === 'ADMIN' || user.role === 'TEACHER';
+  // Only Admin can manage the food chart
+  const canManage = user.role === 'ADMIN';
 
   return (
     <div className="space-y-8 pb-20 animate-in fade-in duration-500 relative">
@@ -150,7 +153,7 @@ const FoodChart: React.FC<FoodChartProps> = ({ user }) => {
 
       {/* COMPACT DELETE DIALOG */}
       {deleteConfirm && (
-        <div className="fixed inset-0 z-[750] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-md animate-in fade-in duration-200">
+        <div className="fixed inset-0 z-[750] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-in fade-in duration-200">
            <div className="bg-white dark:bg-slate-900 rounded-[2.5rem] p-8 max-w-xs w-full shadow-2xl animate-in zoom-in-95 text-center border border-slate-100 dark:border-slate-800">
               <div className="w-16 h-16 bg-rose-50 dark:bg-rose-900/20 text-rose-600 rounded-[1.8rem] flex items-center justify-center mb-6 mx-auto border border-rose-100 dark:border-rose-900/50 shadow-inner">
                  <Trash2 size={32} />
@@ -168,7 +171,7 @@ const FoodChart: React.FC<FoodChartProps> = ({ user }) => {
       )}
 
       {saveConfirm && (
-        <div className="fixed inset-0 z-[750] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-md animate-in fade-in duration-200">
+        <div className="fixed inset-0 z-[750] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-in fade-in duration-200">
            <div className="bg-white dark:bg-slate-900 rounded-[2.5rem] p-10 max-sm w-full shadow-2xl animate-in zoom-in-95 text-center border-t-8 border-indigo-600 dark:border-slate-800">
               <div className="w-20 h-20 bg-indigo-50 dark:bg-indigo-900/20 text-indigo-600 dark:text-indigo-400 rounded-[2rem] flex items-center justify-center mb-6 mx-auto border border-indigo-100 dark:border-indigo-900/50 shadow-inner">
                  <ShieldCheck size={40} />

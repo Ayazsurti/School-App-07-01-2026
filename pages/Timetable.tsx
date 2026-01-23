@@ -70,14 +70,14 @@ const Timetable: React.FC<TimetableProps> = ({ user }) => {
       return entries.filter(e => e.className === user.class && e.section === user.section);
     }
     if (user.role === 'TEACHER') {
-      return entries.filter(e => e.teacherId === user.id);
+      return entries.filter(e => e.className === selectedClass && e.section === selectedSection);
     }
     return entries.filter(e => e.className === selectedClass && e.section === selectedSection);
   }, [entries, user, selectedClass, selectedSection]);
 
   const handleSaveEntry = (e: React.FormEvent) => {
     e.preventDefault();
-    if (isStudent) return;
+    if (user.role !== 'ADMIN') return;
     const teacher = MOCK_TEACHERS.find(t => t.id === formData.teacherId);
     
     if (editingEntry) {
@@ -110,7 +110,7 @@ const Timetable: React.FC<TimetableProps> = ({ user }) => {
   };
 
   const handleDeleteEntry = (id: string) => {
-    if (isStudent) return;
+    if (user.role !== 'ADMIN') return;
     if (confirm('Permanently remove this period from the timetable?')) {
       setEntries(prev => prev.filter(e => e.id !== id));
       triggerSuccess('Schedule entry purged');
@@ -118,7 +118,7 @@ const Timetable: React.FC<TimetableProps> = ({ user }) => {
   };
 
   const handleAddSubject = () => {
-    if (isStudent) return;
+    if (user.role !== 'ADMIN') return;
     if (newSubject.trim() && !subjects.includes(newSubject.trim())) {
       setSubjects(prev => [...prev, newSubject.trim()]);
       setNewSubject('');
@@ -127,12 +127,13 @@ const Timetable: React.FC<TimetableProps> = ({ user }) => {
   };
 
   const removeSubject = (sub: string) => {
-    if (isStudent) return;
+    if (user.role !== 'ADMIN') return;
     setSubjects(prev => prev.filter(s => s !== sub));
     triggerSuccess('Subject removed from list');
   };
 
-  const canManage = user.role === 'ADMIN' || user.role === 'TEACHER';
+  // Only Admin can add, edit, or delete periods
+  const canManage = user.role === 'ADMIN';
 
   return (
     <div className="space-y-8 pb-20 animate-in fade-in duration-500 relative">
@@ -286,7 +287,7 @@ const Timetable: React.FC<TimetableProps> = ({ user }) => {
 
       {showAddModal && (
         <div className="fixed inset-0 z-[160] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-in fade-in duration-200">
-          <div className="bg-white dark:bg-slate-900 rounded-[2.5rem] p-10 max-w-lg w-full shadow-2xl animate-in zoom-in-95 duration-200">
+          <div className="bg-white dark:bg-slate-900 rounded-[2.5rem] p-10 max-lg w-full shadow-2xl animate-in zoom-in-95 duration-200">
              <div className="flex justify-between items-center mb-8">
                 <h3 className="text-2xl font-black text-slate-900 dark:text-white tracking-tight uppercase">{editingEntry ? 'Modify Period' : 'Schedule Period'}</h3>
                 <button onClick={() => setShowAddModal(false)} className="p-2 hover:bg-slate-100 rounded-full text-slate-400"><X size={24} /></button>
