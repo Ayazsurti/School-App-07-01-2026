@@ -23,12 +23,12 @@ export const db = {
     async login(username: string, pass: string) {
       const lowerUser = username.toLowerCase();
       
-      // 1. Admin Master Login
+      // Admin Master Login
       if (lowerUser === 'ayazsurti' && pass === 'Ayaz78692') {
         return { id: 'admin-master', name: 'Ayaz Surti', role: 'ADMIN', profile_image: null };
       }
 
-      // 2. Teacher Login Logic - Matches the 'Master Key' set in the Auth Hub
+      // Teacher Login Logic - Matches the 'Auth Hub' defined in Teacher Management
       const { data: tea, error: teaErr } = await supabase
         .from('teachers')
         .select('*')
@@ -53,7 +53,7 @@ export const db = {
         };
       }
 
-      // 3. Student Login Logic
+      // Student Login Logic - Uses GR Number as Username
       const { data: std, error: stdErr } = await supabase
         .from('students')
         .select('*')
@@ -73,7 +73,7 @@ export const db = {
         };
       }
 
-      throw new Error("Invalid credentials. Please verify your Identity ID and Master Key.");
+      throw new Error("Invalid credentials. Please verify your identity username and password.");
     },
 
     async verifyMobile(mobile: string, role: 'TEACHER' | 'STUDENT') {

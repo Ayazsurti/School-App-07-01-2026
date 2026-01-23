@@ -112,7 +112,7 @@ const Login: React.FC<LoginProps> = ({ onLogin, schoolLogo, schoolName }) => {
         role: profile.role as UserRole,
         class: (profile as any).class,
         section: (profile as any).section,
-        profile_image: profile.profile_image,
+        profileImage: profile.profile_image,
         staffId: (profile as any).staffId,
         mobile: (profile as any).mobile,
         // Passing extended data for dashboard customization
@@ -253,7 +253,7 @@ const Login: React.FC<LoginProps> = ({ onLogin, schoolLogo, schoolName }) => {
                     value={username} 
                     onChange={e => setUsername(e.target.value)} 
                     className="w-full pl-14 pr-6 py-4 bg-slate-50 rounded-2xl font-black uppercase outline-none border-2 border-transparent focus:border-indigo-100 disabled:opacity-50" 
-                    placeholder={role === 'TEACHER' ? "ENTER AUTH HUB USERNAME" : ""}
+                    placeholder={role === 'TEACHER' ? "ENTER ADMIN-SET USERNAME" : ""}
                   />
                 </div>
               </div>
@@ -360,7 +360,7 @@ const Login: React.FC<LoginProps> = ({ onLogin, schoolLogo, schoolName }) => {
               <div className="p-5 bg-indigo-50/50 rounded-2xl border border-indigo-100 flex items-start gap-4">
                 <ShieldCheck size={18} className="text-indigo-500 shrink-0 mt-0.5" />
                 <p className="text-[9px] font-bold text-indigo-700 leading-relaxed uppercase tracking-wider">
-                  {role === 'STUDENT' ? 'Parents must enter the registered number. An OTP will be dispatched for multi-factor authentication.' : 'Authorized faculty members only. Use credentials defined in the AUTH HUB by Administrator.'}
+                  {role === 'STUDENT' ? 'Parents must enter the registered number. An OTP will be dispatched for multi-factor authentication.' : 'Authorized faculty members only. Use credentials defined in the Auth Hub by Administrator.'}
                 </p>
               </div>
             </div>
