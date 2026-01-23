@@ -27,7 +27,7 @@ export const db = {
         return { id: 'admin-master', name: 'Ayaz Surti', role: 'ADMIN', profile_image: null };
       }
 
-      // Teacher Login Logic - Matches the 'Auth Hub' in Management
+      // Teacher Login Logic - Strictly matches Admin-set credentials
       const { data: tea, error: teaErr } = await supabase
         .from('teachers')
         .select('*')
@@ -47,7 +47,8 @@ export const db = {
           assignedRole: tea.assigned_role,
           subjects: tea.subject ? tea.subject.split(', ') : [],
           staffId: tea.staff_id,
-          mobile: tea.mobile
+          mobile: tea.mobile,
+          permissions: tea.permissions ? tea.permissions.split(', ') : []
         };
       }
 
@@ -113,7 +114,8 @@ export const db = {
         assignedRole: data.assigned_role,
         subjects: data.subject ? data.subject.split(', ') : [],
         staffId: data.staff_id || (data as any).staff_id,
-        mobile: data.mobile || data.father_mobile
+        mobile: data.mobile || data.father_mobile,
+        permissions: data.permissions ? data.permissions.split(', ') : []
       };
     }
   },
@@ -256,6 +258,7 @@ export const db = {
         dob: teacher.dob,
         subject: Array.isArray(teacher.subjects) ? teacher.subjects.join(', ') : teacher.subjects,
         classes_list: Array.isArray(teacher.classes) ? teacher.classes.join(', ') : teacher.classes,
+        permissions: Array.isArray(teacher.permissions) ? teacher.permissions.join(', ') : teacher.permissions,
         assigned_role: teacher.assignedRole,
         assigned_class: teacher.assignedClass,
         assigned_section: teacher.assignedSection,

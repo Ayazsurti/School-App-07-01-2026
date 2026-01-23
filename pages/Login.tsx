@@ -240,7 +240,7 @@ const Login: React.FC<LoginProps> = ({ onLogin, schoolLogo, schoolName }) => {
             <form onSubmit={handlePasswordLogin} className="space-y-6">
               <div className="space-y-1">
                 <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest ml-1">
-                  {role === 'ADMIN' ? 'admin username' : role === 'TEACHER' ? 'Teacher Username / आईडी' : 'student gr number'}
+                  {role === 'ADMIN' ? 'admin username' : role === 'TEACHER' ? 'Teacher Username' : 'student gr number'}
                 </label>
                 <div className="relative">
                   <Key className="absolute left-5 top-1/2 -translate-y-1/2 text-slate-300" size={18} />
@@ -257,7 +257,7 @@ const Login: React.FC<LoginProps> = ({ onLogin, schoolLogo, schoolName }) => {
               </div>
               <div className="space-y-1">
                 <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest ml-1">
-                  {role === 'ADMIN' ? 'admin password' : role === 'TEACHER' ? 'Master Key / पासवर्ड' : 'passphrase / पासवर्ड'}
+                  {role === 'ADMIN' ? 'admin password' : role === 'TEACHER' ? 'Master Key' : 'Passphrase'}
                 </label>
                 <div className="relative">
                   <Lock className="absolute left-5 top-1/2 -translate-y-1/2 text-slate-300" size={18} />

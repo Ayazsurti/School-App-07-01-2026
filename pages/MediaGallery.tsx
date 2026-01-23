@@ -2,7 +2,7 @@
 import React, { useState, useRef, useMemo, useEffect } from 'react';
 import { User, MediaAsset } from '../types';
 import { createAuditLog } from '../utils/auditLogger';
-import { db, supabase } from '../supabase';
+import { db, supabase, getErrorMessage } from '../supabase';
 import { 
   Plus, Search, Trash2, Upload, X, Maximize2, Image as ImageIcon, Clock, Loader2, Edit2, CheckCircle2, 
   AlertTriangle, Save, RefreshCw, ShieldCheck, Database, CheckSquare, Square, Layers
@@ -21,7 +21,7 @@ const MediaGallery: React.FC<MediaGalleryProps> = ({ user }) => {
   const [isLoading, setIsLoading] = useState(true);
   const [isSyncing, setIsSyncing] = useState(false);
   const [showFormModal, setShowFormModal] = useState(false);
-  const [deleteId, setDeleteId] = useState<string | null>(null);
+  const [deleteTarget, setDeleteTarget] = useState<MediaAsset | null>(null);
   const [activeMediaId, setActiveMediaId] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [uploading, setUploading] = useState(false);
@@ -47,7 +47,7 @@ const MediaGallery: React.FC<MediaGalleryProps> = ({ user }) => {
 
   useEffect(() => {
     fetchCloudData();
-    const channel = supabase.channel('realtime-gallery-sync-v13')
+    const channel = supabase.channel('realtime-gallery-sync-v14')
       .on('postgres_changes', { event: '*', schema: 'public', table: 'gallery' }, () => {
         setIsSyncing(true);
         fetchCloudData().then(() => setTimeout(() => setIsSyncing(false), 800));
@@ -105,6 +105,21 @@ const MediaGallery: React.FC<MediaGalleryProps> = ({ user }) => {
     finally { setUploading(false); }
   };
 
+  const handleConfirmDelete = async () => {
+    if (!deleteTarget) return;
+    setIsSyncing(true);
+    try {
+      await db.gallery.delete(deleteTarget.id);
+      await createAuditLog(user, 'DELETE', 'Gallery', `Purged Photo: ${deleteTarget.name}`);
+      setDeleteTarget(null);
+      fetchCloudData();
+    } catch (err: any) {
+      alert(`Delete Failed: ${getErrorMessage(err)}`);
+    } finally {
+      setIsSyncing(false);
+    }
+  };
+
   const filteredAssets = useMemo(() => {
     return assets.filter(asset => {
       const matchesSearch = asset.name.toLowerCase().includes(searchQuery.toLowerCase());
@@ -155,7 +170,7 @@ const MediaGallery: React.FC<MediaGalleryProps> = ({ user }) => {
                     <p className="text-[8px] font-black text-indigo-400 uppercase tracking-widest mb-3 truncate">Audience: {targetInfo}</p>
                     <div className="flex items-center justify-between border-t border-slate-50 dark:border-slate-800 pt-4 mt-auto">
                        <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-1.5"><Clock size={12}/> {asset.date}</p>
-                       {user.role !== 'STUDENT' && <button onClick={() => setDeleteId(asset.id)} className="p-2 text-rose-500 hover:bg-rose-50 rounded-lg"><Trash2 size={16} /></button>}
+                       {user.role !== 'STUDENT' && <button onClick={() => setDeleteTarget(asset)} className="p-2 text-rose-500 hover:bg-rose-50 rounded-lg"><Trash2 size={16} /></button>}
                     </div>
                  </div>
               </div>
@@ -215,6 +230,25 @@ const MediaGallery: React.FC<MediaGalleryProps> = ({ user }) => {
                  <button onClick={handleSave} disabled={uploading || targetClasses.length === 0} className="w-full py-6 bg-indigo-600 text-white font-black rounded-3xl shadow-xl hover:bg-indigo-700 transition-all uppercase text-sm tracking-[0.3em] flex items-center justify-center gap-4">
                     {uploading ? <Loader2 className="animate-spin" /> : <Database size={24} />} Synchronize to Vault
                  </button>
+              </div>
+           </div>
+        </div>
+      )}
+
+      {/* REFINED DELETE CONFIRMATION MODAL */}
+      {deleteTarget && (
+        <div className="fixed inset-0 z-[2000] flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-md no-print animate-in fade-in">
+           <div className="bg-white dark:bg-slate-900 rounded-[3rem] p-10 max-w-sm w-full shadow-2xl text-center border border-rose-100/20 animate-in zoom-in-95">
+              <div className="w-16 h-16 bg-rose-50 dark:bg-rose-900/20 text-rose-600 rounded-[1.8rem] flex items-center justify-center mb-6 mx-auto shadow-inner border border-rose-100">
+                 <AlertTriangle size={32} strokeWidth={2.5} />
+              </div>
+              <h3 className="text-xl font-black text-slate-900 dark:text-white mb-2 uppercase tracking-tighter leading-tight">Purge Photo?</h3>
+              <p className="text-slate-500 dark:text-slate-400 mb-8 font-medium text-[10px] uppercase tracking-widest leading-relaxed">
+                Delete <b>{deleteTarget.name}</b> from the institutional vault? This cannot be undone.
+              </p>
+              <div className="grid grid-cols-2 gap-3">
+                 <button onClick={() => setDeleteTarget(null)} className="py-4 bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 font-black rounded-2xl uppercase text-[10px]">Cancel</button>
+                 <button onClick={handleConfirmDelete} className="py-4 bg-rose-600 text-white font-black rounded-2xl shadow-xl hover:bg-rose-700 transition-all uppercase text-[10px]">Purge</button>
               </div>
            </div>
         </div>

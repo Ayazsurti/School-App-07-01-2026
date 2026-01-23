@@ -179,8 +179,6 @@ const Attendance: React.FC<AttendanceProps> = ({ user }) => {
     if (isStudent) return;
     setIsSaving(true);
     try {
-      // FIX: Conditionally add 'id' only if it exists in recordIds
-      // If we send id: undefined or id: null, Supabase throws the 23502 constraint error
       const records = baseList.map(s => {
         const entry: any = {
           student_id: s.id,
@@ -189,7 +187,6 @@ const Attendance: React.FC<AttendanceProps> = ({ user }) => {
           marked_by: user.name
         };
         
-        // Only include ID if we are updating an existing row
         if (recordIds[s.id]) {
           entry.id = recordIds[s.id];
         }
@@ -246,7 +243,6 @@ const Attendance: React.FC<AttendanceProps> = ({ user }) => {
 
   return (
     <div className="space-y-8 pb-20 animate-in fade-in duration-500 relative">
-      {/* YES / NO CONFIRMATION MODAL */}
       {showConfirmModal && (
         <div className="fixed inset-0 z-[2000] flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-sm animate-in fade-in">
            <div className="bg-white dark:bg-slate-900 rounded-[3rem] p-1 shadow-2xl max-w-md w-full border border-slate-100 dark:border-slate-800 animate-in zoom-in-95 overflow-hidden">
@@ -329,7 +325,6 @@ const Attendance: React.FC<AttendanceProps> = ({ user }) => {
       </div>
 
       <div className="grid grid-cols-1 xl:grid-cols-12 gap-8">
-        {/* Sidebar Controls */}
         <div className="xl:col-span-3 space-y-6">
            <div className="bg-white dark:bg-slate-900 rounded-[2rem] shadow-sm border border-slate-100 dark:border-slate-800 overflow-hidden flex flex-col">
               <div className="p-4 border-b border-slate-50 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-800/30 flex items-center justify-between">
@@ -408,7 +403,6 @@ const Attendance: React.FC<AttendanceProps> = ({ user }) => {
            </div>
         </div>
 
-        {/* Main Marking Area */}
         <div className="xl:col-span-9 space-y-6">
            <div className="bg-white dark:bg-slate-900 rounded-[2rem] p-6 shadow-sm border border-slate-100 dark:border-slate-800 flex flex-col sm:flex-row items-center justify-between gap-6">
               <div className="flex items-center gap-4">
@@ -444,11 +438,9 @@ const Attendance: React.FC<AttendanceProps> = ({ user }) => {
            </div>
 
            <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 h-full min-h-[600px]">
-              {/* Presence Pool Column */}
               <div className="bg-white dark:bg-slate-900 rounded-[3rem] shadow-sm border border-slate-100 dark:border-slate-800 overflow-hidden flex flex-col">
                  <div className="p-6 border-b border-slate-100 dark:border-slate-800 bg-emerald-50/30 dark:bg-emerald-950/10 flex items-center justify-between">
                     <div className="flex items-center gap-3">
-                       {/* MASTER TICK BOX: ALL PRESENT */}
                        <button 
                         onClick={toggleAllPresent}
                         className={`p-1.5 rounded-lg transition-all ${isAllPresent ? 'bg-emerald-600 text-white shadow-lg' : 'bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-300 hover:border-emerald-500'}`}
@@ -490,11 +482,9 @@ const Attendance: React.FC<AttendanceProps> = ({ user }) => {
                  </div>
               </div>
 
-              {/* Absent Registry Column */}
               <div className="bg-white dark:bg-slate-900 rounded-[3rem] shadow-sm border border-slate-100 dark:border-slate-800 overflow-hidden flex flex-col">
                  <div className="p-6 border-b border-slate-100 dark:border-slate-800 bg-rose-50/30 dark:bg-rose-950/10 flex items-center justify-between">
                     <div className="flex items-center gap-3">
-                       {/* MASTER TICK BOX: ALL ABSENT */}
                        <button 
                         onClick={toggleAllAbsent}
                         className={`p-1.5 rounded-lg transition-all ${isAllAbsent ? 'bg-rose-600 text-white shadow-lg' : 'bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-300 hover:border-rose-500'}`}

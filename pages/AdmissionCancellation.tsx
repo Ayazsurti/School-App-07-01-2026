@@ -230,7 +230,7 @@ const AdmissionCancellation: React.FC<AdmissionCancellationProps> = ({ user }) =
       </div>
 
       <div className="bg-white dark:bg-slate-900 p-6 rounded-[2.5rem] shadow-sm border border-slate-100 dark:border-slate-800 flex flex-col md:flex-row gap-4 items-center">
-          <div className="relative group w-full max-w-md">
+          <div className="relative group w-full max-md">
               <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-300" size={18} />
               <input type="text" placeholder="Search archive (Name/GR)..." value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} className="w-full pl-12 pr-4 py-4 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl font-bold outline-none focus:ring-2 focus:ring-indigo-500 transition-all shadow-inner dark:text-white uppercase text-sm" />
           </div>
@@ -358,7 +358,7 @@ const AdmissionCancellation: React.FC<AdmissionCancellationProps> = ({ user }) =
       {/* REVERT CONFIRMATION MODAL */}
       {showRevertConfirm && (
         <div className="fixed inset-0 z-[1400] flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-md animate-in fade-in">
-           <div className="bg-white dark:bg-slate-900 rounded-[3rem] p-10 max-w-sm w-full shadow-2xl text-center border border-indigo-100/20 animate-in zoom-in-95">
+           <div className="bg-white dark:bg-slate-900 rounded-[3rem] p-10 max-sm w-full shadow-2xl text-center border border-indigo-100/20 animate-in zoom-in-95">
               <div className="w-16 h-16 bg-indigo-50 dark:bg-indigo-900/20 text-indigo-600 rounded-[1.8rem] flex items-center justify-center mb-6 mx-auto shadow-inner border border-indigo-100">
                  <RotateCcw size={32} strokeWidth={2.5} className="animate-neural-pulse" />
               </div>

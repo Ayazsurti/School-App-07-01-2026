@@ -88,6 +88,7 @@ export interface Teacher extends User {
   qualification: string;
   subjects: string[];
   classes: string[];
+  permissions: string[];
   joiningDate: string;
   dob?: string;
   residenceAddress: string;

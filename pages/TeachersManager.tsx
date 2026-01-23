@@ -10,7 +10,7 @@ import {
   UserCheck, Calendar, Info, StopCircle,
   Printer, ShieldAlert, Key, Eye, EyeOff, Activity, AlertTriangle,
   Building2, Fingerprint, Lock, Zap, Cpu, Shield, GraduationCap, Layers, BookOpen, ClipboardList, Clock,
-  Check, CreditCard, ChevronDown
+  Check, CreditCard, ChevronDown, CalendarCheck, PencilRuler, FileSpreadsheet, Images, Bell, MessageSquareQuote
 } from 'lucide-react';
 
 interface TeachersManagerProps { user: User; }
@@ -23,12 +23,13 @@ const ALL_CLASSES = [
 const SUBJECTS_LIST = ['MATHEMATICS', 'SCIENCE', 'ENGLISH', 'HISTORY', 'GEOGRAPHY', 'HINDI', 'GUJRATI', 'ARABIC', 'ISLAMIC STUDIES', 'PHYSICAL ED'];
 
 const permissionMatrix = [
-  { key: 'attendance', label: 'Attendance Management / उपस्थिति प्रबंधन' },
-  { key: 'homework', label: 'Homework Assignment / होमवर्क असाइमेंट' },
-  { key: 'marks', label: 'Marks Entry / अंक प्रविष्टि' },
-  { key: 'curriculum', label: 'Curriculum Access / पाठ्यक्रम पहुंच' },
-  { key: 'gallery', label: 'Gallery Management / गैलरी प्रबंधन' },
-  { key: 'notices', label: 'Notice Board / सूचना पट्ट' },
+  { key: 'attendance', label: 'Attendance Management', icon: <CalendarCheck size={16} /> },
+  { key: 'homework', label: 'Homework Assignment', icon: <PencilRuler size={16} /> },
+  { key: 'marks', label: 'Marks Entry', icon: <FileSpreadsheet size={16} /> },
+  { key: 'curriculum', label: 'Curriculum Access', icon: <BookOpen size={16} /> },
+  { key: 'gallery', label: 'Gallery Management', icon: <Images size={16} /> },
+  { key: 'notices', label: 'Notice Board', icon: <Bell size={16} /> },
+  { key: 'sms', label: 'SMS Panel', icon: <MessageSquareQuote size={16} /> },
 ];
 
 const TeachersManager: React.FC<TeachersManagerProps> = ({ user }) => {
@@ -52,7 +53,7 @@ const TeachersManager: React.FC<TeachersManagerProps> = ({ user }) => {
 
   const initialFormData: Partial<Teacher> = {
     fullName: '', email: '', staffId: '', mobile: '', alternateMobile: '', profileImage: '',
-    qualification: '', subjects: [], classes: [], status: 'ACTIVE', gender: 'Male',
+    qualification: '', subjects: [], classes: [], permissions: [], status: 'ACTIVE', gender: 'Male',
     joiningDate: new Date().toISOString().split('T')[0],
     dob: '', residenceAddress: '', assignedRole: 'SUBJECT_TEACHER',
     assignedClass: '1 - GIRLS', assignedSection: 'A',
@@ -82,6 +83,7 @@ const TeachersManager: React.FC<TeachersManagerProps> = ({ user }) => {
         dob: t.dob,
         subjects: t.subject ? t.subject.split(', ') : [],
         classes: t.classes_list ? t.classes_list.split(', ') : [],
+        permissions: t.permissions ? t.permissions.split(', ') : [],
         assignedRole: t.assigned_role || 'SUBJECT_TEACHER',
         assignedClass: t.assigned_class,
         assignedSection: t.assigned_section,
@@ -104,7 +106,7 @@ const TeachersManager: React.FC<TeachersManagerProps> = ({ user }) => {
 
   useEffect(() => {
     fetchCloudData();
-    const channel = supabase.channel('teachers-master-sync-v30')
+    const channel = supabase.channel('teachers-master-sync-v31')
       .on('postgres_changes', { event: '*', schema: 'public', table: 'teachers' }, () => {
         setIsSyncing(true);
         fetchCloudData().then(() => setTimeout(() => setIsSyncing(false), 800));
@@ -175,12 +177,28 @@ const TeachersManager: React.FC<TeachersManagerProps> = ({ user }) => {
     }));
   };
 
+  const togglePermission = (permKey: string) => {
+    if (user.role !== 'ADMIN') return;
+    const current = formData.permissions || [];
+    setFormData(prev => ({
+      ...prev,
+      permissions: current.includes(permKey) ? current.filter(p => p !== permKey) : [...current, permKey]
+    }));
+  };
+
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!formData.fullName || !formData.staffId) {
       alert("Name and Staff ID are essential.");
       return;
     }
+    
+    if (!formData.username || !formData.password) {
+      alert("Teacher login credentials (Username/Password) are mandatory. Please set them in the Security tab.");
+      setActiveTab('security');
+      return;
+    }
+
     setIsSyncing(true);
     try {
       await db.teachers.upsert({ ...formData, id: editingTeacher?.id });
@@ -218,7 +236,7 @@ const TeachersManager: React.FC<TeachersManagerProps> = ({ user }) => {
            <div className="bg-emerald-600 text-white px-8 py-5 rounded-[2rem] shadow-2xl flex items-center gap-4 border border-emerald-500/50 backdrop-blur-xl">
               <CheckCircle2 size={24} strokeWidth={3} />
               <div>
-                 <p className="font-black text-xs uppercase tracking-widest leading-none mb-1">Success / सफलता</p>
+                 <p className="font-black text-xs uppercase tracking-widest leading-none mb-1">Success</p>
                  <p className="text-[10px] font-bold text-emerald-100 uppercase tracking-widest mt-0.5">Faculty record synchronized</p>
               </div>
            </div>
@@ -227,7 +245,7 @@ const TeachersManager: React.FC<TeachersManagerProps> = ({ user }) => {
 
       <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6 no-print">
         <div>
-          <h1 className="text-4xl font-black text-slate-900 dark:text-white tracking-tight flex items-center gap-3 uppercase">Faculty Directory <UserCheck className="text-indigo-600" /></h1>
+          <h1 className="text-4xl font-black text-slate-900 dark:text-white tracking-tighter flex items-center gap-3 uppercase">Faculty Directory <UserCheck className="text-indigo-600" /></h1>
           <p className="text-slate-500 dark:text-slate-400 font-bold text-xs uppercase tracking-widest mt-2 leading-relaxed">Centralized management of teachers, roles, and institutional assignments.</p>
         </div>
         <div className="flex flex-wrap gap-3">
@@ -235,7 +253,7 @@ const TeachersManager: React.FC<TeachersManagerProps> = ({ user }) => {
             <Printer size={18} /> Print List
           </button>
           <button onClick={() => { setEditingTeacher(null); setFormData(initialFormData); setActiveTab('profile'); setShowModal(true); stopCamera(); }} className="px-8 py-4 bg-indigo-600 text-white font-black rounded-2xl shadow-xl flex items-center justify-center gap-3 hover:-translate-y-1 transition-all uppercase text-xs tracking-widest">
-            <UserPlus size={20} strokeWidth={3} /> New Registration / नया पंजीकरण
+            <UserPlus size={20} strokeWidth={3} /> New Registration
           </button>
         </div>
       </div>
@@ -264,10 +282,10 @@ const TeachersManager: React.FC<TeachersManagerProps> = ({ user }) => {
             <table className="w-full min-w-[1200px]">
               <thead>
                 <tr className="bg-slate-50 dark:bg-slate-800/50 text-slate-400 text-[10px] font-black uppercase tracking-widest border-b border-slate-100 dark:border-slate-800">
-                  <th className="px-10 py-6 text-left">Faculty Profile / प्रोफ़ाइल</th>
-                  <th className="px-8 py-6 text-left">Academic Assignment / शैक्षणिक कार्य</th>
-                  <th className="px-8 py-6 text-left">Assigned Subjects / विषय</th>
-                  <th className="px-8 py-6 text-center">Status / स्थिति</th>
+                  <th className="px-10 py-6 text-left">Faculty Profile</th>
+                  <th className="px-8 py-6 text-left">Academic Assignment</th>
+                  <th className="px-8 py-6 text-left">Assigned Subjects</th>
+                  <th className="px-8 py-6 text-center">Status</th>
                   <th className="px-8 py-6 text-right no-print">Registry Operations</th>
                 </tr>
               </thead>
@@ -336,7 +354,7 @@ const TeachersManager: React.FC<TeachersManagerProps> = ({ user }) => {
                <div className="flex items-center gap-6">
                   <div>
                     <h3 className="text-xl font-black text-slate-900 dark:text-white uppercase tracking-tight leading-none">{editingTeacher ? 'Modify Terminal' : 'Register Faculty'}</h3>
-                    <p className="text-[9px] font-bold text-slate-400 uppercase tracking-[0.3em] mt-2">Institutional Identity Portal • पोर्टल</p>
+                    <p className="text-[9px] font-bold text-slate-400 uppercase tracking-[0.3em] mt-2">Institutional Identity Portal</p>
                   </div>
                   <div className="h-10 w-px bg-slate-200 dark:bg-slate-700 hidden lg:block" />
                   <div className="flex bg-slate-100 dark:bg-slate-800 p-1 rounded-xl gap-0.5 overflow-x-auto custom-scrollbar">
@@ -375,62 +393,62 @@ const TeachersManager: React.FC<TeachersManagerProps> = ({ user }) => {
                           </div>
                           <input type="file" ref={fileInputRef} className="hidden" accept="image/*" onChange={handleFileUpload} />
                           <canvas ref={canvasRef} className="hidden" />
-                          <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest text-center leading-relaxed">Official Portrait / आधिकारिक चित्र</p>
+                          <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest text-center leading-relaxed">Official Portrait</p>
                        </div>
                     </div>
 
                     <div className="lg:col-span-8 space-y-10">
                        <div className="space-y-6">
-                          <h4 className="text-[9px] font-black text-indigo-600 uppercase tracking-[0.3em] flex items-center gap-2 border-b border-indigo-50 dark:border-indigo-900/30 pb-3">Personal Registry / व्यक्तिगत पंजीकरण</h4>
+                          <h4 className="text-[9px] font-black text-indigo-600 uppercase tracking-[0.3em] flex items-center gap-2 border-b border-indigo-50 dark:border-indigo-900/30 pb-3">Personal Registry</h4>
                           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                              <div className="space-y-1">
-                                <label className="text-[8px] font-black text-slate-400 uppercase tracking-widest ml-1">Full Teacher Name / शिक्षक का पूरा नाम</label>
+                                <label className="text-[8px] font-black text-slate-400 uppercase tracking-widest ml-1">Full Teacher Name</label>
                                 <input type="text" required value={formData.fullName} onChange={e => setFormData({...formData, fullName: e.target.value})} className="w-full bg-slate-50 dark:bg-slate-800 border-2 border-transparent focus:border-indigo-100 rounded-xl px-5 py-3.5 font-black text-slate-800 dark:text-white outline-none uppercase shadow-inner text-sm" placeholder="E.G. PROF. ROBERT MILLER" />
                              </div>
                              <div className="space-y-1">
-                                <label className="text-[8px] font-black text-slate-400 uppercase tracking-widest ml-1">Qualification / योग्यता</label>
+                                <label className="text-[8px] font-black text-slate-400 uppercase tracking-widest ml-1">Qualification</label>
                                 <input type="text" value={formData.qualification} onChange={e => setFormData({...formData, qualification: e.target.value})} className="w-full bg-slate-50 dark:bg-slate-800 border-2 border-transparent focus:border-indigo-100 rounded-xl px-5 py-3.5 font-bold text-slate-800 dark:text-white outline-none uppercase shadow-inner text-sm" placeholder="E.G. PHD IN MATHEMATICS" />
                              </div>
                              <div className="space-y-1">
-                                <label className="text-[8px] font-black text-slate-400 uppercase tracking-widest ml-1">Date of Birth / जन्म तिथि</label>
+                                <label className="text-[8px] font-black text-slate-400 uppercase tracking-widest ml-1">Date of Birth</label>
                                 <input type="date" value={formData.dob} onChange={e => setFormData({...formData, dob: e.target.value})} className="w-full bg-slate-50 dark:bg-slate-800 border-2 border-transparent focus:border-indigo-100 rounded-xl px-5 py-3.5 font-bold text-slate-800 dark:text-white outline-none shadow-inner text-sm" />
                              </div>
                              <div className="space-y-1">
-                                <label className="text-[8px] font-black text-slate-400 uppercase tracking-widest ml-1">Gender / लिंग</label>
+                                <label className="text-[8px] font-black text-slate-400 uppercase tracking-widest ml-1">Gender</label>
                                 <select value={formData.gender} onChange={e => setFormData({...formData, gender: e.target.value})} className="w-full bg-slate-50 dark:bg-slate-800 border-2 border-transparent focus:border-indigo-100 rounded-xl px-5 py-3.5 font-black text-slate-800 dark:text-white outline-none shadow-inner cursor-pointer text-sm">
-                                   <option value="Male">Male / पुरुष</option>
-                                   <option value="Female">Female / महिला</option>
+                                   <option value="Male">Male</option>
+                                   <option value="Female">Female</option>
                                 </select>
                              </div>
                           </div>
                        </div>
 
                        <div className="space-y-6">
-                          <h4 className="text-[9px] font-black text-indigo-600 uppercase tracking-[0.3em] flex items-center gap-2 border-b border-indigo-50 dark:border-indigo-900/30 pb-3">Contact & ID / संपर्क और पहचान</h4>
+                          <h4 className="text-[9px] font-black text-indigo-600 uppercase tracking-[0.3em] flex items-center gap-2 border-b border-indigo-50 dark:border-indigo-900/30 pb-3">Contact & ID</h4>
                           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                              <div className="space-y-1">
-                                <label className="text-[8px] font-black text-slate-400 uppercase tracking-widest ml-1">WhatsApp / Phone / फोन</label>
+                                <label className="text-[8px] font-black text-slate-400 uppercase tracking-widest ml-1">WhatsApp / Phone</label>
                                 <div className="relative">
                                    <Smartphone className="absolute left-4 top-1/2 -translate-y-1/2 text-emerald-500" size={16} />
                                    <input type="tel" maxLength={10} value={formData.mobile} onChange={e => setFormData({...formData, mobile: e.target.value.replace(/[^0-9]/g, '')})} className="w-full bg-slate-50 dark:bg-slate-800 border-2 border-transparent focus:border-indigo-100 rounded-xl pl-12 pr-4 py-3.5 font-black text-slate-800 dark:text-white outline-none tracking-[0.2em] shadow-inner text-sm" />
                                 </div>
                              </div>
                              <div className="space-y-1">
-                                <label className="text-[8px] font-black text-slate-400 uppercase tracking-widest ml-1">Official Email / ईमेल</label>
+                                <label className="text-[8px] font-black text-slate-400 uppercase tracking-widest ml-1">Official Email</label>
                                 <div className="relative">
                                    <Mail className="absolute left-4 top-1/2 -translate-y-1/2 text-indigo-300" size={16} />
                                    <input type="email" value={formData.email} onChange={e => setFormData({...formData, email: e.target.value.toLowerCase()})} className="w-full bg-slate-50 dark:bg-slate-800 border-2 border-transparent focus:border-indigo-100 rounded-xl pl-12 pr-4 py-3.5 font-bold text-slate-800 dark:text-white outline-none shadow-inner text-sm" />
                                 </div>
                              </div>
                              <div className="space-y-1">
-                                <label className="text-[8px] font-black text-slate-400 uppercase tracking-widest ml-1">Aadhar Number / आधार</label>
+                                <label className="text-[8px] font-black text-slate-400 uppercase tracking-widest ml-1">Aadhar Number</label>
                                 <div className="relative">
                                    <Fingerprint className="absolute left-4 top-1/2 -translate-y-1/2 text-indigo-300" size={16} />
                                    <input type="text" maxLength={12} value={formData.aadharNo} onChange={e => setFormData({...formData, aadharNo: e.target.value.replace(/[^0-9]/g, '')})} className="w-full bg-slate-50 dark:bg-slate-800 border-2 border-transparent focus:border-indigo-100 rounded-xl pl-12 pr-4 py-3.5 font-black text-slate-800 dark:text-white outline-none tracking-[0.15em] shadow-inner text-sm" placeholder="XXXX XXXX XXXX" />
                                 </div>
                              </div>
                              <div className="space-y-1">
-                                <label className="text-[8px] font-black text-slate-400 uppercase tracking-widest ml-1">PAN Card Number / पैन</label>
+                                <label className="text-[8px] font-black text-slate-400 uppercase tracking-widest ml-1">PAN Card Number</label>
                                 <div className="relative">
                                    <CreditCard className="absolute left-4 top-1/2 -translate-y-1/2 text-indigo-300" size={16} />
                                    <input type="text" maxLength={10} value={formData.panNo} onChange={e => setFormData({...formData, panNo: e.target.value.toUpperCase()})} className="w-full bg-slate-50 dark:bg-slate-800 border-2 border-transparent focus:border-indigo-100 rounded-xl pl-12 pr-4 py-3.5 font-black text-slate-800 dark:text-white outline-none tracking-[0.2em] shadow-inner text-sm" placeholder="ABCDE1234F" />
@@ -444,22 +462,22 @@ const TeachersManager: React.FC<TeachersManagerProps> = ({ user }) => {
 
                {activeTab === 'academic' && (
                  <div className="space-y-10 animate-in slide-in-from-right-4">
-                    <div className="grid grid-cols-1 md:grid-cols-12 gap-8">
-                       <div className="md:col-span-5 space-y-6">
+                    <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
+                       <div className="lg:col-span-4 space-y-6">
                           <div className="bg-slate-50 dark:bg-slate-800/50 p-6 rounded-[2.5rem] border border-slate-100 dark:border-slate-800 shadow-inner">
                              <h4 className="text-[9px] font-black text-indigo-600 uppercase tracking-widest mb-6 flex items-center gap-2"><GraduationCap size={16}/> Professional Role</h4>
                              
                              <div className="space-y-6">
                                 <div className="space-y-2">
-                                   <label className="text-[8px] font-black text-slate-400 uppercase ml-1">Staff ID Code / स्टाफ आईडी</label>
+                                   <label className="text-[8px] font-black text-slate-400 uppercase ml-1">Staff ID Code</label>
                                    <input type="text" required value={formData.staffId} onChange={e => setFormData({...formData, staffId: e.target.value})} className="w-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl px-4 py-3 font-black text-slate-800 dark:text-white outline-none uppercase shadow-sm text-sm" placeholder="T-2026-001" />
                                 </div>
 
                                 <div className="space-y-2">
-                                   <label className="text-[8px] font-black text-slate-400 uppercase ml-1">Institutional Rank / पद</label>
+                                   <label className="text-[8px] font-black text-slate-400 uppercase ml-1">Institutional Rank</label>
                                    <select value={formData.assignedRole} onChange={e => setFormData({...formData, assignedRole: e.target.value as any})} className="w-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl px-4 py-3 font-black text-slate-800 dark:text-white outline-none cursor-pointer uppercase text-sm">
-                                      <option value="SUBJECT_TEACHER">Subject Teacher / विषय शिक्षक</option>
-                                      <option value="CLASS_TEACHER">Class Teacher / कक्षा शिक्षक</option>
+                                      <option value="SUBJECT_TEACHER">Subject Teacher</option>
+                                      <option value="CLASS_TEACHER">Class Teacher</option>
                                    </select>
                                 </div>
 
@@ -483,10 +501,49 @@ const TeachersManager: React.FC<TeachersManagerProps> = ({ user }) => {
                           </div>
                        </div>
 
-                       <div className="md:col-span-7 space-y-8">
-                          {/* TEACHING CLASSES ASSIGNMENT GRID */}
+                       <div className="lg:col-span-8 space-y-8">
+                          {/* ACCESS RIGHTS GRID - ONLY ADMIN CAN MODIFY */}
+                          <div className="bg-slate-950 rounded-[2.5rem] p-8 text-white relative overflow-hidden group border border-white/5">
+                             <div className="absolute top-0 right-0 w-32 h-32 bg-indigo-500/5 rounded-full -mr-16 -mt-16"></div>
+                             <div className="flex items-center justify-between mb-6">
+                                <h4 className="text-[10px] font-black uppercase tracking-[0.3em] text-indigo-400 flex items-center gap-3"><Lock size={16}/> Access Rights Control</h4>
+                                {user.role === 'ADMIN' ? (
+                                   <span className="text-[8px] font-black px-2 py-1 bg-emerald-500/10 text-emerald-400 rounded-md border border-emerald-500/20 uppercase">Admin Console</span>
+                                ) : (
+                                   <span className="text-[8px] font-black px-2 py-1 bg-amber-500/10 text-amber-400 rounded-md border border-amber-500/20 uppercase">View Only</span>
+                                )}
+                             </div>
+                             
+                             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                {permissionMatrix.map(pm => {
+                                   const isGranted = formData.permissions?.includes(pm.key);
+                                   return (
+                                      <button 
+                                       key={pm.key} 
+                                       type="button"
+                                       disabled={user.role !== 'ADMIN'}
+                                       onClick={() => togglePermission(pm.key)}
+                                       className={`flex items-center justify-between p-4 rounded-2xl border transition-all text-left ${isGranted ? 'bg-indigo-600/20 border-indigo-500/50 text-white' : 'bg-white/5 border-white/10 text-slate-500 hover:border-white/20'} ${user.role !== 'ADMIN' ? 'cursor-default' : ''}`}
+                                      >
+                                         <div className="flex items-center gap-3 min-w-0">
+                                            <div className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 ${isGranted ? 'bg-indigo-600 text-white' : 'bg-white/10 text-slate-600'}`}>
+                                               {pm.icon}
+                                            </div>
+                                            <div className="min-w-0">
+                                               <p className="text-[9px] font-black uppercase tracking-widest truncate">{pm.label}</p>
+                                            </div>
+                                         </div>
+                                         <div className={`w-5 h-5 rounded-full flex items-center justify-center border-2 transition-all ${isGranted ? 'bg-emerald-50 border-emerald-400 shadow-[0_0_10px_rgba(16,185,129,0.4)]' : 'border-white/10 bg-black/20'}`}>
+                                            {isGranted && <Check size={10} strokeWidth={4} className="text-white" />}
+                                         </div>
+                                      </button>
+                                   );
+                                })}
+                             </div>
+                          </div>
+
                           <div className="bg-white dark:bg-slate-900 p-6 rounded-[2.5rem] border border-slate-100 dark:border-slate-800 shadow-sm">
-                             <h4 className="text-[9px] font-black text-indigo-600 uppercase tracking-widest mb-5 flex items-center gap-2"><Layers size={16}/> Teaching Classes / पढ़ाने की कक्षाएं</h4>
+                             <h4 className="text-[9px] font-black text-indigo-600 uppercase tracking-widest mb-5 flex items-center gap-2"><Layers size={16}/> Teaching Classes</h4>
                              <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 max-h-40 overflow-y-auto custom-scrollbar pr-1">
                                 {ALL_CLASSES.map(cls => {
                                   const isActive = formData.classes?.includes(cls);
@@ -500,7 +557,7 @@ const TeachersManager: React.FC<TeachersManagerProps> = ({ user }) => {
                           </div>
 
                           <div className="bg-white dark:bg-slate-900 p-6 rounded-[2.5rem] border border-slate-100 dark:border-slate-800 shadow-sm">
-                             <h4 className="text-[9px] font-black text-indigo-600 uppercase tracking-widest mb-5 flex items-center gap-2"><BookOpen size={16}/> Teaching Subjects / विषय</h4>
+                             <h4 className="text-[9px] font-black text-indigo-600 uppercase tracking-widest mb-5 flex items-center gap-2"><BookOpen size={16}/> Teaching Subjects</h4>
                              <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
                                 {SUBJECTS_LIST.map(sub => {
                                   const isActive = formData.subjects?.includes(sub);
@@ -510,22 +567,6 @@ const TeachersManager: React.FC<TeachersManagerProps> = ({ user }) => {
                                     </button>
                                   );
                                 })}
-                             </div>
-                          </div>
-
-                          <div className="bg-slate-950 rounded-[2.5rem] p-8 text-white relative overflow-hidden group">
-                             <h4 className="text-[10px] font-black uppercase tracking-[0.3em] mb-6 text-indigo-400 flex items-center gap-3"><ClipboardList size={16}/> Access Rights</h4>
-                             <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
-                                {permissionMatrix.slice(0, 4).map(pm => (
-                                   <div key={pm.key} className="flex items-center gap-3">
-                                      <div className="w-6 h-6 bg-emerald-500/20 rounded-lg flex items-center justify-center border border-white/5">
-                                         <Check size={12} className="text-emerald-400" />
-                                      </div>
-                                      <div className="flex-1 min-w-0">
-                                         <p className="text-[9px] font-black uppercase tracking-widest text-slate-100 truncate">{pm.label.split(' / ')[0]}</p>
-                                      </div>
-                                   </div>
-                                ))}
                              </div>
                           </div>
                        </div>
@@ -545,22 +586,22 @@ const TeachersManager: React.FC<TeachersManagerProps> = ({ user }) => {
 
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                        <div className="space-y-1">
-                          <label className="text-[8px] font-black text-slate-400 uppercase ml-1">Bank Name / बैंक का नाम</label>
+                          <label className="text-[8px] font-black text-slate-400 uppercase ml-1">Bank Name</label>
                           <input type="text" value={formData.bankName} onChange={e => setFormData({...formData, bankName: e.target.value})} className="w-full bg-slate-50 dark:bg-slate-800 border-2 border-transparent focus:border-indigo-100 rounded-xl px-5 py-3.5 font-black uppercase text-sm outline-none shadow-inner" />
                        </div>
                        <div className="space-y-1">
-                          <label className="text-[8px] font-black text-slate-400 uppercase ml-1">Bank Account Number / खाता संख्या</label>
+                          <label className="text-[8px] font-black text-slate-400 uppercase ml-1">Bank Account Number</label>
                           <input type="text" value={formData.accountNo} onChange={e => setFormData({...formData, accountNo: e.target.value})} className="w-full bg-slate-50 dark:bg-slate-800 border-2 border-transparent focus:border-indigo-100 rounded-xl px-5 py-3.5 font-black text-sm outline-none shadow-inner tracking-widest" />
                        </div>
                        <div className="space-y-1">
-                          <label className="text-[8px] font-black text-slate-400 uppercase ml-1">IFSC Code / आईएफएससी</label>
+                          <label className="text-[8px] font-black text-slate-400 uppercase ml-1">IFSC Code</label>
                           <input type="text" value={formData.ifscCode} onChange={e => setFormData({...formData, ifscCode: e.target.value.toUpperCase()})} className="w-full bg-slate-50 dark:bg-slate-800 border-2 border-transparent focus:border-indigo-100 rounded-xl px-5 py-3.5 font-black text-sm outline-none shadow-inner uppercase" />
                        </div>
                        <div className="space-y-1">
-                          <label className="text-[8px] font-black text-slate-400 uppercase ml-1">Account Type / खाता प्रकार</label>
+                          <label className="text-[8px] font-black text-slate-400 uppercase ml-1">Account Type</label>
                           <select value={formData.accountType} onChange={e => setFormData({...formData, accountType: e.target.value as any})} className="w-full bg-slate-50 dark:bg-slate-800 border-2 border-transparent focus:border-indigo-100 rounded-xl px-5 py-3.5 font-black text-sm outline-none shadow-inner cursor-pointer">
-                             <option value="SAVINGS">SAVINGS / बचत</option>
-                             <option value="CURRENT">CURRENT / चालू</option>
+                             <option value="SAVINGS">SAVINGS</option>
+                             <option value="CURRENT">CURRENT</option>
                           </select>
                        </div>
                     </div>
@@ -579,13 +620,13 @@ const TeachersManager: React.FC<TeachersManagerProps> = ({ user }) => {
 
                        <div className="space-y-6 relative z-10">
                           <div className="space-y-1">
-                             <label className="text-[8px] font-black text-slate-500 uppercase ml-1">Teacher Username / आईडी</label>
-                             <input type="text" value={formData.username} onChange={e => setFormData({...formData, username: e.target.value})} className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 font-black text-white outline-none focus:border-indigo-500 transition-all text-sm" placeholder="T.USERNAME" />
+                             <label className="text-[8px] font-black text-slate-500 uppercase ml-1">Teacher Username</label>
+                             <input type="text" required value={formData.username} onChange={e => setFormData({...formData, username: e.target.value})} className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 font-black text-white outline-none focus:border-indigo-500 transition-all text-sm" placeholder="T.USERNAME" />
                           </div>
                           <div className="space-y-1">
-                             <label className="text-[8px] font-black text-slate-500 uppercase ml-1">Master Key / पासवर्ड</label>
+                             <label className="text-[8px] font-black text-slate-500 uppercase ml-1">Master Key</label>
                              <div className="relative">
-                                <input type={showPassword ? 'text' : 'password'} value={formData.password} onChange={e => setFormData({...formData, password: e.target.value})} className="w-full bg-white/5 border border-white/10 rounded-xl pl-4 pr-12 py-3 font-black text-white outline-none focus:border-indigo-500 transition-all text-sm" />
+                                <input type={showPassword ? 'text' : 'password'} required value={formData.password} onChange={e => setFormData({...formData, password: e.target.value})} className="w-full bg-white/5 border border-white/10 rounded-xl pl-4 pr-12 py-3 font-black text-white outline-none focus:border-indigo-500 transition-all text-sm" />
                                 <button type="button" onClick={() => setShowPassword(!showPassword)} className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-600 hover:text-white transition-colors">
                                    {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
                                 </button>
@@ -613,7 +654,7 @@ const TeachersManager: React.FC<TeachersManagerProps> = ({ user }) => {
                )}
 
                <div className="flex gap-3 pt-8 border-t border-slate-100 dark:border-slate-800 sticky bottom-0 bg-white dark:bg-slate-900 pb-2">
-                  <button type="button" onClick={() => { stopCamera(); setShowModal(false); }} className="flex-1 py-3.5 bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 font-black rounded-2xl uppercase text-[9px] tracking-widest shadow-sm">Discard</button>
+                  <button type="button" onClick={() => { stopCamera(); setShowModal(false); }} className="flex-1 py-3.5 bg-slate-100 dark:border-slate-800 text-slate-600 dark:text-slate-400 font-black rounded-2xl uppercase text-[9px] tracking-widest shadow-sm">Discard</button>
                   <button type="submit" disabled={isSyncing} className="flex-[2] py-3.5 bg-indigo-600 text-white font-black rounded-2xl shadow-xl hover:bg-indigo-700 transition-all uppercase text-[9px] tracking-[0.2em] flex items-center justify-center gap-3 disabled:opacity-50">
                     {isSyncing ? <Loader2 className="animate-spin" size={18} /> : <ShieldCheck size={18} />}
                     Finalize Identity Sync
@@ -627,12 +668,12 @@ const TeachersManager: React.FC<TeachersManagerProps> = ({ user }) => {
       {/* Delete Dialog */}
       {deleteId && (
         <div className="fixed inset-0 z-[2000] flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-md animate-in fade-in">
-           <div className="bg-white dark:bg-slate-900 rounded-[3rem] p-10 max-w-xs w-full shadow-2xl text-center border border-rose-100/20 animate-in zoom-in-95">
+           <div className="bg-white dark:bg-slate-900 rounded-[3rem] p-10 max-xs w-full shadow-2xl text-center border border-rose-100/20 animate-in zoom-in-95">
               <div className="w-16 h-16 bg-rose-50 dark:bg-rose-900/20 text-rose-600 rounded-[1.8rem] flex items-center justify-center mb-6 mx-auto shadow-inner border border-rose-100">
                  <AlertTriangle size={32} strokeWidth={2.5} />
               </div>
-              <h3 className="text-xl font-black text-slate-900 dark:text-white mb-2 uppercase tracking-tighter leading-tight">Deactivate?<br/><span className="text-sm">निष्क्रिय करें?</span></h3>
-              <p className="text-slate-500 dark:text-slate-400 mb-8 font-medium text-[10px] leading-relaxed uppercase tracking-widest">This record will be permanently purged. / रिकॉर्ड स्थाई रूप से हटा दिया जाएगा।</p>
+              <h3 className="text-xl font-black text-slate-900 dark:text-white mb-2 uppercase tracking-tighter leading-tight">Deactivate?</h3>
+              <p className="text-slate-500 dark:text-slate-400 mb-8 font-medium text-[10px] leading-relaxed uppercase tracking-widest">This record will be permanently purged.</p>
               <div className="grid grid-cols-2 gap-3">
                  <button onClick={() => setDeleteId(null)} className="py-4 bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 font-black rounded-2xl uppercase text-[10px]">Cancel</button>
                  <button onClick={async () => { await db.teachers.delete(deleteId); setDeleteId(null); fetchCloudData(); }} className="py-4 bg-rose-600 text-white font-black rounded-2xl shadow-xl hover:bg-rose-700 transition-all uppercase text-[10px]">Purge</button>

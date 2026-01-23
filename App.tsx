@@ -276,6 +276,34 @@ const Layout: React.FC<LayoutProps> = ({ user, cloudSettings, branding, onUpdate
   // Sync Navigation from Cloud or Local
   useEffect(() => {
     const defaultNav = (NAVIGATION as any)[user.role] || [];
+    
+    // PERMISSION FILTERING FOR TEACHERS
+    let permittedNav = defaultNav;
+    if (user.role === 'TEACHER' && (user as any).permissions) {
+      const perms = (user as any).permissions as string[];
+      permittedNav = defaultNav.filter((item: any) => {
+        if (item.name === 'Dashboard') return true;
+        
+        // Match navigation names with permission keys
+        const nameKeyMap: Record<string, string> = {
+          'Attendance': 'attendance',
+          'Curriculum': 'curriculum',
+          'Homework': 'homework',
+          'Timetable': 'curriculum', // Grouped with curriculum or separate? Usually auto-allowed
+          'Food Chart': 'curriculum',
+          'SMS Panel': 'sms',
+          'Fee Management': 'attendance', // Example of restricted access
+          'Online Fees Payment': 'attendance',
+          'Gallery': 'gallery',
+          'Notices': 'notices',
+          'Marks Entry': 'marks'
+        };
+
+        const permKey = nameKeyMap[item.name];
+        return !permKey || perms.includes(permKey);
+      });
+    }
+
     const cloudKey = `nav_order_${user.role}`;
     const savedOrder = cloudSettings[cloudKey] || localStorage.getItem(cloudKey);
     
@@ -283,13 +311,13 @@ const Layout: React.FC<LayoutProps> = ({ user, cloudSettings, branding, onUpdate
       try {
         const savedNames = typeof savedOrder === 'string' ? JSON.parse(savedOrder) : savedOrder;
         
-        // Rebuild order based on names
+        // Rebuild order based on names, using the permitted list
         const ordered = savedNames
-          .map((name: string) => defaultNav.find((item: any) => item.name === name))
+          .map((name: string) => permittedNav.find((item: any) => item.name === name))
           .filter(Boolean);
         
         // Append any items that weren't in the saved order (new features)
-        const remaining = defaultNav.filter((item: any) => !savedNames.includes(item.name));
+        const remaining = permittedNav.filter((item: any) => !savedNames.includes(item.name));
         
         const finalNav = [...ordered, ...remaining];
         
@@ -301,12 +329,12 @@ const Layout: React.FC<LayoutProps> = ({ user, cloudSettings, branding, onUpdate
           setOrderedNav(finalNav);
         }
       } catch (e) { 
-        setOrderedNav(defaultNav); 
+        setOrderedNav(permittedNav); 
       }
     } else {
-      setOrderedNav(defaultNav);
+      setOrderedNav(permittedNav);
     }
-  }, [user.role, cloudSettings]);
+  }, [user.role, cloudSettings, (user as any).permissions]);
 
   const handleDragStart = (index: number) => { if (!isStudent) dragItem.current = index; };
   const handleDragEnter = (index: number) => { if (!isStudent) dragOverItem.current = index; };
