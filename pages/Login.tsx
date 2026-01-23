@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { User, UserRole } from '../types';
 import { 
@@ -105,6 +104,12 @@ const Login: React.FC<LoginProps> = ({ onLogin, schoolLogo, schoolName }) => {
     setError(null);
     try {
       const profile = await db.auth.loginWithMobile(mobileNumber, role as 'TEACHER' | 'STUDENT');
+      
+      // Ensure permissions are parsed into an array for mobile login too
+      const permissionsArray = (profile as any).permissions 
+        ? (typeof (profile as any).permissions === 'string' ? (profile as any).permissions.split(', ') : (profile as any).permissions)
+        : [];
+
       const userObj: User = {
         id: profile.id,
         name: profile.name,
@@ -115,10 +120,9 @@ const Login: React.FC<LoginProps> = ({ onLogin, schoolLogo, schoolName }) => {
         profileImage: profile.profile_image,
         staffId: (profile as any).staffId,
         mobile: (profile as any).mobile,
-        // Passing extended data for dashboard customization
         assignedRole: (profile as any).assignedRole,
         subjects: (profile as any).subjects || [],
-        permissions: (profile as any).permissions || []
+        permissions: permissionsArray
       } as any;
       await createAuditLog(userObj, 'LOGIN', 'Auth', `Mobile OTP Login: ${mobileNumber}`);
       await executeLogin(userObj);
@@ -144,7 +148,6 @@ const Login: React.FC<LoginProps> = ({ onLogin, schoolLogo, schoolName }) => {
         profileImage: profile.profile_image,
         staffId: (profile as any).staffId,
         mobile: (profile as any).mobile,
-        // Passing extended data for dashboard customization
         assignedRole: (profile as any).assignedRole,
         subjects: (profile as any).subjects || [],
         permissions: (profile as any).permissions || []

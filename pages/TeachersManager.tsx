@@ -2,7 +2,8 @@
 import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { User, Teacher } from '../types';
 import { createAuditLog } from '../utils/auditLogger';
-import { supabase, db } from '../supabase';
+// Add missing imports for db and supabase
+import { db, supabase } from '../supabase';
 import { 
   Plus, Search, Trash2, Edit2, X, UserPlus, User as UserIcon, Camera, Upload, 
   CheckCircle2, ShieldCheck, Loader2, RefreshCw, RotateCcw,
@@ -10,7 +11,8 @@ import {
   UserCheck, Calendar, Info, StopCircle,
   Printer, ShieldAlert, Key, Eye, EyeOff, Activity, AlertTriangle,
   Building2, Fingerprint, Lock, Zap, Cpu, Shield, GraduationCap, Layers, BookOpen, ClipboardList, Clock,
-  Check, CreditCard, ChevronDown, CalendarCheck, PencilRuler, FileSpreadsheet, Images, Bell, MessageSquareQuote
+  Check, CreditCard, ChevronDown, CalendarCheck, PencilRuler, FileSpreadsheet, Images, Bell, MessageSquareQuote,
+  UtensilsCrossed, CalendarDays
 } from 'lucide-react';
 
 interface TeachersManagerProps { user: User; }
@@ -30,6 +32,8 @@ const permissionMatrix = [
   { key: 'gallery', label: 'Gallery Management', icon: <Images size={16} /> },
   { key: 'notices', label: 'Notice Board', icon: <Bell size={16} /> },
   { key: 'sms', label: 'SMS Panel', icon: <MessageSquareQuote size={16} /> },
+  { key: 'food_chart', label: 'Food Chart', icon: <UtensilsCrossed size={16} /> },
+  { key: 'timetable', label: 'Time Table', icon: <CalendarDays size={16} /> },
 ];
 
 const TeachersManager: React.FC<TeachersManagerProps> = ({ user }) => {
@@ -66,6 +70,7 @@ const TeachersManager: React.FC<TeachersManagerProps> = ({ user }) => {
 
   const fetchCloudData = async () => {
     try {
+      // Fix: db is now defined by importing it from supabase.ts
       const data = await db.teachers.getAll();
       const mapped = data.map((t: any) => ({
         id: t.id,
@@ -106,12 +111,15 @@ const TeachersManager: React.FC<TeachersManagerProps> = ({ user }) => {
 
   useEffect(() => {
     fetchCloudData();
+    // Fix: supabase is now defined by importing it from supabase.ts
     const channel = supabase.channel('teachers-master-sync-v32')
       .on('postgres_changes', { event: '*', schema: 'public', table: 'teachers' }, () => {
         setIsSyncing(true);
         fetchCloudData().then(() => setTimeout(() => setIsSyncing(false), 800));
       })
       .subscribe();
+      
+    // Fix: supabase is now defined by importing it from supabase.ts
     return () => { supabase.removeChannel(channel); };
   }, []);
 
@@ -202,6 +210,7 @@ const TeachersManager: React.FC<TeachersManagerProps> = ({ user }) => {
 
     setIsSyncing(true);
     try {
+      // Fix: db is now defined by importing it from supabase.ts
       await db.teachers.upsert({ ...formData, id: editingTeacher?.id });
       setShowModal(false);
       setShowSuccess(true);
@@ -680,7 +689,10 @@ const TeachersManager: React.FC<TeachersManagerProps> = ({ user }) => {
               <p className="text-slate-500 dark:text-slate-400 mb-8 font-medium text-[10px] leading-relaxed uppercase tracking-widest">This record will be permanently purged.</p>
               <div className="grid grid-cols-2 gap-3">
                  <button onClick={() => setDeleteId(null)} className="py-4 bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 font-black rounded-2xl uppercase text-[10px]">Cancel</button>
-                 <button onClick={async () => { await db.teachers.delete(deleteId); setDeleteId(null); fetchCloudData(); }} className="py-4 bg-rose-600 text-white font-black rounded-2xl shadow-xl hover:bg-rose-700 transition-all uppercase text-[10px]">Purge</button>
+                 <button onClick={async () => {
+                   // Fix: db is now defined by importing it from supabase.ts
+                   await db.teachers.delete(deleteId); setDeleteId(null); fetchCloudData(); 
+                 }} className="py-4 bg-rose-600 text-white font-black rounded-2xl shadow-xl hover:bg-rose-700 transition-all uppercase text-[10px]">Purge</button>
               </div>
            </div>
         </div>

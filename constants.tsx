@@ -69,6 +69,7 @@ export const NAVIGATION = {
   TEACHER: [
     { name: 'Dashboard', icon: <LayoutDashboard size={20} />, path: '/teacher/dashboard' },
     { name: 'Attendance', icon: <CalendarCheck size={20} />, path: '/teacher/attendance' },
+    { name: 'Marks Entry', icon: <FileSpreadsheet size={20} />, path: '/teacher/marks-entry' },
     { name: 'Curriculum', icon: <BookOpen size={20} />, path: '/teacher/curriculum' },
     { name: 'Homework', icon: <PencilRuler size={20} />, path: '/teacher/homework' },
     { name: 'Timetable', icon: <CalendarDays size={20} />, path: '/teacher/timetable' },
