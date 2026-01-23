@@ -193,8 +193,9 @@ const TeachersManager: React.FC<TeachersManagerProps> = ({ user }) => {
       return;
     }
     
+    // MANDATORY AUTH HUB CHECK
     if (!formData.username || !formData.password) {
-      alert("Teacher login credentials (Username/Password) are mandatory. Please set them in the Security tab.");
+      alert("CRITICAL: Teacher Username and Master Key are required for account login. Please set them in the AUTH HUB tab.");
       setActiveTab('security');
       return;
     }
@@ -205,7 +206,7 @@ const TeachersManager: React.FC<TeachersManagerProps> = ({ user }) => {
       setShowModal(false);
       setShowSuccess(true);
       setTimeout(() => setShowSuccess(false), 3000);
-      createAuditLog(user, editingTeacher ? 'UPDATE' : 'CREATE', 'Faculty', `Cloud Synced Teacher: ${formData.fullName}`);
+      createAuditLog(user, editingTeacher ? 'UPDATE' : 'CREATE', 'Faculty', `Cloud Synced Teacher: ${formData.fullName} (Auth Active)`);
       setEditingTeacher(null);
       setFormData(initialFormData);
       fetchCloudData();
@@ -359,7 +360,7 @@ const TeachersManager: React.FC<TeachersManagerProps> = ({ user }) => {
                   <div className="h-10 w-px bg-slate-200 dark:bg-slate-700 hidden lg:block" />
                   <div className="flex bg-slate-100 dark:bg-slate-800 p-1 rounded-xl gap-0.5 overflow-x-auto custom-scrollbar">
                      {(['profile', 'academic', 'finance', 'security'] as any).map((t: string) => (
-                       <button key={t} onClick={() => setActiveTab(t as any)} className={`px-4 py-2 rounded-lg text-[8px] font-black uppercase tracking-widest transition-all whitespace-nowrap ${activeTab === t ? 'bg-indigo-600 text-white shadow-lg' : 'text-slate-400 hover:text-slate-600'}`}>{t}</button>
+                       <button key={t} onClick={() => setActiveTab(t as any)} className={`px-4 py-2 rounded-lg text-[8px] font-black uppercase tracking-widest transition-all whitespace-nowrap ${activeTab === t ? 'bg-indigo-600 text-white shadow-lg' : 'text-slate-400 hover:text-slate-600'}`}>{t === 'security' ? 'AUTH HUB' : t}</button>
                      ))}
                   </div>
                </div>
@@ -632,7 +633,7 @@ const TeachersManager: React.FC<TeachersManagerProps> = ({ user }) => {
                                 </button>
                              </div>
                           </div>
-                          <button type="button" onClick={() => setFormData({...formData, password: 'tea' + Math.floor(1000+Math.random()*9000)})} className="w-full py-3 bg-white/5 border border-white/10 rounded-lg text-[8px] font-black uppercase tracking-widest text-indigo-400 hover:bg-white/10 transition-all">Regenerate Key</button>
+                          <button type="button" onClick={() => setFormData({...formData, password: 'tea' + Math.floor(1000+Math.random()*9000)})} className="w-full py-3 bg-white/5 border border-white/10 rounded-lg text-[8px] font-black uppercase tracking-widest text-indigo-400 hover:bg-white/10 transition-all">Regenerate Master Key</button>
                        </div>
                     </div>
 

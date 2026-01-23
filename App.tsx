@@ -268,37 +268,31 @@ const Layout: React.FC<LayoutProps> = ({ user, cloudSettings, branding, onUpdate
   const isStudent = user.role === 'STUDENT';
   const isAdmin = user.role === 'ADMIN';
 
-  // State to hold navigation order
   const [orderedNav, setOrderedNav] = useState<any[]>([]);
   const dragItem = useRef<number | null>(null);
   const dragOverItem = useRef<number | null>(null);
 
-  // Sync Navigation from Cloud or Local
   useEffect(() => {
     const defaultNav = (NAVIGATION as any)[user.role] || [];
     
-    // PERMISSION FILTERING FOR TEACHERS
     let permittedNav = defaultNav;
     if (user.role === 'TEACHER' && (user as any).permissions) {
       const perms = (user as any).permissions as string[];
       permittedNav = defaultNav.filter((item: any) => {
         if (item.name === 'Dashboard') return true;
-        
-        // Match navigation names with permission keys
         const nameKeyMap: Record<string, string> = {
           'Attendance': 'attendance',
           'Curriculum': 'curriculum',
           'Homework': 'homework',
-          'Timetable': 'curriculum', // Grouped with curriculum or separate? Usually auto-allowed
+          'Timetable': 'curriculum',
           'Food Chart': 'curriculum',
           'SMS Panel': 'sms',
-          'Fee Management': 'attendance', // Example of restricted access
+          'Fee Management': 'attendance',
           'Online Fees Payment': 'attendance',
           'Gallery': 'gallery',
           'Notices': 'notices',
           'Marks Entry': 'marks'
         };
-
         const permKey = nameKeyMap[item.name];
         return !permKey || perms.includes(permKey);
       });
@@ -310,27 +304,15 @@ const Layout: React.FC<LayoutProps> = ({ user, cloudSettings, branding, onUpdate
     if (savedOrder) {
       try {
         const savedNames = typeof savedOrder === 'string' ? JSON.parse(savedOrder) : savedOrder;
-        
-        // Rebuild order based on names, using the permitted list
         const ordered = savedNames
           .map((name: string) => permittedNav.find((item: any) => item.name === name))
           .filter(Boolean);
-        
-        // Append any items that weren't in the saved order (new features)
         const remaining = permittedNav.filter((item: any) => !savedNames.includes(item.name));
-        
         const finalNav = [...ordered, ...remaining];
-        
-        // Only update if actually different to prevent flickering
         const currentNames = orderedNav.map(i => i.name).join(',');
         const incomingNames = finalNav.map(i => i.name).join(',');
-        
-        if (currentNames !== incomingNames) {
-          setOrderedNav(finalNav);
-        }
-      } catch (e) { 
-        setOrderedNav(permittedNav); 
-      }
+        if (currentNames !== incomingNames) setOrderedNav(finalNav);
+      } catch (e) { setOrderedNav(permittedNav); }
     } else {
       setOrderedNav(permittedNav);
     }
@@ -341,41 +323,25 @@ const Layout: React.FC<LayoutProps> = ({ user, cloudSettings, branding, onUpdate
   
   const handleDragEnd = async () => {
     if (isStudent || dragItem.current === null || dragOverItem.current === null) return;
-    
     if (dragItem.current !== dragOverItem.current) {
       const copyListItems = [...orderedNav];
       const dragItemContent = copyListItems[dragItem.current];
       copyListItems.splice(dragItem.current, 1);
       copyListItems.splice(dragOverItem.current, 0, dragItemContent);
-      
-      // 1. Update Local State (Instant Feedback)
       setOrderedNav(copyListItems);
-      
-      // 2. Persist Locally
       const orderNames = copyListItems.map(i => i.name);
       const jsonOrder = JSON.stringify(orderNames);
       const cloudKey = `nav_order_${user.role}`;
       localStorage.setItem(cloudKey, jsonOrder);
-      
-      // 3. Persist to Cloud (Background)
       setIsSavingNav(true);
-      try { 
-        await db.settings.update(cloudKey, jsonOrder); 
-      } catch (err) {
-        console.error("Cloud Navigation Save Failed:", err);
-      } finally { 
-        setTimeout(() => setIsSavingNav(false), 800); 
-      }
+      try { await db.settings.update(cloudKey, jsonOrder); } catch (err) {} finally { setTimeout(() => setIsSavingNav(false), 800); }
     }
-    
-    dragItem.current = null;
-    dragOverItem.current = null;
+    dragItem.current = null; dragOverItem.current = null;
   };
 
   const location = useLocation();
   const navigate = useNavigate();
 
-  // Fetch full student data if isStudent
   useEffect(() => {
     if (isStudent) {
       const fetchStudentDetails = async () => {
@@ -407,83 +373,55 @@ const Layout: React.FC<LayoutProps> = ({ user, cloudSettings, branding, onUpdate
         </div>
       )}
 
-      {/* ADMIN COMPACT PROFILE POPUP */}
-      {showProfileModal && isAdmin && (
-        <div className="fixed inset-0 z-[2000] pointer-events-auto" onClick={() => setShowProfileModal(false)}>
-           <div className="absolute top-20 right-8 w-64 bg-white dark:bg-slate-900 rounded-[2rem] p-6 shadow-2xl border border-slate-100 dark:border-slate-800 animate-in slide-in-from-top-2 duration-300 glass-card" onClick={e => e.stopPropagation()}>
-              <div className="flex items-center gap-4 mb-6">
-                 <div className="w-12 h-12 bg-indigo-600 rounded-2xl flex items-center justify-center text-white font-black shadow-lg">
-                   {user.name.charAt(0)}
-                 </div>
-                 <div>
-                    <p className="text-[8px] font-black text-slate-400 uppercase tracking-[0.3em] mb-0.5">Admin Identity</p>
-                    <p className="text-sm font-black text-slate-900 dark:text-white uppercase leading-none">{user.name}</p>
-                 </div>
-              </div>
-              <button onClick={() => { setShowProfileModal(false); setShowLogoutConfirm(true); }} className="w-full py-3 bg-rose-50 dark:bg-rose-950/30 text-rose-600 hover:bg-rose-600 hover:text-white rounded-xl transition-all font-black text-[9px] uppercase tracking-widest border border-rose-100 dark:border-rose-900/50 flex items-center justify-center gap-2">
-                <LogOut size={14} /> Log Out
-              </button>
-           </div>
-        </div>
-      )}
-
-      {/* STUDENT/TEACHER PROFILE MODAL */}
-      {showProfileModal && !isAdmin && (
+      {showProfileModal && (
         <div className="fixed inset-0 z-[2000] flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-xl animate-in fade-in duration-500">
-           <div className="bg-white dark:bg-slate-900 rounded-[3.5rem] p-1 shadow-2xl max-w-2xl w-full border border-slate-100 dark:border-slate-800 overflow-hidden relative group">
-              <button onClick={() => setShowProfileModal(false)} className="absolute top-8 right-8 p-3 bg-slate-100 dark:bg-slate-800 rounded-full text-slate-400 hover:bg-rose-500 hover:text-white transition-all z-50"><X size={24}/></button>
+           <div className="bg-white dark:bg-slate-900 rounded-[2.5rem] md:rounded-[3.5rem] p-1 shadow-2xl max-w-2xl w-full border border-slate-100 dark:border-slate-800 overflow-hidden relative">
+              <button onClick={() => setShowProfileModal(false)} className="absolute top-4 right-4 md:top-8 md:right-8 p-2 md:p-3 bg-slate-100 dark:bg-slate-800 rounded-full text-slate-400 hover:bg-rose-500 hover:text-white transition-all z-50"><X size={24}/></button>
               
-              <div className="h-32 bg-indigo-600 relative overflow-hidden">
+              <div className="h-24 md:h-32 bg-indigo-600 relative overflow-hidden">
                  <div className="absolute inset-0 neural-grid-white opacity-20"></div>
                  <div className="absolute inset-0 bg-gradient-to-br from-indigo-500/20 to-transparent"></div>
               </div>
 
-              <div className="p-8 lg:p-12 -mt-20 relative z-10 flex flex-col items-center">
-                 <div className="w-44 h-44 bg-white dark:bg-slate-800 rounded-[3rem] border-8 border-white dark:border-slate-900 shadow-2xl overflow-hidden relative group/img">
-                    {user.profileImage ? <img src={user.profileImage} className="w-full h-full object-cover" /> : <UserCircle size={80} className="text-slate-200 m-auto mt-8" />}
+              <div className="p-6 md:p-12 -mt-16 md:-mt-20 relative z-10 flex flex-col items-center">
+                 <div className="w-32 h-32 md:w-44 md:h-44 bg-white dark:bg-slate-800 rounded-[2.5rem] md:rounded-[3rem] border-4 md:border-8 border-white dark:border-slate-900 shadow-2xl overflow-hidden relative group/img">
+                    {user.profileImage ? <img src={user.profileImage} className="w-full h-full object-cover" /> : <UserCircle size={80} className="text-slate-200 m-auto mt-4 md:mt-8" />}
                  </div>
 
-                 <h2 className="text-3xl font-black text-slate-900 dark:text-white mt-6 uppercase tracking-tight text-center">{fullStudentData?.full_name || user.name}</h2>
+                 <h2 className="text-xl md:text-3xl font-black text-slate-900 dark:text-white mt-6 uppercase tracking-tight text-center px-4">{fullStudentData?.full_name || user.name}</h2>
                  <div className="flex gap-2 mt-2">
-                    <span className="px-4 py-1.5 bg-indigo-50 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400 rounded-full text-[10px] font-black uppercase tracking-widest border border-indigo-100 dark:border-indigo-800">Std {fullStudentData?.class || user.class}-{fullStudentData?.section || user.section}</span>
-                    <span className="px-4 py-1.5 bg-emerald-50 dark:bg-emerald-900/30 text-emerald-600 dark:text-emerald-400 rounded-full text-[10px] font-black uppercase tracking-widest border border-emerald-100 dark:border-emerald-800">Verified identity</span>
+                    <span className="px-3 py-1 bg-indigo-50 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400 rounded-full text-[8px] md:text-[10px] font-black uppercase tracking-widest border border-indigo-100 dark:border-indigo-800">Std {fullStudentData?.class || user.class}-{fullStudentData?.section || user.section}</span>
+                    <span className="px-3 py-1 bg-emerald-50 dark:bg-emerald-900/30 text-emerald-600 dark:text-emerald-400 rounded-full text-[8px] md:text-[10px] font-black uppercase tracking-widest border border-emerald-100 dark:border-emerald-800">Verified identity</span>
                  </div>
 
                  {isStudent && (
-                    <div className="w-full grid grid-cols-1 md:grid-cols-2 gap-4 mt-12">
-                       <div className="p-6 bg-slate-50 dark:bg-slate-800/50 rounded-3xl border border-slate-100 dark:border-slate-800 flex items-start gap-4">
-                          <div className="w-10 h-10 rounded-2xl bg-white dark:bg-slate-900 flex items-center justify-center text-indigo-500 shadow-sm shrink-0"><Fingerprint size={20}/></div>
+                    <div className="w-full grid grid-cols-1 md:grid-cols-2 gap-3 md:gap-4 mt-8 md:mt-12">
+                       <div className="p-4 md:p-6 bg-slate-50 dark:bg-slate-800/50 rounded-2xl md:rounded-3xl border border-slate-100 dark:border-slate-800 flex items-start gap-4">
+                          <div className="w-8 h-8 md:w-10 md:h-10 rounded-xl bg-white dark:bg-slate-900 flex items-center justify-center text-indigo-500 shadow-sm shrink-0"><Fingerprint size={18}/></div>
                           <div>
-                             <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest mb-1">General Register (GR)</p>
-                             <p className="text-sm font-black text-slate-800 dark:text-white">{fullStudentData?.gr_number || 'SYNCING...'}</p>
+                             <p className="text-[7px] md:text-[8px] font-black text-slate-400 uppercase tracking-widest mb-1">GR Number</p>
+                             <p className="text-xs md:text-sm font-black text-slate-800 dark:text-white">{fullStudentData?.gr_number || 'SYNCING...'}</p>
                           </div>
                        </div>
-                       <div className="p-6 bg-slate-50 dark:bg-slate-800/50 rounded-3xl border border-slate-100 dark:border-slate-800 flex items-start gap-4">
-                          <div className="w-10 h-10 rounded-2xl bg-white dark:bg-slate-900 flex items-center justify-center text-indigo-500 shadow-sm shrink-0"><Hash size={20}/></div>
+                       <div className="p-4 md:p-6 bg-slate-50 dark:bg-slate-800/50 rounded-2xl md:rounded-3xl border border-slate-100 dark:border-slate-800 flex items-start gap-4">
+                          <div className="w-8 h-8 md:w-10 md:h-10 rounded-xl bg-white dark:bg-slate-900 flex items-center justify-center text-indigo-500 shadow-sm shrink-0"><Hash size={18}/></div>
                           <div>
-                             <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest mb-1">Roll Number</p>
-                             <p className="text-sm font-black text-slate-800 dark:text-white">#{fullStudentData?.roll_no || user.rollNo || 'N/A'}</p>
-                          </div>
-                       </div>
-                       <div className="p-6 bg-slate-50 dark:bg-slate-800/50 rounded-3xl border border-slate-100 dark:border-slate-800 flex items-start gap-4 md:col-span-2">
-                          <div className="w-10 h-10 rounded-2xl bg-white dark:bg-slate-900 flex items-center justify-center text-indigo-500 shadow-sm shrink-0"><MapPin size={20}/></div>
-                          <div>
-                             <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest mb-1">Residence Address</p>
-                             <p className="text-xs font-bold text-slate-800 dark:text-white leading-relaxed uppercase">{fullStudentData?.residence_address || 'NOT REGISTERED'}</p>
+                             <p className="text-[7px] md:text-[8px] font-black text-slate-400 uppercase tracking-widest mb-1">Roll Number</p>
+                             <p className="text-xs md:text-sm font-black text-slate-800 dark:text-white">#{fullStudentData?.roll_no || user.rollNo || 'N/A'}</p>
                           </div>
                        </div>
                     </div>
                  )}
 
-                 <button onClick={() => setShowLogoutConfirm(true)} className="mt-10 w-full py-4 bg-rose-50 dark:bg-rose-950/30 text-rose-600 hover:bg-rose-600 hover:text-white rounded-2xl transition-all font-black text-[10px] uppercase tracking-widest shadow-sm border border-rose-100 dark:border-rose-900/50">Logout Account</button>
+                 <button onClick={() => setShowLogoutConfirm(true)} className="mt-8 md:mt-10 w-full py-4 bg-rose-50 dark:bg-rose-950/30 text-rose-600 hover:bg-rose-600 hover:text-white rounded-2xl transition-all font-black text-[10px] uppercase tracking-widest shadow-sm border border-rose-100 dark:border-rose-900/50">Logout Account</button>
               </div>
            </div>
         </div>
       )}
 
-      {sidebarOpen && <div className="fixed inset-0 bg-black/50 z-40 lg:hidden" onClick={() => setSidebarOpen(false)} />}
+      {sidebarOpen && <div className="fixed inset-0 bg-black/50 z-[100] lg:hidden" onClick={() => setSidebarOpen(false)} />}
 
-      <aside className={`fixed lg:static inset-y-0 left-0 z-50 w-64 bg-white dark:bg-slate-900 border-r border-slate-200 dark:border-slate-800 transform transition-all duration-300 ease-in-out glass-card ${sidebarOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'}`}>
+      <aside className={`fixed lg:static inset-y-0 left-0 z-[110] w-64 bg-white dark:bg-slate-900 border-r border-slate-200 dark:border-slate-800 transform transition-all duration-300 ease-in-out glass-card ${sidebarOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'}`}>
         <div className="h-full flex flex-col">
           <div className="p-6">
             <div className="flex items-center justify-between mb-4">
@@ -501,7 +439,7 @@ const Layout: React.FC<LayoutProps> = ({ user, cloudSettings, branding, onUpdate
             {!isStudent && (
               <button onClick={() => setIsCustomizing(!isCustomizing)} className={`w-full flex items-center justify-center gap-2 py-2.5 mt-2 rounded-xl text-[8px] font-black uppercase tracking-widest border transition-all ${isCustomizing ? 'bg-indigo-600 text-white border-indigo-500 shadow-lg' : 'bg-slate-50 dark:bg-slate-800 text-slate-400 border-slate-100 dark:border-slate-700 hover:text-indigo-600'}`}>
                 {isSavingNav ? <Loader2 size={12} className="animate-spin" /> : <LayoutTemplate size={12} />} 
-                {isCustomizing ? 'Stop Customizing' : 'Customize Menu'}
+                {isCustomizing ? 'Stop Edit' : 'Edit Menu'}
               </button>
             )}
           </div>
@@ -510,25 +448,9 @@ const Layout: React.FC<LayoutProps> = ({ user, cloudSettings, branding, onUpdate
             {orderedNav.map((item: any, index: number) => {
               const isActive = location.pathname === item.path;
               return (
-                <div 
-                  key={item.name} 
-                  draggable={isCustomizing && !isStudent} 
-                  onDragStart={() => handleDragStart(index)} 
-                  onDragEnter={() => handleDragEnter(index)} 
-                  onDragEnd={handleDragEnd} 
-                  onDragOver={(e) => e.preventDefault()} 
-                  className={`relative flex items-center group transition-all ${isCustomizing && !isStudent ? 'cursor-grab active:cursor-grabbing hover:bg-slate-50 dark:hover:bg-slate-800/50 rounded-lg border border-transparent hover:border-indigo-100' : ''}`}
-                >
-                  {isCustomizing && !isStudent && (
-                    <div className="absolute left-1 text-indigo-400 opacity-50 group-hover:opacity-100 transition-opacity">
-                      <GripVertical size={14} />
-                    </div>
-                  )}
-                  <Link 
-                    to={isCustomizing && !isStudent ? '#' : item.path} 
-                    onClick={(e) => { if (isCustomizing && !isStudent) e.preventDefault(); else setSidebarOpen(false); }} 
-                    className={`flex-1 flex items-center gap-3 px-4 py-3 rounded-lg transition-all ${isActive ? 'bg-indigo-600 text-white font-semibold shadow-lg shadow-indigo-100' : 'text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800/50 hover:text-indigo-600'} ${isCustomizing && !isStudent ? 'pointer-events-none ml-4' : ''}`}
-                  >
+                <div key={item.name} draggable={isCustomizing && !isStudent} onDragStart={() => handleDragStart(index)} onDragEnter={() => handleDragEnter(index)} onDragEnd={handleDragEnd} onDragOver={(e) => e.preventDefault()} className={`relative flex items-center group transition-all ${isCustomizing && !isStudent ? 'cursor-grab active:cursor-grabbing hover:bg-slate-50 dark:hover:bg-slate-800/50 rounded-lg' : ''}`}>
+                  {isCustomizing && !isStudent && <div className="absolute left-1 text-indigo-400 opacity-50 group-hover:opacity-100"><GripVertical size={14} /></div>}
+                  <Link to={isCustomizing && !isStudent ? '#' : item.path} onClick={(e) => { if (isCustomizing && !isStudent) e.preventDefault(); else setSidebarOpen(false); }} className={`flex-1 flex items-center gap-3 px-4 py-3 rounded-lg transition-all ${isActive ? 'bg-indigo-600 text-white font-semibold shadow-lg shadow-indigo-100' : 'text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800/50 hover:text-indigo-600'} ${isCustomizing && !isStudent ? 'pointer-events-none ml-4' : ''}`}>
                     <span className={`${isActive ? 'text-white' : 'text-slate-400 dark:text-slate-500'}`}>{item.icon}</span>
                     <span className="text-[10px] font-bold uppercase tracking-widest">{item.name}</span>
                   </Link>
@@ -537,35 +459,28 @@ const Layout: React.FC<LayoutProps> = ({ user, cloudSettings, branding, onUpdate
             })}
           </nav>
 
-          <div className="p-4 border-t border-slate-100 dark:border-slate-800 space-y-3 relative z-10">
-            <div className={`px-4 py-2 flex items-center justify-between text-[8px] font-black uppercase tracking-widest rounded-lg border ${true ? 'bg-emerald-50 dark:bg-emerald-950/20 text-emerald-600 border-emerald-100 dark:border-emerald-900' : 'bg-rose-50 dark:bg-rose-950/20 text-rose-600 border-rose-100 dark:border-rose-900'}`}>
-              <div className="flex items-center gap-2"><Activity size={10} className="animate-pulse" /><span>Cloud Active</span></div>
-              <Check size={10} />
-            </div>
-            <button onClick={() => setShowLogoutConfirm(true)} className="w-full flex items-center gap-3 px-4 py-3.5 bg-rose-50 dark:bg-rose-950/30 text-rose-600 hover:bg-rose-600 hover:text-white rounded-xl transition-all font-black text-[10px] uppercase tracking-[0.2em] shadow-sm border border-rose-100 dark:border-rose-900/50"><OutIcon size={18} /> Sign Out Terminal</button>
+          <div className="p-4 border-t border-slate-100 dark:border-slate-800 space-y-3">
+            <button onClick={() => setShowLogoutConfirm(true)} className="w-full flex items-center gap-3 px-4 py-3 bg-rose-50 dark:bg-rose-950/30 text-rose-600 hover:bg-rose-600 hover:text-white rounded-xl transition-all font-black text-[9px] uppercase tracking-[0.2em] border border-rose-100 dark:border-rose-900/50"><OutIcon size={16} /> Sign Out</button>
           </div>
         </div>
       </aside>
 
-      <div className="flex-1 flex flex-col min-w-0 relative z-10">
-        <header className="h-16 bg-white/80 dark:bg-slate-900/80 backdrop-blur-md border-b border-slate-200 dark:border-slate-800 px-4 lg:px-8 flex items-center justify-between sticky top-0 z-30 no-print glass-card">
-          <button className="lg:hidden p-2 text-slate-600 dark:text-slate-400" onClick={() => setSidebarOpen(true)}><Menu size={24} /></button>
+      <div className="flex-1 flex flex-col min-w-0 relative z-10 overflow-hidden">
+        <header className="h-16 bg-white/80 dark:bg-slate-900/80 backdrop-blur-md border-b border-slate-200 dark:border-slate-800 px-4 md:px-8 flex items-center justify-between sticky top-0 z-30 no-print glass-card">
+          <button className="lg:hidden p-2 text-slate-600 dark:text-slate-400 -ml-2" onClick={() => setSidebarOpen(true)}><Menu size={24} /></button>
           
-          <div className="flex items-center gap-6 ml-auto">
-             {/* PROFILE TRIGGER */}
-             <div className="flex items-center gap-3 pl-2 cursor-pointer group" onClick={() => setShowProfileModal(true)}>
-                <div className="text-right hidden sm:block">
-                  <p className="text-sm font-black text-slate-800 dark:text-white leading-none group-hover:text-indigo-600 transition-colors">{fullStudentData?.full_name || user.name}</p>
-                  <p className="text-[9px] text-slate-400 dark:text-slate-500 font-black mt-1 uppercase tracking-widest">{user.role}</p>
-                </div>
-                <div className="w-10 h-10 bg-indigo-100 dark:bg-indigo-900/30 text-indigo-600 rounded-xl flex items-center justify-center font-bold overflow-hidden shadow-sm border-2 border-transparent group-hover:border-indigo-600 transition-all">
-                  {user.profileImage ? <img src={user.profileImage} className="w-full h-full object-cover" alt="Profile" /> : isAdmin ? <Shield size={20} /> : <UserCircle size={24} />}
-                </div>
+          <div className="flex items-center gap-2 ml-auto" onClick={() => setShowProfileModal(true)}>
+             <div className="text-right hidden sm:block">
+                <p className="text-xs font-black text-slate-800 dark:text-white leading-none truncate max-w-[120px]">{fullStudentData?.full_name || user.name}</p>
+                <p className="text-[8px] text-slate-400 dark:text-slate-500 font-black mt-1 uppercase">{user.role}</p>
+             </div>
+             <div className="w-8 h-8 md:w-10 md:h-10 bg-indigo-100 dark:bg-indigo-900/30 text-indigo-600 rounded-xl flex items-center justify-center font-bold overflow-hidden shadow-sm border border-transparent hover:border-indigo-600 transition-all cursor-pointer">
+                {user.profileImage ? <img src={user.profileImage} className="w-full h-full object-cover" /> : isAdmin ? <Shield size={18} /> : <UserCircle size={20} />}
              </div>
           </div>
         </header>
 
-        <main className="flex-1 p-4 lg:p-8 overflow-y-auto relative">
+        <main className="flex-1 p-4 md:p-8 overflow-y-auto relative custom-scrollbar">
           <Routes>
             <Route path="/" element={<Navigate to={`/${user.role.toLowerCase()}/dashboard`} />} />
             <Route path="/admin/dashboard" element={<Dashboard user={user} branding={branding} onUpdateLogo={() => navigate('/admin/branding')} />} />
