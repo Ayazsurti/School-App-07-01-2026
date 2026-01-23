@@ -34,7 +34,8 @@ import {
   PlusCircle,
   Hash,
   Fingerprint,
-  CreditCard
+  CreditCard,
+  RefreshCw
 } from 'lucide-react';
 import { MOCK_STUDENTS, APP_NAME } from '../constants';
 
@@ -133,6 +134,7 @@ const IdCardDesigner: React.FC<IdCardDesignerProps> = ({ user }) => {
   const [zoom, setZoom] = useState(25);
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
+  const [isSyncing, setIsSyncing] = useState(false);
   const [showSuccess, setShowSuccess] = useState(false);
   const [mainTab, setMainTab] = useState<'TEMPLATE' | 'ELEMENTS'>('TEMPLATE');
   const [elementCategory, setElementCategory] = useState<'BRANDING' | 'PROFILE' | 'DATA' | 'SECURITY'>('BRANDING');
@@ -143,7 +145,6 @@ const IdCardDesigner: React.FC<IdCardDesignerProps> = ({ user }) => {
   const bgInputRef = useRef<HTMLInputElement>(null);
 
   const fetchTemplates = async () => {
-    setIsLoading(true);
     try {
       const data = await db.idCards.getTemplates();
       setTemplates(data);
@@ -153,7 +154,16 @@ const IdCardDesigner: React.FC<IdCardDesignerProps> = ({ user }) => {
     finally { setIsLoading(false); }
   };
 
-  useEffect(() => { fetchTemplates(); }, []);
+  useEffect(() => { 
+    fetchTemplates(); 
+    const channel = supabase.channel('realtime-designer-sync')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'id_card_templates' }, () => {
+        setIsSyncing(true);
+        fetchTemplates().then(() => setTimeout(() => setIsSyncing(false), 800));
+      })
+      .subscribe();
+    return () => { supabase.removeChannel(channel); };
+  }, []);
 
   const handleUpdate = (updates: Partial<IdCardTemplate>) => {
     if (!activeTemplate) return;
@@ -185,6 +195,7 @@ const IdCardDesigner: React.FC<IdCardDesignerProps> = ({ user }) => {
     if (!activeTemplate || !selectedElement) return;
     const step = fine ? 0.1 : 1;
     const amount = direction * step;
+    const fields = Array.isArray(activeTemplate.fields) ? activeTemplate.fields : [];
 
     if (selectedElement === 'PHOTO') {
       handleUpdate(axis === 'X' ? { photoX: activeTemplate.photoX + amount } : { photoY: activeTemplate.photoY + amount });
@@ -198,7 +209,7 @@ const IdCardDesigner: React.FC<IdCardDesignerProps> = ({ user }) => {
       handleUpdate(axis === 'X' ? { headerX: (activeTemplate.headerX || 0) + amount } : { headerY: (activeTemplate.headerY || 0) + amount });
     } else if (selectedElement.startsWith('FIELD_')) {
       const key = selectedElement.replace('FIELD_', '');
-      const newFields = activeTemplate.fields.map(f => f.key === key ? { 
+      const newFields = fields.map(f => f.key === key ? { 
         ...f, 
         [axis.toLowerCase()]: (f as any)[axis.toLowerCase()] + amount 
       } : f);
@@ -210,6 +221,7 @@ const IdCardDesigner: React.FC<IdCardDesignerProps> = ({ user }) => {
     if (!activeTemplate || !selectedElement) return;
     const step = fine ? 0.2 : 1;
     const amount = direction * step;
+    const fields = Array.isArray(activeTemplate.fields) ? activeTemplate.fields : [];
 
     if (selectedElement === 'PHOTO') {
       handleUpdate({ photoSize: Math.max(10, activeTemplate.photoSize + amount) });
@@ -221,7 +233,7 @@ const IdCardDesigner: React.FC<IdCardDesignerProps> = ({ user }) => {
       handleUpdate({ logoSize: Math.max(2, (activeTemplate.logoSize || 8) + amount) });
     } else if (selectedElement.startsWith('FIELD_')) {
       const key = selectedElement.replace('FIELD_', '');
-      const newFields = activeTemplate.fields.map(f => f.key === key ? { 
+      const newFields = fields.map(f => f.key === key ? { 
         ...f, 
         fontSize: Math.max(2, f.fontSize + (direction * 0.2))
       } : f);
@@ -231,7 +243,8 @@ const IdCardDesigner: React.FC<IdCardDesignerProps> = ({ user }) => {
 
   const updateField = (key: string, updates: Partial<IdCardField>) => {
     if (!activeTemplate) return;
-    const newFields = activeTemplate.fields.map(f => f.key === key ? { ...f, ...updates } : f);
+    const fields = Array.isArray(activeTemplate.fields) ? activeTemplate.fields : [];
+    const newFields = fields.map(f => f.key === key ? { ...f, ...updates } : f);
     handleUpdate({ fields: newFields });
   };
 
@@ -240,7 +253,9 @@ const IdCardDesigner: React.FC<IdCardDesignerProps> = ({ user }) => {
     const fieldDef = AVAILABLE_STUDENT_FIELDS.find(f => f.key === fieldKey);
     if (!fieldDef) return;
 
-    if (activeTemplate.fields.some(f => f.key === fieldKey)) {
+    const fields = Array.isArray(activeTemplate.fields) ? activeTemplate.fields : [];
+
+    if (fields.some(f => f.key === fieldKey)) {
       alert("This field is already present on the card.");
       return;
     }
@@ -258,13 +273,14 @@ const IdCardDesigner: React.FC<IdCardDesignerProps> = ({ user }) => {
       width: 44
     };
 
-    handleUpdate({ fields: [...activeTemplate.fields, newField] });
+    handleUpdate({ fields: [...fields, newField] });
     setSelectedElement(`FIELD_${fieldKey}`);
   };
 
   const removeField = (key: string) => {
     if (!activeTemplate) return;
-    handleUpdate({ fields: activeTemplate.fields.filter(f => f.key !== key) });
+    const fields = Array.isArray(activeTemplate.fields) ? activeTemplate.fields : [];
+    handleUpdate({ fields: fields.filter(f => f.key !== key) });
     if (selectedElement === `FIELD_${key}`) setSelectedElement(null);
   };
 
@@ -273,6 +289,15 @@ const IdCardDesigner: React.FC<IdCardDesignerProps> = ({ user }) => {
 
   return (
     <div className="space-y-6 pb-20 animate-in fade-in duration-700 relative max-w-full mx-auto">
+      {isSyncing && (
+        <div className="fixed top-24 left-1/2 -translate-x-1/2 z-[1100] animate-bounce">
+           <div className="bg-indigo-600 text-white px-6 py-2 rounded-full shadow-2xl flex items-center gap-3 border border-indigo-400">
+              <RefreshCw size={14} className="animate-spin" />
+              <span className="text-[10px] font-black uppercase tracking-widest text-white">Registry Resyncing...</span>
+           </div>
+        </div>
+      )}
+
       {showSuccess && (
         <div className="fixed top-24 right-8 z-[1000] animate-in slide-in-from-right-8 duration-500">
            <div className="bg-emerald-600 text-white px-8 py-5 rounded-3xl shadow-2xl flex items-center gap-5 border border-emerald-500/50 backdrop-blur-xl">
@@ -447,11 +472,11 @@ const IdCardDesigner: React.FC<IdCardDesignerProps> = ({ user }) => {
                                      <div className="grid grid-cols-2 gap-4">
                                         <div className="space-y-1.5">
                                            <span className="text-[8px] font-black text-slate-400 uppercase">Header Height</span>
-                                           <input type="number" value={activeTemplate.headerHeight} onChange={e => handleUpdate({ headerHeight: parseInt(e.target.value) || 0 })} className="w-full bg-slate-50 dark:bg-slate-800 rounded-xl px-4 py-2 font-black text-xs" />
+                                           <input type="number" value={activeTemplate.headerHeight} onChange={e => handleUpdate({ headerHeight: parseInt(e.target.value) || 0 })} className="w-full bg-slate-50 dark:bg-slate-800 border-none rounded-xl px-4 py-2 font-black text-xs" />
                                         </div>
                                         <div className="space-y-1.5">
                                            <span className="text-[8px] font-black text-slate-400 uppercase">Font Scale</span>
-                                           <input type="number" value={activeTemplate.headerTextSize} onChange={e => handleUpdate({ headerTextSize: parseInt(e.target.value) || 9 })} className="w-full bg-slate-50 dark:bg-slate-800 rounded-xl px-4 py-2 font-black text-xs" />
+                                           <input type="number" value={activeTemplate.headerTextSize} onChange={e => handleUpdate({ headerTextSize: parseInt(e.target.value) || 9 })} className="w-full bg-slate-50 dark:bg-slate-800 border-none rounded-xl px-4 py-2 font-black text-xs" />
                                         </div>
                                      </div>
                                   </div>
@@ -530,7 +555,7 @@ const IdCardDesigner: React.FC<IdCardDesignerProps> = ({ user }) => {
                                   </div>
 
                                   <div className="space-y-4 max-h-[400px] overflow-y-auto custom-scrollbar pr-1">
-                                     {activeTemplate.fields.map((f) => (
+                                     {(Array.isArray(activeTemplate.fields) ? activeTemplate.fields : []).map((f) => (
                                         <div key={f.key} className={`p-5 bg-slate-50 dark:bg-slate-800/50 rounded-3xl border transition-all space-y-4 group ${selectedElement === `FIELD_${f.key}` ? 'border-indigo-500 ring-2 ring-indigo-500/20 bg-white dark:bg-slate-800' : 'border-slate-100 dark:border-slate-800 hover:bg-white dark:hover:bg-slate-800'}`}>
                                            <div className="flex items-center justify-between">
                                               <div className="flex items-center gap-3">
@@ -733,6 +758,8 @@ export const IdCardComponent: React.FC<{
 }> = ({ template, student, scale = 1, side = 'FRONT', onSelectElement }) => {
   const unit = 'mm';
   
+  if (!template) return null;
+
   const cardStyle: React.CSSProperties = {
     width: `${template.width * scale}${unit}`,
     height: `${template.height * scale}${unit}`,
@@ -786,6 +813,8 @@ export const IdCardComponent: React.FC<{
       </div>
     );
   }
+
+  const fields = Array.isArray(template.fields) ? template.fields : [];
 
   return (
     <div style={cardStyle} onClick={(e) => handleElClick(e, 'CANVAS')}>
@@ -854,7 +883,7 @@ export const IdCardComponent: React.FC<{
           {student.profileImage ? <img src={student.profileImage} className="w-full h-full object-cover" /> : <UserIconLucide size={32 * (scale/4)} className="text-slate-300" />}
        </div>
 
-       {template.fields.filter(f => f.visible).map(f => {
+       {fields.filter(f => f.visible).map(f => {
          let displayValue = (student as any)[f.key];
          
          // Custom formatting for specific complex fields
