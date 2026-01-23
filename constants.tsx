@@ -1,4 +1,3 @@
-
 import React from 'react';
 import { 
   LayoutDashboard, 
@@ -45,6 +44,7 @@ export const NAVIGATION = {
     { name: 'Student Management', icon: <Users size={20} />, path: '/admin/students' },
     { name: 'Cancel Admission', icon: <UserMinus size={20} />, path: '/admin/cancel-admission' },
     { name: 'ID Card Designer', icon: <Palette size={20} />, path: '/admin/id-designer' },
+    { name: 'Bulk ID Cards', icon: <WalletCards size={20} />, path: '/admin/id-cards' },
     { name: 'Teacher Management', icon: <UserCheck size={20} />, path: '/admin/teachers' },
     { name: 'Homework', icon: <PencilRuler size={20} />, path: '/admin/homework' },
     { name: 'Curriculum', icon: <BookOpen size={20} />, path: '/admin/curriculum' },

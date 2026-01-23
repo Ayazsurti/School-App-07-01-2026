@@ -76,6 +76,43 @@ export const db = {
     async sendOTP(mobile: string, otp: string) {
       console.log(`[SMS] OTP ${otp} -> ${mobile}`);
       return { success: true };
+    },
+    // New: Dedicated SMS History Tracker
+    async getHistory() {
+      const { data, error } = await supabase
+        .from('sms_history')
+        .select('*')
+        .order('created_at', { ascending: false });
+      
+      // Fallback to audit_logs if specialized table not yet migrated, but we prefer dedicated
+      if (error) {
+        console.warn("SMS dedicated table not found, falling back to audit logs.");
+        const { data: auditData } = await supabase.from('audit_logs').select('*').eq('module', 'SMS').order('created_at', { ascending: false });
+        return (auditData || []).map(a => ({
+          id: a.id,
+          message: a.details,
+          targets: 'Multiple Classes',
+          recipient_count: 'N/A',
+          sent_by: a.username,
+          created_at: a.created_at,
+          timestamp: a.timestamp
+        }));
+      }
+      return data;
+    },
+    async insertHistory(payload: { message: string, targets: string, recipient_count: number, sent_by: string }) {
+      const { data, error } = await supabase.from('sms_history').insert([{
+        message: payload.message,
+        targets: payload.targets,
+        recipient_count: payload.recipient_count,
+        sent_by: payload.sent_by,
+        timestamp: new Date().toLocaleString('en-GB')
+      }]).select();
+      if (error) {
+        // If dedicated table fails, we still have audit_logs as backup in createAuditLog call
+        throw error;
+      }
+      return data;
     }
   },
   settings: {
@@ -102,7 +139,6 @@ export const db = {
       if (error) throw error;
       return data;
     },
-    // Fix: Added cancelAdmission to support identity revocation logic
     async cancelAdmission(id: string, reason: string, date: string, cancelledBy: string) {
       const { error } = await supabase.from('students').update({
         status: 'CANCELLED',
@@ -112,7 +148,6 @@ export const db = {
       }).eq('id', id);
       if (error) throw error;
     },
-    // Fix: Added revertAdmission to support identity restoration logic
     async revertAdmission(id: string) {
       const { error } = await supabase.from('students').update({
         status: 'ACTIVE',
@@ -142,7 +177,6 @@ export const db = {
       if (error) throw error;
     }
   },
-  // Fix: Added attendance module to support presence registry tracking
   attendance: {
     async getByDate(date: string) {
       const { data, error } = await supabase.from('attendance').select('*').eq('date', date);
@@ -161,11 +195,9 @@ export const db = {
       if (error) throw error;
       return (data || []).map((t: any) => {
         let fields = t.fields;
-        // String handling
         if (typeof fields === 'string') {
           try { fields = JSON.parse(fields); } catch (e) { fields = []; }
         }
-        // Ensure it is an array
         if (!Array.isArray(fields)) {
           fields = fields ? [fields] : [];
         }
@@ -204,7 +236,7 @@ export const db = {
           signWidth: Number(t.sign_width),
           watermarkText: t.watermark_text,
           logoInHeader: t.logo_in_header,
-          fields: fields // Safe Array
+          fields: fields 
         };
       });
     },
@@ -273,12 +305,10 @@ export const db = {
       if (error) throw error;
       return data;
     },
-    // Fix: Added deleteByModule to support clearing specific audit trail segments
     async deleteByModule(module: string) {
       const { error } = await supabase.from('audit_logs').delete().eq('module', module);
       if (error) throw error;
     },
-    // Fix: Added deleteAll to support full audit trail purge
     async deleteAll() {
       const { error } = await supabase.from('audit_logs').delete().neq('id', '00000000-0000-0000-0000-000000000000');
       if (error) throw error;
