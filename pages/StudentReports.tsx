@@ -7,7 +7,7 @@ import {
   Save, X, RefreshCw, Filter, Globe, Edit2, 
   CheckCircle2, ShieldCheck, Type, Terminal, ArrowLeftRight, MoveHorizontal, Lock, Unlock,
   PlusCircle, Tag, FileDown, School, ClipboardList, AlertTriangle,
-  Loader2, Printer, Eye, Download, FileText, Check, Ruler
+  Loader2, Printer, Eye, Download, FileText, Check, Ruler, Box, Grid
 } from 'lucide-react';
 import { supabase, db, getErrorMessage } from '../supabase';
 import { createAuditLog } from '../utils/auditLogger';
@@ -40,6 +40,29 @@ const INITIAL_AVAILABLE_FIELDS = [
   { key: 'residenceAddress', label: 'ADDRESS' },
   { key: 'bloodGroup', label: 'BLOOD GROUP' },
 ];
+
+const ModuleWrapper: React.FC<{ title: string; id: string; children: React.ReactNode; className?: string }> = ({ title, id, children, className = "" }) => (
+  <div className={`relative bg-white dark:bg-slate-900 border-2 border-slate-200 dark:border-slate-800 shadow-sm transition-all hover:shadow-md ${className}`}>
+    <div className="absolute top-0 left-0 w-2 h-2 border-t-4 border-l-4 border-indigo-600"></div>
+    <div className="absolute top-0 right-0 w-2 h-2 border-t-4 border-r-4 border-indigo-600"></div>
+    <div className="absolute bottom-0 left-0 w-2 h-2 border-b-4 border-l-4 border-indigo-600"></div>
+    <div className="absolute bottom-0 right-0 w-2 h-2 border-b-4 border-r-4 border-indigo-600"></div>
+    
+    <div className="px-6 py-4 border-b-2 border-slate-50 dark:border-slate-800 flex items-center justify-between bg-slate-50/50 dark:bg-slate-800/30">
+      <div className="flex items-center gap-3">
+        <span className="bg-indigo-600 text-white font-black text-[8px] px-2 py-1 rounded shadow-sm">{id}</span>
+        <h3 className="text-[10px] font-black text-slate-800 dark:text-white uppercase tracking-[0.2em]">{title}</h3>
+      </div>
+      <div className="flex gap-1">
+        <div className="w-1.5 h-1.5 bg-slate-200 dark:bg-slate-700 rounded-full"></div>
+        <div className="w-1.5 h-1.5 bg-slate-200 dark:bg-slate-700 rounded-full"></div>
+      </div>
+    </div>
+    <div className="p-6">
+      {children}
+    </div>
+  </div>
+);
 
 const StudentReports: React.FC<{ user: User; schoolLogo?: string | null; schoolName?: string; }> = ({ user, schoolLogo, schoolName }) => {
   const [selectedClasses, setSelectedClasses] = useState<Record<string, string[]>>({});
@@ -421,152 +444,252 @@ const StudentReports: React.FC<{ user: User; schoolLogo?: string | null; schoolN
       )}
 
       {/* NORMAL PAGE UI */}
-      <div className="no-print space-y-6">
+      <div className="no-print space-y-8 max-w-[1600px] mx-auto">
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
-          <div className="lg:col-span-5 space-y-6">
-             <div className="bg-white dark:bg-slate-900 rounded-none border-2 border-slate-200 dark:border-slate-800 p-6 shadow-sm">
-                <div className="flex justify-between items-center mb-4">
-                   <h3 className="text-[9px] font-black text-indigo-600 uppercase tracking-[0.2em] flex items-center gap-2 leading-none">
-                     <LayoutGrid size={12}/> CLASS SELECTION MATRIX
-                   </h3>
-                </div>
-                <div ref={matrixScrollRef} className="max-h-60 overflow-y-auto custom-scrollbar border border-slate-100 dark:border-slate-800 bg-slate-50/30 dark:bg-slate-950/20">
-                   <table className="w-full text-[8px] font-black uppercase">
-                      <thead className="sticky top-0 bg-slate-100 dark:bg-slate-800 z-10">
-                         <tr className="border-b border-slate-200 dark:border-slate-700">
-                            <th className="text-left p-2.5 text-slate-400">STD / WING</th>
-                            {SECTIONS.map(s => <th key={s} className="p-2.5 text-center text-slate-400">SEC {s}</th>)}
-                         </tr>
-                      </thead>
-                      <tbody className="divide-y divide-slate-50 dark:divide-slate-800">
-                         {WINGS.map(wing => (
-                            <React.Fragment key={wing}>
-                              <tr className="bg-slate-100/50 dark:bg-slate-800/50">
-                                <td colSpan={5} className="p-2 text-[7px] font-black text-indigo-500 uppercase tracking-widest">{wing} WING</td>
-                              </tr>
-                              {CLASSES.map(std => (
-                                 <tr key={`${std}-${wing}`} className="hover:bg-indigo-50/50 dark:hover:bg-indigo-900/10 transition-colors">
-                                    <td className="p-2 font-bold text-slate-600 dark:text-slate-400">STD {std}</td>
-                                    {SECTIONS.map(sec => (
-                                       <td key={sec} className="p-2 text-center">
-                                          <input type="checkbox" checked={(selectedClasses[`${std} - ${wing}`] || []).includes(sec)} onChange={() => toggleClassSection(wing, std, sec)} className="w-3.5 h-3.5 rounded border-slate-300 text-indigo-600 focus:ring-0" />
-                                       </td>
-                                    ))}
-                                 </tr>
+          
+          {/* Left Column: Input Selection Grid */}
+          <div className="lg:col-span-4 space-y-8">
+            
+            {/* MODULE 1: MATRIX SELECTION */}
+            <ModuleWrapper title="CLASS SELECTION MATRIX" id="MOD-01">
+              <div ref={matrixScrollRef} className="max-h-[400px] overflow-y-auto custom-scrollbar border border-slate-100 dark:border-slate-800 bg-slate-50/30 dark:bg-slate-950/20">
+                <table className="w-full text-[8px] font-black uppercase border-collapse">
+                  <thead className="sticky top-0 bg-slate-100 dark:bg-slate-800 z-10">
+                    <tr className="border-b border-slate-200 dark:border-slate-700">
+                      <th className="text-left p-3 text-slate-400 border-r border-slate-200 dark:border-slate-700">STD / WING</th>
+                      {SECTIONS.map(s => <th key={s} className="p-3 text-center text-slate-400">SEC {s}</th>)}
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
+                    {WINGS.map(wing => (
+                      <React.Fragment key={wing}>
+                        <tr className="bg-indigo-50/30 dark:bg-indigo-900/10">
+                          <td colSpan={5} className="p-2.5 text-[7px] font-black text-indigo-500 uppercase tracking-widest border-b border-indigo-100 dark:border-indigo-900/50">{wing} WING HUB</td>
+                        </tr>
+                        {CLASSES.map(std => (
+                           <tr key={`${std}-${wing}`} className="hover:bg-indigo-50/50 dark:hover:bg-indigo-900/10 transition-colors">
+                              <td className="p-3 font-black text-slate-600 dark:text-slate-400 border-r border-slate-100 dark:border-slate-800">STD {std}</td>
+                              {SECTIONS.map(sec => (
+                                 <td key={sec} className="p-3 text-center">
+                                    <div className="relative flex items-center justify-center">
+                                      <input 
+                                        type="checkbox" 
+                                        checked={(selectedClasses[`${std} - ${wing}`] || []).includes(sec)} 
+                                        onChange={() => toggleClassSection(wing, std, sec)} 
+                                        className="w-4 h-4 rounded border-slate-300 text-indigo-600 focus:ring-0 cursor-pointer" 
+                                      />
+                                    </div>
+                                 </td>
                               ))}
-                            </React.Fragment>
-                         ))}
-                      </tbody>
-                   </table>
-                </div>
-             </div>
+                           </tr>
+                        ))}
+                      </React.Fragment>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </ModuleWrapper>
 
-             <div className={`bg-white dark:bg-slate-900 rounded-none border-2 border-slate-200 dark:border-slate-800 p-5 shadow-sm flex flex-col transition-all duration-300 ${!isModifying ? 'opacity-40 grayscale pointer-events-none' : 'opacity-100'}`}>
-                <div className="flex justify-between items-center mb-4 pb-3 border-b border-slate-50 dark:border-slate-800">
-                   <h3 className="text-[9px] font-black text-slate-800 dark:text-white uppercase tracking-[0.2em] flex items-center gap-2">
-                     <Layers size={12}/> FIELD INFORMATION
-                   </h3>
-                </div>
-                <div ref={fieldScrollRef} className="flex-1 overflow-y-auto custom-scrollbar pr-1 space-y-1.5 max-h-64">
-                   {filteredAvailableFields.map(field => (
-                      <div key={field.key} onClick={() => setPendingFieldFromInfo(field.key)} className={`p-3 border transition-all cursor-pointer select-none ${pendingFieldFromInfo === field.key ? 'bg-indigo-600 border-indigo-600 text-white shadow-md' : 'bg-slate-50 dark:bg-slate-800 border-transparent text-slate-600 dark:text-slate-400'}`}>
-                         <span className="text-[8px] font-black uppercase truncate block tracking-wider">{field.label}</span>
-                      </div>
-                   ))}
-                </div>
-             </div>
+            {/* MODULE 2: FIELD REPOSITORY */}
+            <ModuleWrapper title="FIELD INFORMATION REPOSITORY" id="MOD-02" className={!isModifying ? 'opacity-40 grayscale pointer-events-none' : ''}>
+              <div className="relative mb-6">
+                <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-300" size={14} />
+                <input 
+                  type="text" 
+                  placeholder="FILTER REPOSITORY..." 
+                  value={fieldSearch} 
+                  onChange={e => setFieldSearch(e.target.value)} 
+                  className="w-full pl-10 pr-4 py-3 bg-slate-50 dark:bg-slate-800 border-none rounded-xl text-[9px] font-black uppercase outline-none focus:ring-2 focus:ring-indigo-500 shadow-inner" 
+                />
+              </div>
+              <div ref={fieldScrollRef} className="grid grid-cols-2 gap-2 max-h-80 overflow-y-auto custom-scrollbar pr-1">
+                 {filteredAvailableFields.map(field => (
+                    <div 
+                      key={field.key} 
+                      onClick={() => setPendingFieldFromInfo(field.key)} 
+                      className={`p-3 border-2 transition-all cursor-pointer select-none text-center rounded-xl flex flex-col justify-center gap-1 ${pendingFieldFromInfo === field.key ? 'bg-indigo-600 border-indigo-600 text-white shadow-lg scale-[1.02]' : 'bg-slate-50 dark:bg-slate-800 border-transparent text-slate-600 dark:text-slate-400 hover:border-slate-200'}`}
+                    >
+                       <span className="text-[8px] font-black uppercase tracking-wider leading-none">{field.label}</span>
+                       <span className="text-[6px] opacity-40 font-black uppercase">NODE::{field.key}</span>
+                    </div>
+                 ))}
+              </div>
+              <div className="mt-6 flex gap-2">
+                 <button onClick={handleMoveRight} disabled={!isModifying || !pendingFieldFromInfo} className={`flex-1 py-4 rounded-xl shadow-lg border transition-all flex items-center justify-center gap-2 font-black text-[9px] uppercase tracking-widest ${isModifying && pendingFieldFromInfo ? 'bg-indigo-600 text-white border-indigo-500' : 'bg-slate-100 text-slate-300 border-slate-100'}`}>
+                    Inject Field <ChevronRight size={14} />
+                 </button>
+              </div>
+            </ModuleWrapper>
           </div>
 
-          <div className="lg:col-span-7 space-y-6">
-             <div className="bg-white dark:bg-slate-900 rounded-none border-2 border-slate-200 dark:border-slate-800 p-8 shadow-sm flex flex-col justify-center">
-                <h3 className="text-[10px] font-black text-indigo-600 uppercase tracking-[0.2em] mb-6 flex items-center gap-2">
-                  <Terminal size={14}/> PROFILE INFORMATION CREATE
-                </h3>
-                <div className="space-y-4">
-                   <div className="bg-slate-50 dark:bg-slate-800 p-4 border border-slate-100 dark:border-slate-700">
-                      <select value={activeProfileName} onChange={e => setActiveProfileName(e.target.value)} className="w-full bg-transparent border-none font-bold text-xs outline-none uppercase text-slate-700 dark:text-white">
-                         <option value="">SELECT REPORT PROFILE</option>
-                         {profiles.map(p => <option key={p.id} value={p.name}>{p.name}</option>)}
-                      </select>
-                   </div>
-                   <div className="grid grid-cols-2 gap-3">
-                      <button onClick={() => setShowProfileModal(true)} className="py-3.5 bg-indigo-600 text-white font-black rounded-none shadow-lg hover:bg-indigo-700 flex items-center justify-center gap-2 text-[9px] uppercase tracking-widest transition-all">
-                         <Plus size={14} strokeWidth={3}/> ADD NEW PROFILE
-                      </button>
-                      <button disabled={!activeProfileName} onClick={() => setShowDeleteProfileConfirm(true)} className={`py-3.5 font-black rounded-none transition-all border text-[9px] uppercase tracking-widest flex items-center justify-center gap-2 ${activeProfileName ? 'bg-rose-50 text-rose-600 border-rose-100' : 'bg-slate-50 text-slate-300 cursor-not-allowed'}`}>
-                         <Trash2 size={14}/> DELETE PROFILE
-                      </button>
-                   </div>
+          {/* Right Column: Configuration Grid */}
+          <div className="lg:col-span-8 space-y-8">
+            
+            {/* MODULE 3: PROFILE HUB */}
+            <ModuleWrapper title="PROFILE IDENTIFICATION CONTROL" id="MOD-03">
+              <div className="grid grid-cols-1 md:grid-cols-12 gap-8 items-center">
+                <div className="md:col-span-6 bg-slate-50 dark:bg-slate-800 p-5 rounded-2xl border-2 border-slate-100 dark:border-slate-700 shadow-inner relative group">
+                  <label className="absolute -top-2 left-4 bg-white dark:bg-slate-900 px-2 text-[7px] font-black text-slate-400 uppercase tracking-widest">ACTIVE REGISTRY</label>
+                  <select 
+                    value={activeProfileName} 
+                    onChange={e => setActiveProfileName(e.target.value)} 
+                    className="w-full bg-transparent border-none font-black text-xs outline-none uppercase text-indigo-600 dark:text-indigo-400 cursor-pointer"
+                  >
+                     <option value="">SELECT SYSTEM PROFILE</option>
+                     {profiles.map(p => <option key={p.id} value={p.name}>{p.name}</option>)}
+                  </select>
                 </div>
-             </div>
+                <div className="md:col-span-6 flex gap-3">
+                  <button onClick={() => setShowProfileModal(true)} className="flex-1 py-5 bg-indigo-600 text-white font-black rounded-2xl shadow-xl hover:bg-indigo-700 flex items-center justify-center gap-2 text-[9px] uppercase tracking-widest transition-all">
+                     <Plus size={16} strokeWidth={3}/> INITIALIZE PROFILE
+                  </button>
+                  <button disabled={!activeProfileName} onClick={() => setShowDeleteProfileConfirm(true)} className={`p-5 font-black rounded-2xl transition-all border shadow-sm ${activeProfileName ? 'bg-rose-50 text-rose-600 border-rose-100 hover:bg-rose-600 hover:text-white' : 'bg-slate-50 text-slate-200 cursor-not-allowed border-slate-50'}`}>
+                     <Trash2 size={18}/>
+                  </button>
+                </div>
+              </div>
+            </ModuleWrapper>
 
-             <div className="flex gap-4 relative">
-                <div className={`flex flex-col gap-4 items-center justify-center transition-all duration-300 min-w-[120px] ${!isModifying ? 'opacity-0 w-0 overflow-hidden' : 'opacity-100'}`}>
-                   <button 
-                    onClick={() => {
-                        const name = prompt("Enter Custom Label Name:");
-                        const display = prompt("Enter Custom Display Title:");
-                        if (name && display) {
-                          setAvailableFields(prev => [...prev, { key: name.toLowerCase(), label: display.toUpperCase() }]);
-                        }
-                    }} 
-                    className="w-full py-3 bg-emerald-50 dark:bg-emerald-950/30 text-emerald-600 border border-emerald-100 rounded-none font-black text-[8px] uppercase tracking-widest hover:bg-emerald-600 hover:text-white transition-all shadow-sm"
-                   >
-                    ADD LABEL
-                   </button>
-                   <div className="flex flex-col gap-3">
-                      <button onClick={handleMoveRight} disabled={!isModifying || !pendingFieldFromInfo} className={`w-12 h-12 rounded-none shadow-lg border border-slate-100 transition-all flex items-center justify-center ${isModifying && pendingFieldFromInfo ? 'bg-indigo-600 text-white' : 'bg-white dark:bg-slate-800 text-slate-300'}`}><ChevronRight size={24} strokeWidth={2.5}/></button>
-                      <button onClick={handleMoveLeft} disabled={!isModifying || !lastSelectedConfigKey} className={`w-12 h-12 rounded-none shadow-lg border border-slate-100 transition-all flex items-center justify-center ${isModifying && lastSelectedConfigKey ? 'bg-indigo-600 text-white' : 'bg-white dark:bg-slate-800 text-slate-300'}`}><ChevronLeft size={24} strokeWidth={2.5}/></button>
-                   </div>
+            {/* MODULE 4: ARCHITECTURE DESIGNER */}
+            <ModuleWrapper title="DATA ARCHITECTURE GRID" id="MOD-04">
+              <div className="flex-1 flex flex-col min-h-[550px] bg-slate-50 dark:bg-slate-950/40 rounded-[2.5rem] border-2 border-slate-100 dark:border-slate-800 overflow-hidden">
+                
+                {/* Header Row */}
+                <div className="grid grid-cols-12 gap-2 p-5 bg-slate-900 text-white text-[8px] font-black uppercase tracking-[0.2em]">
+                   <div className="col-span-3 px-2 flex items-center gap-2"><Layers size={10}/> Data Node</div>
+                   <div className="col-span-4 px-2 flex items-center gap-2"><Type size={10}/> Public Label</div>
+                   <div className="col-span-2 text-center flex items-center justify-center gap-1"><Ruler size={10}/> Width (mm)</div>
+                   <div className="col-span-2 text-center flex items-center justify-center gap-1"><Type size={10}/> Size</div>
+                   <div className="col-span-1 text-center">Bold</div>
                 </div>
 
-                <div className="flex-1 flex flex-col gap-4">
-                   <div className="bg-white dark:bg-slate-900 rounded-none border-2 border-slate-200 dark:border-slate-800 flex-1 flex flex-col overflow-hidden min-h-[450px]">
-                      <div className="p-5 bg-slate-50 dark:bg-slate-800/50 border-b border-slate-100 dark:border-slate-800">
-                         <div className="grid grid-cols-6 gap-4 text-[8px] font-black text-slate-400 uppercase tracking-widest">
-                            <span className="col-span-1">FIELD</span>
-                            <span className="col-span-2">DISPLAY TITLE</span>
-                            <span className="text-center flex items-center justify-center gap-1"><Ruler size={10}/> WIDTH (mm)</span>
-                            <span className="text-center">SIZE</span>
-                            <span className="text-center">BOLD</span>
+                <div className="flex-1 overflow-y-auto custom-scrollbar p-6 space-y-3">
+                   {formattedSelectedClasses.length > 0 && (
+                     <div className="p-4 bg-indigo-600 text-white rounded-2xl mb-6 shadow-lg border-2 border-indigo-400 flex items-center justify-between animate-in slide-in-from-top-2">
+                        <div className="flex items-center gap-3">
+                           <div className="p-2 bg-white/20 rounded-lg"><Grid size={14}/></div>
+                           <div>
+                              <p className="text-[8px] font-black uppercase tracking-widest opacity-60">System Selection Trace</p>
+                              <p className="text-[10px] font-black truncate max-w-md">{formattedSelectedClasses.join(' • ')}</p>
+                           </div>
+                        </div>
+                        <span className="text-[8px] font-black bg-white/20 px-3 py-1 rounded-full uppercase">Matrix Locked</span>
+                     </div>
+                   )}
+
+                   {reportConfigs.map((config) => (
+                      <div key={config.key} onClick={() => setLastSelectedConfigKey(config.key)} className={`grid grid-cols-12 gap-2 items-center p-3 rounded-2xl border-2 transition-all cursor-pointer ${lastSelectedConfigKey === config.key ? 'border-indigo-500 bg-white dark:bg-slate-800 shadow-xl' : 'border-transparent hover:bg-white dark:hover:bg-slate-900 hover:shadow-sm'}`}>
+                         <div className="col-span-3 px-2">
+                            <span className="text-[10px] font-black text-indigo-600 truncate block">{config.key}</span>
+                         </div>
+                         <div className="col-span-4 px-2">
+                            <input type="text" value={config.displayName} disabled={!isModifying} onChange={e => updateConfig(config.key, { displayName: e.target.value.toUpperCase() })} className="w-full bg-transparent border-b-2 border-slate-100 dark:border-slate-700 outline-none text-[11px] font-black py-1 focus:border-indigo-500 uppercase text-slate-800 dark:text-white" />
+                         </div>
+                         <div className="col-span-2 flex justify-center">
+                            <input type="number" value={config.width} disabled={!isModifying} onChange={e => updateConfig(config.key, { width: parseInt(e.target.value) || 0 })} className="w-16 bg-slate-100 dark:bg-slate-800 border-none rounded-lg py-2 text-center font-black text-xs outline-none shadow-inner" />
+                         </div>
+                         <div className="col-span-2 flex justify-center">
+                            <input type="number" value={config.fontSize} disabled={!isModifying} onChange={e => updateConfig(config.key, { fontSize: parseInt(e.target.value) || 0 })} className="w-12 bg-slate-100 dark:bg-slate-800 border-none rounded-lg py-2 text-center font-black text-[11px] outline-none shadow-inner" />
+                         </div>
+                         <div className="col-span-1 flex justify-center">
+                            <button onClick={() => updateConfig(config.key, { isBold: !config.isBold })} className={`p-2 rounded-lg transition-all ${config.isBold ? 'bg-indigo-600 text-white shadow-md' : 'text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800'}`}><Type size={14}/></button>
                          </div>
                       </div>
-                      <div className="flex-1 overflow-y-auto custom-scrollbar p-6 space-y-3">
-                         {reportConfigs.map((config) => (
-                            <div key={config.key} onClick={() => setLastSelectedConfigKey(config.key)} className={`grid grid-cols-6 gap-4 items-center p-3 border transition-all cursor-pointer ${lastSelectedConfigKey === config.key ? 'border-indigo-500 bg-indigo-50/30' : 'border-transparent hover:bg-slate-50'}`}>
-                               <span className="text-[9px] font-black text-indigo-600 truncate">{config.key}</span>
-                               <div className="col-span-2">
-                                 <input type="text" value={config.displayName} disabled={!isModifying} onChange={e => updateConfig(config.key, { displayName: e.target.value.toUpperCase() })} className="w-full bg-transparent border-b border-slate-200 outline-none text-[10px] font-bold py-1 focus:border-indigo-500 uppercase" />
-                               </div>
-                               <div className="flex items-center justify-center">
-                                 <input type="number" value={config.width} disabled={!isModifying} onChange={e => updateConfig(config.key, { width: parseInt(e.target.value) || 0 })} className="bg-slate-100 dark:bg-slate-800 border-none px-2 py-1 text-center font-black text-[10px] outline-none w-14 rounded-lg shadow-inner" />
-                               </div>
-                               <div className="flex items-center justify-center gap-2">
-                                  <input type="number" value={config.fontSize} disabled={!isModifying} onChange={e => updateConfig(config.key, { fontSize: parseInt(e.target.value) || 0 })} className="w-10 bg-slate-100 dark:bg-slate-800 border-none px-1 py-1 text-center font-bold text-[9px] rounded-lg" />
-                               </div>
-                               <div className="flex items-center justify-center">
-                                  <button onClick={() => updateConfig(config.key, { isBold: !config.isBold })} className={`p-1.5 rounded-md transition-all ${config.isBold ? 'bg-indigo-600 text-white' : 'text-slate-300'}`}><Type size={10}/></button>
-                               </div>
-                            </div>
-                         ))}
-                      </div>
+                   ))}
 
-                      <div className="p-5 bg-slate-50 dark:bg-slate-800/80 border-t border-slate-100 dark:border-slate-800 grid grid-cols-5 gap-2">
-                         <button onClick={() => setIsModifying(!isModifying)} className={`py-2.5 border-2 rounded-none text-[7px] font-black uppercase shadow-sm transition-all flex items-center justify-center gap-1.5 ${isModifying ? 'bg-indigo-600 border-indigo-600 text-white' : 'bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-700 text-indigo-600'}`}>
-                            {isModifying ? <Unlock size={10} /> : <Lock size={10} />} MODIFY
-                         </button>
-                         <button onClick={handleSaveProfile} disabled={!activeProfileName || isSyncing} className="py-2.5 bg-white dark:bg-slate-900 border border-slate-200 rounded-none text-[7px] font-black uppercase text-indigo-600 shadow-sm flex items-center justify-center gap-1">
-                            {isSyncing ? <Loader2 size={10} className="animate-spin"/> : <Save size={10}/>} SYNC PROFILE
-                         </button>
-                         <button onClick={handleGenerateReport} disabled={isGenerating} className="py-2.5 bg-indigo-600 text-white rounded-none text-[7px] font-black uppercase tracking-widest shadow-lg flex items-center justify-center gap-1">{isGenerating ? <RefreshCw size={10} className="animate-spin" /> : <Eye size={10} />} PREVIEW REPORT</button>
-                         <button onClick={() => window.history.back()} className="py-2.5 bg-slate-900 dark:bg-slate-700 text-white rounded-none text-[7px] font-black uppercase shadow-lg">CLOSE</button>
+                   {reportConfigs.length === 0 && (
+                      <div className="py-32 flex flex-col items-center justify-center opacity-20 text-center grayscale">
+                         <Box size={64} className="mb-6" />
+                         <p className="font-black text-xs uppercase tracking-[0.4em]">Designer Terminal Ready</p>
                       </div>
-                   </div>
+                   )}
                 </div>
-             </div>
+
+                <div className="p-8 bg-slate-50 dark:bg-slate-900 border-t-2 border-slate-100 dark:border-slate-800 grid grid-cols-2 lg:grid-cols-4 gap-4">
+                   <button onClick={() => setIsModifying(!isModifying)} className={`py-4 rounded-2xl text-[9px] font-black uppercase tracking-widest shadow-lg transition-all flex items-center justify-center gap-2 border-2 ${isModifying ? 'bg-indigo-600 border-indigo-600 text-white' : 'bg-white dark:bg-slate-900 border-indigo-100 dark:border-indigo-900 text-indigo-600'}`}>
+                      {isModifying ? <Unlock size={14} /> : <Lock size={14} />} {isModifying ? 'Lock Grid' : 'Modify Grid'}
+                   </button>
+                   <button onClick={handleSaveProfile} disabled={!activeProfileName || isSyncing} className="py-4 bg-white dark:bg-slate-800 border-2 border-slate-100 dark:border-slate-700 rounded-2xl text-[9px] font-black uppercase text-indigo-600 dark:text-indigo-400 shadow-sm flex items-center justify-center gap-2 hover:bg-indigo-50 transition-all">
+                      {isSyncing ? <Loader2 size={14} className="animate-spin"/> : <Save size={14}/>} Sync Profile
+                   </button>
+                   <button onClick={handleGenerateReport} disabled={isGenerating} className="py-4 bg-indigo-600 text-white rounded-2xl text-[9px] font-black uppercase tracking-widest shadow-2xl flex items-center justify-center gap-2 hover:bg-indigo-700 hover:-translate-y-1 transition-all active:scale-95">
+                      {isGenerating ? <RefreshCw size={14} className="animate-spin" /> : <Eye size={14} />} Preview Report
+                   </button>
+                   <button onClick={() => window.history.back()} className="py-4 bg-slate-900 dark:bg-slate-700 text-white rounded-2xl text-[9px] font-black uppercase tracking-widest shadow-lg hover:bg-black transition-all">Exit Module</button>
+                </div>
+              </div>
+            </ModuleWrapper>
+
+            <div className="p-10 bg-indigo-50 dark:bg-indigo-950/20 rounded-[3rem] border-2 border-indigo-100 dark:border-indigo-900 flex items-start gap-6">
+              <div className="w-14 h-14 bg-white dark:bg-slate-800 rounded-2xl flex items-center justify-center text-indigo-600 shadow-lg border border-indigo-100 shrink-0"><ShieldCheck size={32}/></div>
+              <div className="space-y-2">
+                 <h4 className="text-sm font-black text-indigo-900 dark:text-indigo-100 uppercase tracking-widest leading-none">Security Policy Established</h4>
+                 <p className="text-[10px] font-bold text-indigo-700/60 dark:text-indigo-400/60 uppercase leading-relaxed tracking-wider">Reports are generated in A4 landscape mode for maximum column visibility. Each sync commits changes to the institutional cloud node globally.</p>
+              </div>
+            </div>
           </div>
         </div>
       </div>
+
+      {/* MODALS */}
+      {showProfileModal && (
+        <div className="fixed inset-0 z-[1500] flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-sm animate-in fade-in duration-200 no-print">
+           <div className="bg-white dark:bg-slate-900 rounded-[3rem] p-10 max-w-sm w-full shadow-2xl animate-in zoom-in-95 border-t-8 border-indigo-600">
+              <div className="flex items-center gap-3 mb-8 justify-center">
+                <div className="p-4 bg-indigo-50 dark:bg-indigo-900/30 rounded-2xl text-indigo-600"><ClipboardList size={28}/></div>
+              </div>
+              <div className="space-y-6">
+                <div>
+                  <label className="block text-[10px] font-black text-slate-400 uppercase text-center tracking-[0.3em] mb-4">New Profile Identifier</label>
+                  <input 
+                    type="text" 
+                    value={newProfileName} 
+                    onChange={e => setNewProfileName(e.target.value)} 
+                    placeholder="E.G. ANNUAL_LEDGER" 
+                    className="w-full bg-slate-50 dark:bg-slate-800 border-2 border-slate-100 dark:border-slate-700 rounded-2xl px-6 py-5 font-black text-center text-xs outline-none focus:ring-2 focus:ring-indigo-500 uppercase shadow-inner" 
+                  />
+                </div>
+                <div className="flex gap-3 pt-2">
+                  <button onClick={handleAddProfile} disabled={isSyncing} className="flex-[2] py-5 bg-indigo-600 text-white font-black rounded-2xl text-[10px] uppercase tracking-widest hover:bg-indigo-700 shadow-xl active:scale-95 transition-all disabled:opacity-50 flex items-center justify-center gap-2">
+                    {isSyncing ? <Loader2 size={16} className="animate-spin"/> : <><Check size={16}/> Initialize</>}
+                  </button>
+                  <button onClick={() => { setShowProfileModal(false); setNewProfileName(''); }} className="flex-1 py-5 bg-slate-100 dark:bg-slate-800 text-slate-500 font-black rounded-2xl text-[10px] uppercase tracking-widest hover:bg-slate-200 transition-all">Close</button>
+                </div>
+              </div>
+           </div>
+        </div>
+      )}
+
+      {showDeleteProfileConfirm && (
+        <div className="fixed inset-0 z-[1600] flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-sm animate-in fade-in no-print">
+           <div className="bg-white dark:bg-slate-900 rounded-[3rem] p-10 max-w-sm w-full shadow-2xl text-center border-t-8 border-rose-600 animate-in zoom-in-95">
+              <div className="w-20 h-20 bg-rose-50 dark:bg-rose-900/20 text-rose-600 rounded-[2rem] flex items-center justify-center mb-6 mx-auto shadow-inner border border-rose-100">
+                 <AlertTriangle size={40} strokeWidth={2.5} />
+              </div>
+              <h3 className="text-xl font-black text-slate-900 dark:text-white mb-2 uppercase tracking-tighter">Purge Profile?</h3>
+              <p className="text-slate-500 dark:text-slate-400 mb-8 font-medium text-[10px] leading-relaxed uppercase tracking-widest">Delete <b>{activeProfileName}</b> permanently from cloud storage?</p>
+              <div className="grid grid-cols-2 gap-3">
+                 <button onClick={async () => {
+                    if (!activeProfileName) return;
+                    setIsSyncing(true);
+                    try {
+                      await db.reports.deleteProfile(activeProfileName);
+                      await createAuditLog(user, 'DELETE', 'Reports', `Deleted report profile: ${activeProfileName}`);
+                      setActiveProfileName('');
+                      setShowDeleteProfileConfirm(false);
+                    } catch (e: any) {
+                      alert("Delete failed: " + getErrorMessage(e));
+                    } finally {
+                      setIsSyncing(false);
+                    }
+                 }} disabled={isSyncing} className="py-5 bg-rose-600 text-white font-black rounded-2xl shadow-xl hover:bg-rose-700 transition-all uppercase text-[10px] disabled:opacity-50">
+                   {isSyncing ? <Loader2 size={16} className="animate-spin mx-auto"/> : 'Confirm Purge'}
+                 </button>
+                 <button onClick={() => setShowDeleteProfileConfirm(false)} className="py-5 bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 font-black rounded-2xl uppercase text-[10px]">Cancel</button>
+              </div>
+           </div>
+        </div>
+      )}
     </div>
   );
 };
