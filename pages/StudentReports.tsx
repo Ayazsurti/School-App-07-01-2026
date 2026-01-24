@@ -518,6 +518,9 @@ const StudentReports: React.FC<{ user: User; schoolLogo?: string | null; schoolN
                  <button onClick={handleMoveRight} disabled={!isModifying || !pendingFieldFromInfo} className={`flex-1 py-4 rounded-xl shadow-lg border transition-all flex items-center justify-center gap-2 font-black text-[9px] uppercase tracking-widest ${isModifying && pendingFieldFromInfo ? 'bg-indigo-600 text-white border-indigo-500' : 'bg-slate-100 text-slate-300 border-slate-100'}`}>
                     Inject Field <ChevronRight size={14} />
                  </button>
+                 <button onClick={handleMoveLeft} disabled={!isModifying || !lastSelectedConfigKey} className={`flex-1 py-4 rounded-xl shadow-lg border transition-all flex items-center justify-center gap-2 font-black text-[9px] uppercase tracking-widest ${isModifying && lastSelectedConfigKey ? 'bg-slate-700 text-white border-slate-600' : 'bg-slate-100 text-slate-300 border-slate-100'}`}>
+                    <ChevronLeft size={14} /> Revert Field
+                 </button>
               </div>
             </ModuleWrapper>
           </div>
@@ -662,7 +665,7 @@ const StudentReports: React.FC<{ user: User; schoolLogo?: string | null; schoolN
 
       {showDeleteProfileConfirm && (
         <div className="fixed inset-0 z-[1600] flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-sm animate-in fade-in no-print">
-           <div className="bg-white dark:bg-slate-900 rounded-[3rem] p-10 max-w-sm w-full shadow-2xl text-center border-t-8 border-rose-600 animate-in zoom-in-95">
+           <div className="bg-white dark:bg-slate-900 rounded-[3rem] p-10 max-sm w-full shadow-2xl text-center border-t-8 border-rose-600 animate-in zoom-in-95">
               <div className="w-20 h-20 bg-rose-50 dark:bg-rose-900/20 text-rose-600 rounded-[2rem] flex items-center justify-center mb-6 mx-auto shadow-inner border border-rose-100">
                  <AlertTriangle size={40} strokeWidth={2.5} />
               </div>
