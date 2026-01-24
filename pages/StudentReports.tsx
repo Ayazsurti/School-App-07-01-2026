@@ -7,12 +7,10 @@ import {
   Save, X, RefreshCw, Filter, Globe, Edit2, 
   CheckCircle2, ShieldCheck, Type, Terminal, ArrowLeftRight, MoveHorizontal, Lock, Unlock,
   PlusCircle, Tag, FileDown, School, ClipboardList, AlertTriangle,
-  Loader2, Printer, Eye, Download, FileText, Check
+  Loader2, Printer, Eye, Download, FileText, Check, Ruler
 } from 'lucide-react';
 import { supabase, db, getErrorMessage } from '../supabase';
 import { createAuditLog } from '../utils/auditLogger';
-
-interface StudentReportsProps { user: User; schoolLogo?: string | null; schoolName?: string; }
 
 interface ReportFieldConfig {
   key: string;
@@ -43,13 +41,12 @@ const INITIAL_AVAILABLE_FIELDS = [
   { key: 'bloodGroup', label: 'BLOOD GROUP' },
 ];
 
-const StudentReports: React.FC<StudentReportsProps> = ({ user, schoolLogo, schoolName }) => {
+const StudentReports: React.FC<{ user: User; schoolLogo?: string | null; schoolName?: string; }> = ({ user, schoolLogo, schoolName }) => {
   const [selectedClasses, setSelectedClasses] = useState<Record<string, string[]>>({});
   const [fieldSearch, setFieldSearch] = useState('');
   const [selectedFields, setSelectedFields] = useState<string[]>([]);
   const [reportConfigs, setReportConfigs] = useState<ReportFieldConfig[]>([]);
   
-  // Profile States
   const [profiles, setProfiles] = useState<any[]>([]);
   const [activeProfileName, setActiveProfileName] = useState('');
   const [showProfileModal, setShowProfileModal] = useState(false);
@@ -61,16 +58,10 @@ const StudentReports: React.FC<StudentReportsProps> = ({ user, schoolLogo, schoo
   const [isSyncing, setIsSyncing] = useState(false);
   const [isModifying, setIsModifying] = useState(false);
   
-  // Custom Field/Label states
   const [availableFields, setAvailableFields] = useState(INITIAL_AVAILABLE_FIELDS);
-  const [showNewLabelModal, setShowNewLabelModal] = useState(false);
-  const [newLabelData, setNewLabelData] = useState({ name: '', displayName: '' });
-
-  // Selection states
   const [pendingFieldFromInfo, setPendingFieldFromInfo] = useState<string | null>(null);
   const [lastSelectedConfigKey, setLastSelectedConfigKey] = useState<string | null>(null);
 
-  // Report Preview States
   const [reportData, setReportData] = useState<Student[]>([]);
   const [isGenerating, setIsGenerating] = useState(false);
   const [showPreviewModal, setShowPreviewModal] = useState(false);
@@ -113,13 +104,6 @@ const StudentReports: React.FC<StudentReportsProps> = ({ user, schoolLogo, schoo
     }
   }, [activeProfileName, profiles]);
 
-  const scrollHandler = (ref: React.RefObject<HTMLDivElement | null>, direction: 'UP' | 'DOWN') => {
-    if (ref.current) {
-      const scrollAmount = direction === 'UP' ? -100 : 100;
-      ref.current.scrollBy({ top: scrollAmount, behavior: 'smooth' });
-    }
-  };
-
   const toggleClassSection = (wing: string, std: number, sec: string) => {
     const key = `${std} - ${wing}`;
     setSelectedClasses(prev => {
@@ -131,15 +115,6 @@ const StudentReports: React.FC<StudentReportsProps> = ({ user, schoolLogo, schoo
     });
   };
 
-  const formattedSelectedClasses = useMemo(() => {
-    const active: string[] = [];
-    Object.entries(selectedClasses).forEach(([cls, secs]) => {
-      const s = secs as string[];
-      if (s.length > 0) active.push(`${cls} (${s.join(',')})`);
-    });
-    return active;
-  }, [selectedClasses]);
-
   const handleMoveRight = () => {
     if (!isModifying || !pendingFieldFromInfo) return;
     const key = pendingFieldFromInfo;
@@ -150,7 +125,7 @@ const StudentReports: React.FC<StudentReportsProps> = ({ user, schoolLogo, schoo
     
     setSelectedFields(prev => [...prev, key]);
     setReportConfigs(prev => [...prev, {
-      key, displayName: fieldDef.label, width: 120, fontSize: 10, isBold: false
+      key, displayName: fieldDef.label, width: 35, fontSize: 10, isBold: false
     }]);
     setPendingFieldFromInfo(null);
   };
@@ -161,19 +136,6 @@ const StudentReports: React.FC<StudentReportsProps> = ({ user, schoolLogo, schoo
     setSelectedFields(prev => prev.filter(f => f !== key));
     setReportConfigs(prev => prev.filter(f => f.key !== key));
     setLastSelectedConfigKey(null);
-  };
-
-  const moveConfig = (direction: 'UP' | 'DOWN') => {
-    if (!isModifying || !lastSelectedConfigKey) return;
-    const idx = reportConfigs.findIndex(c => c.key === lastSelectedConfigKey);
-    if (idx === -1) return;
-    
-    const next = [...reportConfigs];
-    const target = direction === 'UP' ? idx - 1 : idx + 1;
-    if (target < 0 || target >= next.length) return;
-    
-    [next[idx], next[target]] = [next[target], next[idx]];
-    setReportConfigs(next);
   };
 
   const updateConfig = (key: string, updates: Partial<ReportFieldConfig>) => {
@@ -268,7 +230,6 @@ const StudentReports: React.FC<StudentReportsProps> = ({ user, schoolLogo, schoo
   };
 
   const handleDownload = () => {
-    // Print the specific area
     window.print();
   };
 
@@ -278,10 +239,19 @@ const StudentReports: React.FC<StudentReportsProps> = ({ user, schoolLogo, schoo
       .filter(f => f.label.toLowerCase().includes(fieldSearch.toLowerCase()));
   }, [availableFields, selectedFields, fieldSearch]);
 
+  const formattedSelectedClasses = useMemo(() => {
+    const active: string[] = [];
+    Object.entries(selectedClasses).forEach(([cls, secs]) => {
+      const s = secs as string[];
+      if (s.length > 0) active.push(`${cls} (${s.join(',')})`);
+    });
+    return active;
+  }, [selectedClasses]);
+
   return (
     <div className="min-h-screen bg-slate-50 dark:bg-slate-950 p-4 lg:p-6 animate-in fade-in duration-500">
       
-      {/* IMPROVED PRINT STYLES */}
+      {/* PRINT STYLES */}
       <style>{`
         @media print {
           body > :not(.report-print-area) { display: none !important; }
@@ -296,46 +266,61 @@ const StudentReports: React.FC<StudentReportsProps> = ({ user, schoolLogo, schoo
             top: 0 !important;
             width: 100% !important;
             background: white !important;
-            padding: 10mm !important;
+            padding: 15mm !important;
             color: black !important;
           }
           
           .report-print-area * { visibility: visible !important; color: black !important; }
-          @page { size: landscape; margin: 5mm; }
+          @page { size: A4 landscape; margin: 0; }
           
-          .excel-table { border-collapse: collapse; width: 100%; border: 1.5px solid #000; }
-          .excel-table th { border: 1.5px solid #000; padding: 6px; text-align: left; background: #f1f5f9 !important; -webkit-print-color-adjust: exact; font-weight: 900; }
-          .excel-table td { border: 1px solid #000; padding: 4px 6px; text-align: left; }
+          .report-table { 
+            width: 100%; 
+            border-collapse: collapse; 
+            border: 1px solid #000; 
+            table-layout: fixed;
+          }
+          .report-table th { 
+            border: 1px solid #000; 
+            padding: 8px 4px; 
+            text-align: left; 
+            background-color: #f8fafc !important; 
+            -webkit-print-color-adjust: exact;
+            font-weight: 900;
+            text-transform: uppercase;
+          }
+          .report-table td { 
+            border: 1px solid #000; 
+            padding: 6px 4px; 
+            text-align: left; 
+            word-break: break-word;
+          }
         }
       `}</style>
 
-      {/* 
-          OFF-SCREEN PRINT BUFFER
-          Used for generating the PDF output
-      */}
+      {/* OFF-SCREEN PRINT BUFFER */}
       <div className="report-print-area hidden">
-         <div className="flex items-center justify-between border-b-4 border-slate-900 pb-8 mb-10">
-            <div className="flex items-center gap-8">
-               <div className="w-24 h-24 overflow-hidden rounded-2xl border-2 border-slate-200">
-                  {schoolLogo ? <img src={schoolLogo} className="w-full h-full object-cover" /> : <div className="w-full h-full bg-slate-900 flex items-center justify-center text-white font-black">LOGO</div>}
+         <div className="flex items-center justify-between border-b-4 border-slate-900 pb-6 mb-8">
+            <div className="flex items-center gap-6">
+               <div className="w-20 h-20 overflow-hidden rounded-xl border-2 border-slate-200">
+                  {schoolLogo ? <img src={schoolLogo} className="w-full h-full object-cover" /> : <div className="w-full h-full bg-slate-900 flex items-center justify-center text-white font-black text-xs">LOGO</div>}
                </div>
                <div>
-                  <h1 className="text-4xl font-black uppercase text-slate-900 leading-tight">{schoolName || 'INSTITUTIONAL DATABASE'}</h1>
-                  <p className="text-[11px] font-black uppercase tracking-[0.4em] text-indigo-600 mt-2">Official Student Registry Node-v8</p>
-                  <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400 mt-1">Generated: {new Date().toLocaleString('en-GB')}</p>
+                  <h1 className="text-2xl font-black uppercase text-slate-900 leading-tight">{schoolName || 'INSTITUTIONAL DATABASE'}</h1>
+                  <p className="text-[9px] font-black uppercase tracking-[0.4em] text-indigo-600 mt-1">Official Student Registry Node-v9</p>
+                  <p className="text-[8px] font-bold uppercase tracking-widest text-slate-400 mt-0.5">Date: {new Date().toLocaleDateString('en-GB')}</p>
                </div>
             </div>
             <div className="text-right">
-               <div className="bg-slate-900 text-white px-6 py-2.5 rounded-xl font-black text-xs uppercase mb-2">Authenticated Data Record</div>
-               <p className="text-[10px] font-bold uppercase text-slate-500 tracking-widest">Report Profile: {activeProfileName || 'Standard View'}</p>
+               <div className="bg-slate-900 text-white px-4 py-2 rounded-lg font-black text-[10px] uppercase mb-1">Authenticated Data Record</div>
+               <p className="text-[8px] font-bold uppercase text-slate-500 tracking-widest">Profile: {activeProfileName || 'Standard'}</p>
             </div>
          </div>
          
-         <table className="excel-table">
+         <table className="report-table">
             <thead>
                <tr>
                   {reportConfigs.map(config => (
-                     <th key={config.key} style={{ fontSize: `${config.fontSize}px`, width: `${config.width}px` }} className="uppercase font-black">
+                     <th key={config.key} style={{ fontSize: `${config.fontSize}px`, width: `${config.width}mm` }}>
                         {config.displayName}
                      </th>
                   ))}
@@ -345,7 +330,7 @@ const StudentReports: React.FC<StudentReportsProps> = ({ user, schoolLogo, schoo
                {reportData.map((student, idx) => (
                   <tr key={student.id + idx}>
                      {reportConfigs.map(config => (
-                        <td key={config.key} style={{ fontSize: `${config.fontSize}px`, fontWeight: config.isBold ? 'bold' : 'normal' }} className="uppercase truncate">
+                        <td key={config.key} style={{ fontSize: `${config.fontSize * 0.9}px`, fontWeight: config.isBold ? 'bold' : 'normal' }}>
                            {(student as any)[config.key] || '-'}
                         </td>
                      ))}
@@ -355,70 +340,80 @@ const StudentReports: React.FC<StudentReportsProps> = ({ user, schoolLogo, schoo
          </table>
       </div>
 
-      {/* PREVIEW MODAL */}
+      {/* A4 SIZE PREVIEW MODAL */}
       {showPreviewModal && (
-        <div className="fixed inset-0 z-[2000] bg-slate-950/95 backdrop-blur-xl flex flex-col p-4 lg:p-10 animate-in fade-in duration-300 no-print">
-           <div className="bg-white dark:bg-slate-900 rounded-[3rem] w-full max-w-7xl mx-auto h-full flex flex-col shadow-2xl border border-slate-100 dark:border-slate-800 overflow-hidden animate-in zoom-in-95">
-              <div className="p-8 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between bg-slate-50/50 dark:bg-slate-800/30">
-                 <div className="flex items-center gap-6">
-                    <div className="w-12 h-12 bg-indigo-600 rounded-xl flex items-center justify-center text-white shadow-lg"><FileText size={24}/></div>
-                    <div>
-                       <h3 className="text-xl font-black uppercase tracking-tight text-slate-900 dark:text-white">Report PreviewTerminal</h3>
-                       <div className="flex items-center gap-3 mt-1">
-                          <span className="text-[10px] font-black text-indigo-500 uppercase tracking-widest bg-indigo-50 dark:bg-indigo-900/30 px-2 py-0.5 rounded border border-indigo-100 dark:border-indigo-800">{activeProfileName}</span>
-                          <span className="text-[10px] font-black text-emerald-600 uppercase tracking-widest">{reportData.length} Students Captured</span>
-                       </div>
-                    </div>
-                 </div>
-                 <div className="flex items-center gap-3">
-                    <button 
-                      onClick={handleDownload} 
-                      className="px-8 py-4 bg-indigo-600 text-white font-black rounded-2xl shadow-xl flex items-center gap-3 hover:bg-indigo-700 transition-all uppercase text-xs tracking-widest"
-                    >
-                       <Download size={18} strokeWidth={3} /> Download PDF
-                    </button>
-                    <button onClick={() => setShowPreviewModal(false)} className="p-4 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-2xl text-slate-400 transition-all"><X size={28} /></button>
+        <div className="fixed inset-0 z-[2000] bg-slate-950/85 backdrop-blur-md flex flex-col p-4 animate-in fade-in duration-300 no-print">
+           {/* Top Control Bar */}
+           <div className="w-full max-w-[210mm] mx-auto mb-4 flex items-center justify-between bg-white dark:bg-slate-900 p-4 rounded-2xl shadow-2xl border border-slate-100 dark:border-slate-800 animate-in slide-in-from-top-4">
+              <div className="flex items-center gap-4">
+                 <div className="w-10 h-10 bg-indigo-600 rounded-xl flex items-center justify-center text-white shadow-lg"><FileText size={20}/></div>
+                 <div>
+                    <h3 className="text-sm font-black uppercase tracking-tight text-slate-900 dark:text-white leading-none">A4 Document Preview</h3>
+                    <p className="text-[9px] font-black text-indigo-500 uppercase tracking-widest mt-1.5">{reportData.length} Records In Grid</p>
                  </div>
               </div>
-              
-              <div className="flex-1 overflow-auto p-12 custom-scrollbar bg-slate-200/50 dark:bg-slate-950/50">
-                 <div className="bg-white p-12 shadow-2xl min-h-[1000px] max-w-[297mm] mx-auto overflow-x-auto">
-                    <div className="flex items-center justify-between border-b-4 border-slate-900 pb-8 mb-10 text-slate-900">
-                        <div className="flex items-center gap-8">
-                           <div className="w-20 h-20 bg-slate-900 rounded-xl flex items-center justify-center text-white font-black">LOGO</div>
-                           <div>
-                              <h1 className="text-3xl font-black uppercase">{schoolName}</h1>
-                              <p className="text-[9px] font-black uppercase tracking-[0.4em] text-indigo-600 mt-1">Registry Export Terminal</p>
-                           </div>
-                        </div>
-                        <div className="text-right">
-                           <p className="text-[8px] font-black uppercase text-slate-400">Security Hash: DIS-0x42-RES</p>
-                           <p className="text-xs font-black text-slate-900">{new Date().toLocaleDateString('en-GB')}</p>
-                        </div>
+              <div className="flex items-center gap-2">
+                 <button 
+                   onClick={handleDownload} 
+                   className="px-6 py-3 bg-indigo-600 text-white font-black rounded-xl shadow-xl flex items-center gap-2 hover:bg-indigo-700 transition-all uppercase text-[10px] tracking-widest"
+                 >
+                    <Download size={14} strokeWidth={3} /> Download PDF
+                 </button>
+                 <button onClick={() => setShowPreviewModal(false)} className="p-3 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-xl text-slate-400 transition-all"><X size={20} /></button>
+              </div>
+           </div>
+           
+           {/* Scrollable Workspace */}
+           <div className="flex-1 overflow-auto custom-scrollbar p-2 flex justify-center">
+              <div 
+                className="bg-white shadow-2xl p-[15mm] mx-auto mb-10 animate-in zoom-in-95 origin-top" 
+                style={{ width: '210mm', minHeight: '297mm', color: 'black' }}
+              >
+                 {/* Page Header */}
+                 <div className="flex items-center justify-between border-b-4 border-slate-900 pb-6 mb-8">
+                    <div className="flex items-center gap-6">
+                       <div className="w-16 h-16 bg-slate-900 rounded-xl flex items-center justify-center text-white font-black text-[10px]">LOGO</div>
+                       <div>
+                          <h1 className="text-xl font-black uppercase tracking-tight text-slate-900">{schoolName || 'INSTITUTIONAL DATABASE'}</h1>
+                          <p className="text-[8px] font-black uppercase tracking-[0.4em] text-indigo-600 mt-1">Registry Export Protocol</p>
+                       </div>
                     </div>
-                    
-                    <table className="excel-table text-slate-900">
-                       <thead>
-                          <tr>
+                    <div className="text-right">
+                       <p className="text-[8px] font-bold text-slate-400 uppercase tracking-widest">Generated On</p>
+                       <p className="text-[10px] font-black text-slate-900 uppercase">{new Date().toLocaleDateString('en-GB')}</p>
+                    </div>
+                 </div>
+                 
+                 {/* The "Row and Column" Table */}
+                 <table className="w-full border-collapse border border-slate-900" style={{ tableLayout: 'fixed' }}>
+                    <thead>
+                       <tr className="bg-slate-50">
+                          {reportConfigs.map(config => (
+                             <th key={config.key} className="border border-slate-900 p-2 text-left font-black uppercase" style={{ fontSize: `${config.fontSize * 0.8}px`, width: `${config.width}mm` }}>
+                                {config.displayName}
+                             </th>
+                          ))}
+                       </tr>
+                    </thead>
+                    <tbody>
+                       {reportData.map((student, idx) => (
+                          <tr key={student.id + idx} className="hover:bg-slate-50 transition-colors">
                              {reportConfigs.map(config => (
-                                <th key={config.key} style={{ fontSize: `${config.fontSize}px`, width: `${config.width}px` }} className="uppercase font-black">
-                                   {config.displayName}
-                                </th>
+                                <td key={config.key} className="border border-slate-900 p-2 truncate" style={{ fontSize: `${config.fontSize * 0.75}px`, fontWeight: config.isBold ? 'bold' : 'normal', width: `${config.width}mm` }}>
+                                   {(student as any)[config.key] || '-'}
+                                </td>
                              ))}
                           </tr>
-                       </thead>
-                       <tbody>
-                          {reportData.map((student, idx) => (
-                             <tr key={student.id + idx}>
-                                {reportConfigs.map(config => (
-                                   <td key={config.key} style={{ fontSize: `${config.fontSize}px`, fontWeight: config.isBold ? 'bold' : 'normal' }} className="uppercase truncate">
-                                      {(student as any)[config.key] || '-'}
-                                   </td>
-                                ))}
-                             </tr>
-                          ))}
-                       </tbody>
-                    </table>
+                       ))}
+                    </tbody>
+                 </table>
+
+                 <div className="mt-12 flex justify-between items-end opacity-40">
+                    <p className="text-[7px] font-black uppercase tracking-[0.4em] text-slate-400">Sync Reference: {activeProfileName}</p>
+                    <div className="text-center">
+                       <div className="w-32 border-b border-slate-900 mb-1"></div>
+                       <p className="text-[8px] font-black uppercase tracking-widest text-slate-900">Authenticated By</p>
+                    </div>
                  </div>
               </div>
            </div>
@@ -507,7 +502,18 @@ const StudentReports: React.FC<StudentReportsProps> = ({ user, schoolLogo, schoo
 
              <div className="flex gap-4 relative">
                 <div className={`flex flex-col gap-4 items-center justify-center transition-all duration-300 min-w-[120px] ${!isModifying ? 'opacity-0 w-0 overflow-hidden' : 'opacity-100'}`}>
-                   <button onClick={() => setShowNewLabelModal(true)} className="w-full py-3 bg-emerald-50 dark:bg-emerald-950/30 text-emerald-600 border border-emerald-100 rounded-none font-black text-[8px] uppercase tracking-widest hover:bg-emerald-600 hover:text-white transition-all shadow-sm">ADD LABEL</button>
+                   <button 
+                    onClick={() => {
+                        const name = prompt("Enter Custom Label Name:");
+                        const display = prompt("Enter Custom Display Title:");
+                        if (name && display) {
+                          setAvailableFields(prev => [...prev, { key: name.toLowerCase(), label: display.toUpperCase() }]);
+                        }
+                    }} 
+                    className="w-full py-3 bg-emerald-50 dark:bg-emerald-950/30 text-emerald-600 border border-emerald-100 rounded-none font-black text-[8px] uppercase tracking-widest hover:bg-emerald-600 hover:text-white transition-all shadow-sm"
+                   >
+                    ADD LABEL
+                   </button>
                    <div className="flex flex-col gap-3">
                       <button onClick={handleMoveRight} disabled={!isModifying || !pendingFieldFromInfo} className={`w-12 h-12 rounded-none shadow-lg border border-slate-100 transition-all flex items-center justify-center ${isModifying && pendingFieldFromInfo ? 'bg-indigo-600 text-white' : 'bg-white dark:bg-slate-800 text-slate-300'}`}><ChevronRight size={24} strokeWidth={2.5}/></button>
                       <button onClick={handleMoveLeft} disabled={!isModifying || !lastSelectedConfigKey} className={`w-12 h-12 rounded-none shadow-lg border border-slate-100 transition-all flex items-center justify-center ${isModifying && lastSelectedConfigKey ? 'bg-indigo-600 text-white' : 'bg-white dark:bg-slate-800 text-slate-300'}`}><ChevronLeft size={24} strokeWidth={2.5}/></button>
@@ -517,23 +523,28 @@ const StudentReports: React.FC<StudentReportsProps> = ({ user, schoolLogo, schoo
                 <div className="flex-1 flex flex-col gap-4">
                    <div className="bg-white dark:bg-slate-900 rounded-none border-2 border-slate-200 dark:border-slate-800 flex-1 flex flex-col overflow-hidden min-h-[450px]">
                       <div className="p-5 bg-slate-50 dark:bg-slate-800/50 border-b border-slate-100 dark:border-slate-800">
-                         <div className="grid grid-cols-5 gap-4 text-[8px] font-black text-slate-400 uppercase tracking-widest">
-                            <span className="col-span-1">FIELD NAME</span>
-                            <span className="col-span-2">DISPLAY NAME</span>
-                            <span className="text-center">WIDTH</span>
-                            <span className="text-center">FONT</span>
+                         <div className="grid grid-cols-6 gap-4 text-[8px] font-black text-slate-400 uppercase tracking-widest">
+                            <span className="col-span-1">FIELD</span>
+                            <span className="col-span-2">DISPLAY TITLE</span>
+                            <span className="text-center flex items-center justify-center gap-1"><Ruler size={10}/> WIDTH (mm)</span>
+                            <span className="text-center">SIZE</span>
+                            <span className="text-center">BOLD</span>
                          </div>
                       </div>
                       <div className="flex-1 overflow-y-auto custom-scrollbar p-6 space-y-3">
                          {reportConfigs.map((config) => (
-                            <div key={config.key} onClick={() => setLastSelectedConfigKey(config.key)} className={`grid grid-cols-5 gap-4 items-center p-3 border transition-all cursor-pointer ${lastSelectedConfigKey === config.key ? 'border-indigo-500 bg-indigo-50/30' : 'border-transparent hover:bg-slate-50'}`}>
+                            <div key={config.key} onClick={() => setLastSelectedConfigKey(config.key)} className={`grid grid-cols-6 gap-4 items-center p-3 border transition-all cursor-pointer ${lastSelectedConfigKey === config.key ? 'border-indigo-500 bg-indigo-50/30' : 'border-transparent hover:bg-slate-50'}`}>
                                <span className="text-[9px] font-black text-indigo-600 truncate">{config.key}</span>
                                <div className="col-span-2">
                                  <input type="text" value={config.displayName} disabled={!isModifying} onChange={e => updateConfig(config.key, { displayName: e.target.value.toUpperCase() })} className="w-full bg-transparent border-b border-slate-200 outline-none text-[10px] font-bold py-1 focus:border-indigo-500 uppercase" />
                                </div>
-                               <input type="number" value={config.width} disabled={!isModifying} onChange={e => updateConfig(config.key, { width: parseInt(e.target.value) || 0 })} className="bg-slate-100 dark:bg-slate-800 border-none px-2 py-1 text-center font-bold text-[10px] outline-none" />
+                               <div className="flex items-center justify-center">
+                                 <input type="number" value={config.width} disabled={!isModifying} onChange={e => updateConfig(config.key, { width: parseInt(e.target.value) || 0 })} className="bg-slate-100 dark:bg-slate-800 border-none px-2 py-1 text-center font-black text-[10px] outline-none w-14 rounded-lg shadow-inner" />
+                               </div>
                                <div className="flex items-center justify-center gap-2">
-                                  <input type="number" value={config.fontSize} disabled={!isModifying} onChange={e => updateConfig(config.key, { fontSize: parseInt(e.target.value) || 0 })} className="w-8 bg-slate-100 dark:bg-slate-800 border-none px-1 py-1 text-center font-bold text-[9px]" />
+                                  <input type="number" value={config.fontSize} disabled={!isModifying} onChange={e => updateConfig(config.key, { fontSize: parseInt(e.target.value) || 0 })} className="w-10 bg-slate-100 dark:bg-slate-800 border-none px-1 py-1 text-center font-bold text-[9px] rounded-lg" />
+                               </div>
+                               <div className="flex items-center justify-center">
                                   <button onClick={() => updateConfig(config.key, { isBold: !config.isBold })} className={`p-1.5 rounded-md transition-all ${config.isBold ? 'bg-indigo-600 text-white' : 'text-slate-300'}`}><Type size={10}/></button>
                                </div>
                             </div>
