@@ -1,4 +1,3 @@
-
 import React, { useState, useMemo, useEffect } from 'react';
 import { User, Student } from '../types';
 import { db, supabase } from '../supabase';
@@ -74,7 +73,8 @@ const Attendance: React.FC<AttendanceProps> = ({ user }) => {
         .lte('date', endDate);
 
       if (!error && data) {
-        const uniqueDates = new Set(data.map((item: any) => item.date));
+        // Added explicit type Set<string> to uniqueDates to fix the type mismatch error
+        const uniqueDates = new Set<string>(data.map((item: any) => String(item.date)));
         setMonthlyMarkedDates(uniqueDates);
       }
     } catch (e) {

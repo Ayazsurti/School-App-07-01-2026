@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { HashRouter, Routes, Route, Navigate, Link, useLocation, useNavigate } from 'react-router-dom';
 import { 
@@ -98,6 +99,7 @@ import AuditLog from './pages/AuditLog';
 import Curriculum from './pages/Curriculum';
 import SchoolSettings from './pages/SchoolSettings';
 import DisplayConfigure from './pages/DisplayConfigure';
+import StudentReports from './pages/StudentReports';
 import { APP_NAME as DEFAULT_APP_NAME, NAVIGATION } from './constants';
 import { db, supabase } from './supabase';
 import { createAuditLog } from './utils/auditLogger';
@@ -560,6 +562,7 @@ const Layout: React.FC<LayoutProps> = ({ user, cloudSettings, branding, onUpdate
             <Route path="/admin/branding" element={<SchoolSettings user={user} />} />
             <Route path="/admin/display-config" element={<DisplayConfigure user={user} settings={displaySettings} onUpdateSettings={onUpdateDisplay} />} />
             <Route path="/admin/students" element={<StudentsManager user={user} />} />
+            <Route path="/admin/reports" element={<StudentReports user={user} schoolLogo={schoolLogo} schoolName={schoolName} />} />
             <Route path="/admin/cancel-admission" element={<AdmissionCancellation user={user} />} />
             <Route path="/admin/id-designer" element={<IdCardDesigner user={user} />} />
             <Route path="/admin/id-cards" element={<IdCardGenerator user={user} schoolLogo={schoolLogo} />} />

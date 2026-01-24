@@ -1,3 +1,4 @@
+
 import React from 'react';
 import { 
   LayoutDashboard, 
@@ -30,7 +31,8 @@ import {
   Palette,
   BarChart3,
   Globe,
-  UserMinus
+  UserMinus,
+  FileDown
 } from 'lucide-react';
 import { TimetableEntry, Student } from './types';
 
@@ -42,6 +44,7 @@ export const NAVIGATION = {
     { name: 'School Branding', icon: <Stamp size={20} />, path: '/admin/branding' },
     { name: 'Display Configure', icon: <Palette size={20} />, path: '/admin/display-config' },
     { name: 'Student Management', icon: <Users size={20} />, path: '/admin/students' },
+    { name: 'Student Reports', icon: <FileDown size={20} />, path: '/admin/reports' },
     { name: 'Cancel Admission', icon: <UserMinus size={20} />, path: '/admin/cancel-admission' },
     { name: 'ID Card Designer', icon: <Palette size={20} />, path: '/admin/id-designer' },
     { name: 'Bulk ID Cards', icon: <WalletCards size={20} />, path: '/admin/id-cards' },
