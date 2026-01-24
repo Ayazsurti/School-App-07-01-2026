@@ -168,7 +168,7 @@ export const db = {
         name: t.fullName,
         staff_id: t.staffId,
         mobile: t.mobile,
-        alternate_mobile: t.alternateMobile,
+        alternate_mobile: t.alternate_mobile,
         email: t.email,
         qualification: t.qualification,
         residence_address: t.residenceAddress,
@@ -185,10 +185,10 @@ export const db = {
         assigned_section: t.assignedSection,
         aadhar_no: t.aadharNo,
         pan_no: t.panNo,
-        account_no: t.accountNo,
-        account_type: t.accountType,
-        bank_name: t.bankName,
-        ifsc_code: t.ifscCode,
+        account_no: t.account_no,
+        account_type: t.account_type,
+        bank_name: t.bank_name,
+        ifsc_code: t.ifsc_code,
         username: (t.username || '').toLowerCase().trim(),
         password: t.password
       };
@@ -545,6 +545,27 @@ export const db = {
     },
     async delete(id: string) {
       const { error } = await supabase.from('grading_rules').delete().eq('id', id);
+      if (error) throw error;
+    }
+  },
+  reports: {
+    async getProfiles() {
+      const { data, error } = await supabase.from('report_profiles').select('*').order('name', { ascending: true });
+      if (error) throw error;
+      return data;
+    },
+    async upsertProfile(profile: any) {
+      const { data, error } = await supabase.from('report_profiles').upsert([{
+        name: profile.name,
+        configs: profile.configs,
+        fields: profile.fields,
+        updated_at: new Date().toISOString()
+      }], { onConflict: 'name' }).select();
+      if (error) throw error;
+      return data;
+    },
+    async deleteProfile(name: string) {
+      const { error } = await supabase.from('report_profiles').delete().eq('name', name);
       if (error) throw error;
     }
   }
