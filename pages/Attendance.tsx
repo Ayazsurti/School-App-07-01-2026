@@ -73,7 +73,6 @@ const Attendance: React.FC<AttendanceProps> = ({ user }) => {
         .lte('date', endDate);
 
       if (!error && data) {
-        // Added explicit type Set<string> to uniqueDates to fix the type mismatch error
         const uniqueDates = new Set<string>(data.map((item: any) => String(item.date)));
         setMonthlyMarkedDates(uniqueDates);
       }
@@ -136,7 +135,6 @@ const Attendance: React.FC<AttendanceProps> = ({ user }) => {
         setAttendance(attendanceMap);
         setRecordIds(idMap);
       }
-      // Refresh monthly dots
       fetchMonthlyStatus();
     } catch (err) {
       console.error("Attendance Sync Error:", err);
@@ -172,7 +170,6 @@ const Attendance: React.FC<AttendanceProps> = ({ user }) => {
     };
   }, [baseList, attendance, isStudent]);
 
-  // Bulk Checkbox States
   const isAllPresent = baseList.length > 0 && baseList.every(s => attendance[s.id] === 'PRESENT');
   const isAllAbsent = baseList.length > 0 && baseList.every(s => attendance[s.id] === 'ABSENT');
 
@@ -229,7 +226,6 @@ const Attendance: React.FC<AttendanceProps> = ({ user }) => {
 
       await createAuditLog(user, 'UPDATE', 'Attendance', `Synced: Std ${selectedClass}-${selectedSection} (${selectedMedium}) on ${selectedDate}`);
       
-      // Manually add to marked dates for instant UI feedback
       setMonthlyMarkedDates(prev => new Set(prev).add(selectedDate));
       
       setShowSuccess(true);
@@ -364,6 +360,13 @@ const Attendance: React.FC<AttendanceProps> = ({ user }) => {
                  <button onClick={() => changeMonth(1)} className="p-1.5 bg-white dark:bg-slate-900 rounded-lg text-slate-400 hover:text-indigo-600 shadow-sm transition-all"><ChevronRight size={14}/></button>
               </div>
               <div className="p-4">
+                 <div className="grid grid-cols-7 gap-1 mb-2">
+                    {['S', 'M', 'T', 'W', 'T', 'F', 'S'].map((d, i) => (
+                      <div key={i} className="text-center text-[8px] font-black text-slate-400 uppercase tracking-widest py-1 border-b border-slate-50 dark:border-slate-800/50">
+                        {d}
+                      </div>
+                    ))}
+                 </div>
                  <div className="grid grid-cols-7 gap-1">
                     {calendarDays.map((day, idx) => {
                       if (!day) return <div key={`empty-${idx}`} />;
@@ -429,7 +432,7 @@ const Attendance: React.FC<AttendanceProps> = ({ user }) => {
                  <label className="text-[8px] font-black text-slate-400 uppercase tracking-[0.2em] ml-1 block">Assigned Section</label>
                  <div className="flex gap-1.5">
                     {ALL_SECTIONS.map(sec => (
-                      <button key={sec} onClick={() => setSelectedSection(sec)} className={`flex-1 py-3 rounded-xl text-[9px] font-black uppercase transition-all border ${selectedSection === sec ? 'bg-indigo-600 border-indigo-600 text-white shadow-md' : 'bg-slate-50 dark:bg-slate-800 border-transparent text-slate-500 hover:border-indigo-100'}`}>
+                      <button key={sec} onClick={() => setSelectedSection(sec)} className={`flex-1 py-3 rounded-xl text-[9px] font-black uppercase transition-all border ${selectedSection === sec ? 'bg-indigo-600 border-indigo-600 text-white shadow-md' : 'bg-white dark:bg-slate-900 border-slate-100 dark:border-slate-800 text-slate-400 hover:border-indigo-100'}`}>
                         {sec}
                       </button>
                     ))}
