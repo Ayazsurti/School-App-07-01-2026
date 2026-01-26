@@ -105,7 +105,7 @@ const StudentReports: React.FC<{ user: User; schoolLogo?: string | null; schoolN
 
   useEffect(() => {
     fetchCloudData();
-    const channel = supabase.channel('realtime-report-profiles')
+    const channel = supabase.channel('realtime-report-profiles-sync')
       .on('postgres_changes', { event: '*', schema: 'public', table: 'report_profiles' }, () => {
         setIsSyncing(true);
         fetchCloudData().then(() => setTimeout(() => setIsSyncing(false), 800));
@@ -187,6 +187,7 @@ const StudentReports: React.FC<{ user: User; schoolLogo?: string | null; schoolN
       setActiveProfileName(name);
       setShowProfileModal(false);
       setNewProfileName('');
+      await fetchCloudData();
     } catch (e: any) {
       alert("Failed to create profile: " + getErrorMessage(e));
     } finally {
@@ -207,6 +208,7 @@ const StudentReports: React.FC<{ user: User; schoolLogo?: string | null; schoolN
       setShowSuccess(true);
       setTimeout(() => setShowSuccess(false), 3000);
       setIsModifying(false);
+      await fetchCloudData();
     } catch (e: any) {
       alert("Failed to sync profile: " + getErrorMessage(e));
     } finally {
@@ -230,7 +232,7 @@ const StudentReports: React.FC<{ user: User; schoolLogo?: string | null; schoolN
       if (error) throw error;
 
       const filtered = (students || []).filter(s => {
-        const key = `${s.class}`; // Correctly mapping the key as it's selected in matrix
+        const key = `${s.class}`; 
         const targetSecs = selectedClasses[key] || [];
         return targetSecs.includes(s.section);
       }).map(s => ({
@@ -345,12 +347,11 @@ const StudentReports: React.FC<{ user: User; schoolLogo?: string | null; schoolN
                </div>
             </div>
             <div className="text-right">
-               <div className="bg-slate-900 text-white px-4 py-2 rounded-lg font-black text-[10px] uppercase mb-1">Authenticated Data Record</div>
+               <div className="bg-slate-900 text-white px-4 py-2 rounded-lg font-black text-[10px] uppercase mb-1">Authenticated Record</div>
                <p className="text-[8px] font-bold uppercase text-slate-500 tracking-widest">Profile: {activeProfileName || 'Standard'}</p>
             </div>
          </div>
          
-         {/* Class/Standard Heading directly below the line */}
          <div className="mt-3 mb-8">
             <p className="text-[11px] font-black text-slate-900 uppercase tracking-widest">CLASS: {formattedSelectedClasses.join(' • ') || 'ALL CLASSES'}</p>
          </div>
@@ -387,7 +388,7 @@ const StudentReports: React.FC<{ user: User; schoolLogo?: string | null; schoolN
               <div className="flex items-center gap-4">
                  <div className="w-10 h-10 bg-indigo-600 rounded-xl flex items-center justify-center text-white shadow-lg"><FileText size={20}/></div>
                  <div>
-                    <h3 className="text-sm font-black uppercase tracking-tight text-slate-900 dark:text-white leading-none">A4 Document Preview</h3>
+                    <h3 className="text-sm font-black uppercase tracking-tight text-slate-900 dark:text-white leading-none">Document Preview</h3>
                     <p className="text-[9px] font-black text-indigo-500 uppercase tracking-widest mt-1.5">{reportData.length} Records In Grid</p>
                  </div>
               </div>
@@ -402,13 +403,11 @@ const StudentReports: React.FC<{ user: User; schoolLogo?: string | null; schoolN
               </div>
            </div>
            
-           {/* Scrollable Workspace */}
            <div className="flex-1 overflow-auto custom-scrollbar p-2 flex justify-center">
               <div 
                 className="bg-white shadow-2xl p-[15mm] mx-auto mb-10 animate-in zoom-in-95 origin-top" 
                 style={{ width: '210mm', minHeight: '297mm', color: 'black' }}
               >
-                 {/* Page Header */}
                  <div className="flex items-center justify-between border-b-4 border-slate-900 pb-6">
                     <div className="flex items-center gap-6">
                        <div className="w-16 h-16 bg-white rounded-xl flex items-center justify-center text-slate-900 font-black text-[10px] overflow-hidden border-2 border-slate-100">
@@ -424,12 +423,10 @@ const StudentReports: React.FC<{ user: User; schoolLogo?: string | null; schoolN
                     </div>
                  </div>
 
-                 {/* Class/Standard Heading directly below the line */}
                  <div className="mt-3 mb-8">
                     <p className="text-[10px] font-black text-slate-900 uppercase tracking-tight">CLASS: {formattedSelectedClasses.join(' • ') || 'ALL CLASSES'}</p>
                  </div>
                  
-                 {/* The "Row and Column" Table */}
                  <table className="w-full border-collapse border border-slate-900" style={{ tableLayout: 'fixed' }}>
                     <thead>
                        <tr className="bg-slate-50">
@@ -469,10 +466,8 @@ const StudentReports: React.FC<{ user: User; schoolLogo?: string | null; schoolN
       <div className="no-print space-y-8 max-w-[1600px] mx-auto">
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
           
-          {/* Left Column: Input Selection Grid */}
+          {/* Left Column */}
           <div className="lg:col-span-4 space-y-8">
-            
-            {/* MODULE 1: MATRIX SELECTION */}
             <ModuleWrapper title="CLASS SELECTION MATRIX" id="MOD-01">
               <div ref={matrixScrollRef} className="max-h-[400px] overflow-y-auto custom-scrollbar border border-slate-100 dark:border-slate-800 bg-slate-50/30 dark:bg-slate-950/20">
                 <table className="w-full text-[8px] font-black uppercase border-collapse">
@@ -486,7 +481,7 @@ const StudentReports: React.FC<{ user: User; schoolLogo?: string | null; schoolN
                     {WINGS.map(wing => (
                       <React.Fragment key={wing}>
                         <tr className="bg-indigo-50/30 dark:bg-indigo-900/10">
-                          <td colSpan={5} className="p-2.5 text-[7px] font-black text-indigo-500 uppercase tracking-widest border-b border-indigo-100 dark:border-indigo-900/50">{wing} WING HUB</td>
+                          <td colSpan={5} className="p-2.5 text-[7px] font-black text-indigo-500 uppercase tracking-widest border-b border-indigo-100 dark:border-indigo-900/50">{wing} WING</td>
                         </tr>
                         {CLASSES.map(std => (
                            <tr key={`${std}-${wing}`} className="hover:bg-indigo-50/50 dark:hover:bg-indigo-900/10 transition-colors">
@@ -512,8 +507,7 @@ const StudentReports: React.FC<{ user: User; schoolLogo?: string | null; schoolN
               </div>
             </ModuleWrapper>
 
-            {/* MODULE 2: FIELD REPOSITORY */}
-            <ModuleWrapper title="FIELD INFORMATION REPOSITORY" id="MOD-02" className={!isModifying ? 'opacity-40 grayscale pointer-events-none' : ''}>
+            <ModuleWrapper title="FIELD REPOSITORY" id="MOD-02" className={!isModifying ? 'opacity-40 grayscale pointer-events-none' : ''}>
               <div className="relative mb-6">
                 <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-300" size={14} />
                 <input 
@@ -532,7 +526,6 @@ const StudentReports: React.FC<{ user: User; schoolLogo?: string | null; schoolN
                       className={`p-3 border-2 transition-all cursor-pointer select-none text-center rounded-xl flex flex-col justify-center gap-1 ${pendingFieldFromInfo === field.key ? 'bg-indigo-600 border-indigo-600 text-white shadow-lg scale-[1.02]' : 'bg-slate-50 dark:bg-slate-800 border-transparent text-slate-600 dark:text-slate-400 hover:border-slate-200'}`}
                     >
                        <span className="text-[8px] font-black uppercase tracking-wider leading-none">{field.label}</span>
-                       <span className="text-[6px] opacity-40 font-black uppercase">NODE::{field.key}</span>
                     </div>
                  ))}
               </div>
@@ -547,10 +540,8 @@ const StudentReports: React.FC<{ user: User; schoolLogo?: string | null; schoolN
             </ModuleWrapper>
           </div>
 
-          {/* Right Column: Configuration Grid */}
+          {/* Right Column */}
           <div className="lg:col-span-8 space-y-8">
-            
-            {/* MODULE 3: PROFILE HUB */}
             <ModuleWrapper title="PROFILE IDENTIFICATION CONTROL" id="MOD-03">
               <div className="grid grid-cols-1 md:grid-cols-12 gap-8 items-center">
                 <div className="md:col-span-6 bg-slate-50 dark:bg-slate-800 p-5 rounded-2xl border-2 border-slate-100 dark:border-slate-700 shadow-inner relative group">
@@ -575,14 +566,11 @@ const StudentReports: React.FC<{ user: User; schoolLogo?: string | null; schoolN
               </div>
             </ModuleWrapper>
 
-            {/* MODULE 4: ARCHITECTURE DESIGNER */}
             <ModuleWrapper title="DATA ARCHITECTURE GRID" id="MOD-04">
               <div className="flex-1 flex flex-col min-h-[550px] bg-slate-50 dark:bg-slate-950/40 rounded-[2.5rem] border-2 border-slate-100 dark:border-slate-800 overflow-hidden">
-                
-                {/* Header Row */}
                 <div className="grid grid-cols-12 gap-2 p-5 bg-slate-900 text-white text-[8px] font-black uppercase tracking-[0.2em]">
                    <div className="col-span-1 text-center">ORDER</div>
-                   <div className="col-span-2 px-2 flex items-center gap-2"><Layers size={10}/> Data Node</div>
+                   <div className="col-span-2 px-2 flex items-center gap-2"><Layers size={10}/> Node</div>
                    <div className="col-span-3 px-2 flex items-center gap-2"><Type size={10}/> Public Label</div>
                    <div className="col-span-3 text-center flex items-center justify-center gap-1"><Ruler size={10}/> Width (mm)</div>
                    <div className="col-span-2 text-center flex items-center justify-center gap-1"><Type size={10}/> Size</div>
@@ -595,11 +583,10 @@ const StudentReports: React.FC<{ user: User; schoolLogo?: string | null; schoolN
                         <div className="flex items-center gap-3">
                            <div className="p-2 bg-white/20 rounded-lg"><Grid size={14}/></div>
                            <div>
-                              <p className="text-[8px] font-black uppercase tracking-widest opacity-60">System Selection Trace</p>
+                              <p className="text-[8px] font-black uppercase tracking-widest opacity-60">Selection Trace</p>
                               <p className="text-[10px] font-black truncate max-w-md">{formattedSelectedClasses.join(' • ')}</p>
                            </div>
                         </div>
-                        <span className="text-[8px] font-black bg-white/20 px-3 py-1 rounded-full uppercase">Matrix Locked</span>
                      </div>
                    )}
 
@@ -627,7 +614,6 @@ const StudentReports: React.FC<{ user: User; schoolLogo?: string | null; schoolN
                          <div className="col-span-3 px-2">
                             <input type="text" value={config.displayName} disabled={!isModifying} onChange={e => updateConfig(config.key, { displayName: e.target.value.toUpperCase() })} className="w-full bg-transparent border-b-2 border-slate-100 dark:border-slate-700 outline-none text-[11px] font-black py-1 focus:border-indigo-500 uppercase text-slate-800 dark:text-white" />
                          </div>
-                         {/* Width Modifier */}
                          <div className="col-span-3 flex items-center justify-center gap-2">
                             <button 
                               disabled={!isModifying} 
@@ -645,7 +631,6 @@ const StudentReports: React.FC<{ user: User; schoolLogo?: string | null; schoolN
                                <Plus size={12} strokeWidth={3} />
                             </button>
                          </div>
-                         {/* Size Modifier */}
                          <div className="col-span-2 flex items-center justify-center gap-2">
                             <button 
                               disabled={!isModifying} 
@@ -672,7 +657,7 @@ const StudentReports: React.FC<{ user: User; schoolLogo?: string | null; schoolN
                    {reportConfigs.length === 0 && (
                       <div className="py-32 flex flex-col items-center justify-center opacity-20 text-center grayscale">
                          <Box size={64} className="mb-6" />
-                         <p className="font-black text-xs uppercase tracking-[0.4em]">Designer Terminal Ready</p>
+                         <p className="font-black text-xs uppercase tracking-[0.4em]">Grid Ready</p>
                       </div>
                    )}
                 </div>
@@ -691,14 +676,6 @@ const StudentReports: React.FC<{ user: User; schoolLogo?: string | null; schoolN
                 </div>
               </div>
             </ModuleWrapper>
-
-            <div className="p-10 bg-indigo-50 dark:bg-indigo-950/20 rounded-[3rem] border-2 border-indigo-100 dark:border-indigo-900 flex items-start gap-6">
-              <div className="w-14 h-14 bg-white dark:bg-slate-800 rounded-2xl flex items-center justify-center text-indigo-600 shadow-lg border border-indigo-100 shrink-0"><ShieldCheck size={32}/></div>
-              <div className="space-y-2">
-                 <h4 className="text-sm font-black text-indigo-900 dark:text-indigo-100 uppercase tracking-widest leading-none">Security Policy Established</h4>
-                 <p className="text-[10px] font-bold text-indigo-700/60 dark:text-indigo-400/60 uppercase leading-relaxed tracking-wider">Reports are generated in A4 landscape mode for maximum column visibility. Each sync commits changes to the institutional cloud node globally.</p>
-              </div>
-            </div>
           </div>
         </div>
       </div>
@@ -734,11 +711,11 @@ const StudentReports: React.FC<{ user: User; schoolLogo?: string | null; schoolN
 
       {showDeleteProfileConfirm && (
         <div className="fixed inset-0 z-[1600] flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-md animate-in fade-in no-print">
-           <div className="bg-white dark:bg-slate-900 rounded-[3rem] p-8 max-w-xs w-full shadow-2xl text-center border-t-8 border-rose-600 animate-in zoom-in-95">
+           <div className="bg-white dark:bg-slate-900 rounded-[3rem] p-10 max-w-sm w-full shadow-2xl text-center border border-rose-100/20 animate-in zoom-in-95">
               <div className="w-16 h-16 bg-rose-50 dark:bg-rose-900/20 text-rose-600 rounded-[1.8rem] flex items-center justify-center mb-6 mx-auto shadow-inner border border-rose-100">
                  <AlertTriangle size={32} strokeWidth={2.5} />
               </div>
-              <h3 className="text-xl font-black text-slate-900 dark:text-white mb-2 uppercase tracking-tighter">Purge Profile?</h3>
+              <h3 className="text-xl font-black text-slate-900 dark:text-white mb-2 uppercase tracking-tighter leading-tight">Purge Profile?</h3>
               <p className="text-slate-500 dark:text-slate-400 mb-8 font-medium text-[10px] leading-relaxed uppercase tracking-widest">Delete <b>{activeProfileName}</b> permanently from cloud storage?</p>
               <div className="grid grid-cols-2 gap-3">
                  <button onClick={() => setShowDeleteProfileConfirm(false)} className="py-4 bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 font-black rounded-2xl uppercase text-[10px]">Cancel</button>
@@ -750,6 +727,7 @@ const StudentReports: React.FC<{ user: User; schoolLogo?: string | null; schoolN
                       await createAuditLog(user, 'DELETE', 'Reports', `Deleted report profile: ${activeProfileName}`);
                       setActiveProfileName('');
                       setShowDeleteProfileConfirm(false);
+                      await fetchCloudData();
                     } catch (e: any) {
                       alert("Delete failed: " + getErrorMessage(e));
                     } finally {
