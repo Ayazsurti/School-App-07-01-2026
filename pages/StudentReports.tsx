@@ -348,7 +348,6 @@ const StudentReports: React.FC<{ user: User; schoolLogo?: string | null; schoolN
             </div>
             <div className="text-right">
                <div className="bg-slate-900 text-white px-4 py-2 rounded-lg font-black text-[10px] uppercase mb-1">Authenticated Record</div>
-               <p className="text-[8px] font-bold uppercase text-slate-500 tracking-widest">Profile: {activeProfileName || 'Standard'}</p>
             </div>
          </div>
          
@@ -378,6 +377,13 @@ const StudentReports: React.FC<{ user: User; schoolLogo?: string | null; schoolN
                ))}
             </tbody>
          </table>
+
+         <div className="mt-12 flex justify-end opacity-40">
+            <div className="text-center">
+               <div className="w-40 border-b border-slate-900 mb-1"></div>
+               <p className="text-[8px] font-black uppercase tracking-widest text-slate-900">Authenticated By</p>
+            </div>
+         </div>
       </div>
 
       {/* A4 SIZE PREVIEW MODAL */}
@@ -451,7 +457,7 @@ const StudentReports: React.FC<{ user: User; schoolLogo?: string | null; schoolN
                  </table>
 
                  <div className="mt-12 flex justify-between items-end opacity-40">
-                    <p className="text-[7px] font-black uppercase tracking-[0.4em] text-slate-400">Sync Reference: {activeProfileName}</p>
+                    <div className="flex-1"></div>
                     <div className="text-center">
                        <div className="w-32 border-b border-slate-900 mb-1"></div>
                        <p className="text-[8px] font-black uppercase tracking-widest text-slate-900">Authenticated By</p>
