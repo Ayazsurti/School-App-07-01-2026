@@ -1,4 +1,3 @@
-
 import React, { useState, useMemo, useRef, useEffect } from 'react';
 import { User, Student } from '../types';
 import { 
@@ -7,7 +6,8 @@ import {
   Save, X, RefreshCw, Filter, Globe, Edit2, 
   CheckCircle2, ShieldCheck, Type, Terminal, ArrowLeftRight, MoveHorizontal, Lock, Unlock,
   PlusCircle, Tag, FileDown, School, ClipboardList, AlertTriangle,
-  Loader2, Printer, Eye, Download, FileText, Check, Ruler, Box, Grid
+  Loader2, Printer, Eye, Download, FileText, Check, Ruler, Box, Grid, ArrowUp, ArrowDown,
+  Minus
 } from 'lucide-react';
 import { supabase, db, getErrorMessage } from '../supabase';
 import { createAuditLog } from '../utils/auditLogger';
@@ -161,6 +161,17 @@ const StudentReports: React.FC<{ user: User; schoolLogo?: string | null; schoolN
     setLastSelectedConfigKey(null);
   };
 
+  const moveConfig = (index: number, direction: 'UP' | 'DOWN') => {
+    if (!isModifying) return;
+    const newConfigs = [...reportConfigs];
+    const targetIndex = direction === 'UP' ? index - 1 : index + 1;
+    if (targetIndex >= 0 && targetIndex < newConfigs.length) {
+      [newConfigs[index], newConfigs[targetIndex]] = [newConfigs[targetIndex], newConfigs[index]];
+      setReportConfigs(newConfigs);
+      setSelectedFields(newConfigs.map(c => c.key));
+    }
+  };
+
   const updateConfig = (key: string, updates: Partial<ReportFieldConfig>) => {
     if (!isModifying) return;
     setReportConfigs(prev => prev.map(c => c.key === key ? { ...c, ...updates } : c));
@@ -219,7 +230,8 @@ const StudentReports: React.FC<{ user: User; schoolLogo?: string | null; schoolN
       if (error) throw error;
 
       const filtered = (students || []).filter(s => {
-        const targetSecs = selectedClasses[s.class] || [];
+        const key = `${s.class}`; // Correctly mapping the key as it's selected in matrix
+        const targetSecs = selectedClasses[key] || [];
         return targetSecs.includes(s.section);
       }).map(s => ({
         ...s,
@@ -322,21 +334,25 @@ const StudentReports: React.FC<{ user: User; schoolLogo?: string | null; schoolN
 
       {/* OFF-SCREEN PRINT BUFFER */}
       <div className="report-print-area hidden">
-         <div className="flex items-center justify-between border-b-4 border-slate-900 pb-6 mb-8">
+         <div className="flex items-center justify-between border-b-4 border-slate-900 pb-6">
             <div className="flex items-center gap-6">
                <div className="w-20 h-20 overflow-hidden rounded-xl border-2 border-slate-200">
                   {schoolLogo ? <img src={schoolLogo} className="w-full h-full object-cover" /> : <div className="w-full h-full bg-slate-900 flex items-center justify-center text-white font-black text-xs">LOGO</div>}
                </div>
                <div>
                   <h1 className="text-2xl font-black uppercase text-slate-900 leading-tight">{schoolName || 'INSTITUTIONAL DATABASE'}</h1>
-                  <p className="text-[9px] font-black uppercase tracking-[0.4em] text-indigo-600 mt-1">Official Student Registry Node-v9</p>
-                  <p className="text-[8px] font-bold uppercase tracking-widest text-slate-400 mt-0.5">Date: {new Date().toLocaleDateString('en-GB')}</p>
+                  <p className="text-[8px] font-bold uppercase tracking-widest text-slate-400 mt-1">Date: {new Date().toLocaleDateString('en-GB')}</p>
                </div>
             </div>
             <div className="text-right">
                <div className="bg-slate-900 text-white px-4 py-2 rounded-lg font-black text-[10px] uppercase mb-1">Authenticated Data Record</div>
                <p className="text-[8px] font-bold uppercase text-slate-500 tracking-widest">Profile: {activeProfileName || 'Standard'}</p>
             </div>
+         </div>
+         
+         {/* Class/Standard Heading directly below the line */}
+         <div className="mt-3 mb-8">
+            <p className="text-[11px] font-black text-slate-900 uppercase tracking-widest">CLASS: {formattedSelectedClasses.join(' • ') || 'ALL CLASSES'}</p>
          </div>
          
          <table className="report-table">
@@ -393,18 +409,24 @@ const StudentReports: React.FC<{ user: User; schoolLogo?: string | null; schoolN
                 style={{ width: '210mm', minHeight: '297mm', color: 'black' }}
               >
                  {/* Page Header */}
-                 <div className="flex items-center justify-between border-b-4 border-slate-900 pb-6 mb-8">
+                 <div className="flex items-center justify-between border-b-4 border-slate-900 pb-6">
                     <div className="flex items-center gap-6">
-                       <div className="w-16 h-16 bg-slate-900 rounded-xl flex items-center justify-center text-white font-black text-[10px]">LOGO</div>
+                       <div className="w-16 h-16 bg-white rounded-xl flex items-center justify-center text-slate-900 font-black text-[10px] overflow-hidden border-2 border-slate-100">
+                          {schoolLogo ? <img src={schoolLogo} className="w-full h-full object-cover" /> : "LOGO"}
+                       </div>
                        <div>
                           <h1 className="text-xl font-black uppercase tracking-tight text-slate-900">{schoolName || 'INSTITUTIONAL DATABASE'}</h1>
-                          <p className="text-[8px] font-black uppercase tracking-[0.4em] text-indigo-600 mt-1">Registry Export Protocol</p>
                        </div>
                     </div>
                     <div className="text-right">
                        <p className="text-[8px] font-bold text-slate-400 uppercase tracking-widest">Generated On</p>
                        <p className="text-[10px] font-black text-slate-900 uppercase">{new Date().toLocaleDateString('en-GB')}</p>
                     </div>
+                 </div>
+
+                 {/* Class/Standard Heading directly below the line */}
+                 <div className="mt-3 mb-8">
+                    <p className="text-[10px] font-black text-slate-900 uppercase tracking-tight">CLASS: {formattedSelectedClasses.join(' • ') || 'ALL CLASSES'}</p>
                  </div>
                  
                  {/* The "Row and Column" Table */}
@@ -559,9 +581,10 @@ const StudentReports: React.FC<{ user: User; schoolLogo?: string | null; schoolN
                 
                 {/* Header Row */}
                 <div className="grid grid-cols-12 gap-2 p-5 bg-slate-900 text-white text-[8px] font-black uppercase tracking-[0.2em]">
-                   <div className="col-span-3 px-2 flex items-center gap-2"><Layers size={10}/> Data Node</div>
-                   <div className="col-span-4 px-2 flex items-center gap-2"><Type size={10}/> Public Label</div>
-                   <div className="col-span-2 text-center flex items-center justify-center gap-1"><Ruler size={10}/> Width (mm)</div>
+                   <div className="col-span-1 text-center">ORDER</div>
+                   <div className="col-span-2 px-2 flex items-center gap-2"><Layers size={10}/> Data Node</div>
+                   <div className="col-span-3 px-2 flex items-center gap-2"><Type size={10}/> Public Label</div>
+                   <div className="col-span-3 text-center flex items-center justify-center gap-1"><Ruler size={10}/> Width (mm)</div>
                    <div className="col-span-2 text-center flex items-center justify-center gap-1"><Type size={10}/> Size</div>
                    <div className="col-span-1 text-center">Bold</div>
                 </div>
@@ -580,19 +603,65 @@ const StudentReports: React.FC<{ user: User; schoolLogo?: string | null; schoolN
                      </div>
                    )}
 
-                   {reportConfigs.map((config) => (
+                   {reportConfigs.map((config, index) => (
                       <div key={config.key} onClick={() => setLastSelectedConfigKey(config.key)} className={`grid grid-cols-12 gap-2 items-center p-3 rounded-2xl border-2 transition-all cursor-pointer ${lastSelectedConfigKey === config.key ? 'border-indigo-500 bg-white dark:bg-slate-800 shadow-xl' : 'border-transparent hover:bg-white dark:hover:bg-slate-900 hover:shadow-sm'}`}>
-                         <div className="col-span-3 px-2">
+                         <div className="col-span-1 flex flex-col items-center gap-1">
+                            <button 
+                              disabled={!isModifying || index === 0} 
+                              onClick={(e) => { e.stopPropagation(); moveConfig(index, 'UP'); }}
+                              className={`p-1 rounded-md transition-all ${isModifying && index !== 0 ? 'hover:bg-indigo-600 hover:text-white text-indigo-600' : 'text-indigo-600'}`}
+                            >
+                               <ChevronUp size={14} strokeWidth={3} />
+                            </button>
+                            <button 
+                              disabled={!isModifying || index === reportConfigs.length - 1} 
+                              onClick={(e) => { e.stopPropagation(); moveConfig(index, 'DOWN'); }}
+                              className={`p-1 rounded-md transition-all ${isModifying && index !== reportConfigs.length - 1 ? 'hover:bg-indigo-600 hover:text-white text-indigo-600' : 'text-indigo-600'}`}
+                            >
+                               <ChevronDown size={14} strokeWidth={3} />
+                            </button>
+                         </div>
+                         <div className="col-span-2 px-2">
                             <span className="text-[10px] font-black text-indigo-600 truncate block">{config.key}</span>
                          </div>
-                         <div className="col-span-4 px-2">
+                         <div className="col-span-3 px-2">
                             <input type="text" value={config.displayName} disabled={!isModifying} onChange={e => updateConfig(config.key, { displayName: e.target.value.toUpperCase() })} className="w-full bg-transparent border-b-2 border-slate-100 dark:border-slate-700 outline-none text-[11px] font-black py-1 focus:border-indigo-500 uppercase text-slate-800 dark:text-white" />
                          </div>
-                         <div className="col-span-2 flex justify-center">
-                            <input type="number" value={config.width} disabled={!isModifying} onChange={e => updateConfig(config.key, { width: parseInt(e.target.value) || 0 })} className="w-16 bg-slate-100 dark:bg-slate-800 border-none rounded-lg py-2 text-center font-black text-xs outline-none shadow-inner" />
+                         {/* Width Modifier */}
+                         <div className="col-span-3 flex items-center justify-center gap-2">
+                            <button 
+                              disabled={!isModifying} 
+                              onClick={(e) => { e.stopPropagation(); updateConfig(config.key, { width: Math.max(1, config.width - 1) }) }}
+                              className="w-8 h-8 flex items-center justify-center bg-slate-100 dark:bg-slate-800 rounded-lg hover:bg-indigo-600 hover:text-white transition-all text-slate-400"
+                            >
+                               <Minus size={12} strokeWidth={3} />
+                            </button>
+                            <input type="number" value={config.width} disabled={!isModifying} onChange={e => updateConfig(config.key, { width: parseInt(e.target.value) || 0 })} className="w-12 bg-slate-50 dark:bg-slate-900 border-none rounded-lg py-2 text-center font-black text-xs outline-none shadow-inner no-spinner" />
+                            <button 
+                              disabled={!isModifying} 
+                              onClick={(e) => { e.stopPropagation(); updateConfig(config.key, { width: config.width + 1 }) }}
+                              className="w-8 h-8 flex items-center justify-center bg-slate-100 dark:bg-slate-800 rounded-lg hover:bg-indigo-600 hover:text-white transition-all text-slate-400"
+                            >
+                               <Plus size={12} strokeWidth={3} />
+                            </button>
                          </div>
-                         <div className="col-span-2 flex justify-center">
-                            <input type="number" value={config.fontSize} disabled={!isModifying} onChange={e => updateConfig(config.key, { fontSize: parseInt(e.target.value) || 0 })} className="w-12 bg-slate-100 dark:bg-slate-800 border-none rounded-lg py-2 text-center font-black text-[11px] outline-none shadow-inner" />
+                         {/* Size Modifier */}
+                         <div className="col-span-2 flex items-center justify-center gap-2">
+                            <button 
+                              disabled={!isModifying} 
+                              onClick={(e) => { e.stopPropagation(); updateConfig(config.key, { fontSize: Math.max(1, config.fontSize - 1) }) }}
+                              className="w-7 h-7 flex items-center justify-center bg-slate-100 dark:bg-slate-800 rounded-lg hover:bg-indigo-600 hover:text-white transition-all text-slate-400"
+                            >
+                               <Minus size={10} strokeWidth={3} />
+                            </button>
+                            <input type="number" value={config.fontSize} disabled={!isModifying} onChange={e => updateConfig(config.key, { fontSize: parseInt(e.target.value) || 0 })} className="w-10 bg-slate-50 dark:bg-slate-900 border-none rounded-lg py-2 text-center font-black text-[11px] outline-none shadow-inner no-spinner" />
+                            <button 
+                              disabled={!isModifying} 
+                              onClick={(e) => { e.stopPropagation(); updateConfig(config.key, { fontSize: config.fontSize + 1 }) }}
+                              className="w-7 h-7 flex items-center justify-center bg-slate-100 dark:bg-slate-800 rounded-lg hover:bg-indigo-600 hover:text-white transition-all text-slate-400"
+                            >
+                               <Plus size={10} strokeWidth={3} />
+                            </button>
                          </div>
                          <div className="col-span-1 flex justify-center">
                             <button onClick={() => updateConfig(config.key, { isBold: !config.isBold })} className={`p-2 rounded-lg transition-all ${config.isBold ? 'bg-indigo-600 text-white shadow-md' : 'text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800'}`}><Type size={14}/></button>
@@ -637,7 +706,7 @@ const StudentReports: React.FC<{ user: User; schoolLogo?: string | null; schoolN
       {/* MODALS */}
       {showProfileModal && (
         <div className="fixed inset-0 z-[1500] flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-sm animate-in fade-in duration-200 no-print">
-           <div className="bg-white dark:bg-slate-900 rounded-[3rem] p-10 max-w-sm w-full shadow-2xl animate-in zoom-in-95 border-t-8 border-indigo-600">
+           <div className="bg-white dark:bg-slate-900 rounded-[3rem] p-10 max-sm w-full shadow-2xl animate-in zoom-in-95 border-t-8 border-indigo-600">
               <div className="flex items-center gap-3 mb-8 justify-center">
                 <div className="p-4 bg-indigo-50 dark:bg-indigo-900/30 rounded-2xl text-indigo-600"><ClipboardList size={28}/></div>
               </div>
@@ -664,14 +733,15 @@ const StudentReports: React.FC<{ user: User; schoolLogo?: string | null; schoolN
       )}
 
       {showDeleteProfileConfirm && (
-        <div className="fixed inset-0 z-[1600] flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-sm animate-in fade-in no-print">
-           <div className="bg-white dark:bg-slate-900 rounded-[3rem] p-10 max-sm w-full shadow-2xl text-center border-t-8 border-rose-600 animate-in zoom-in-95">
-              <div className="w-20 h-20 bg-rose-50 dark:bg-rose-900/20 text-rose-600 rounded-[2rem] flex items-center justify-center mb-6 mx-auto shadow-inner border border-rose-100">
-                 <AlertTriangle size={40} strokeWidth={2.5} />
+        <div className="fixed inset-0 z-[1600] flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-md animate-in fade-in no-print">
+           <div className="bg-white dark:bg-slate-900 rounded-[3rem] p-8 max-w-xs w-full shadow-2xl text-center border-t-8 border-rose-600 animate-in zoom-in-95">
+              <div className="w-16 h-16 bg-rose-50 dark:bg-rose-900/20 text-rose-600 rounded-[1.8rem] flex items-center justify-center mb-6 mx-auto shadow-inner border border-rose-100">
+                 <AlertTriangle size={32} strokeWidth={2.5} />
               </div>
               <h3 className="text-xl font-black text-slate-900 dark:text-white mb-2 uppercase tracking-tighter">Purge Profile?</h3>
               <p className="text-slate-500 dark:text-slate-400 mb-8 font-medium text-[10px] leading-relaxed uppercase tracking-widest">Delete <b>{activeProfileName}</b> permanently from cloud storage?</p>
               <div className="grid grid-cols-2 gap-3">
+                 <button onClick={() => setShowDeleteProfileConfirm(false)} className="py-4 bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 font-black rounded-2xl uppercase text-[10px]">Cancel</button>
                  <button onClick={async () => {
                     if (!activeProfileName) return;
                     setIsSyncing(true);
@@ -685,10 +755,9 @@ const StudentReports: React.FC<{ user: User; schoolLogo?: string | null; schoolN
                     } finally {
                       setIsSyncing(false);
                     }
-                 }} disabled={isSyncing} className="py-5 bg-rose-600 text-white font-black rounded-2xl shadow-xl hover:bg-rose-700 transition-all uppercase text-[10px] disabled:opacity-50">
+                 }} disabled={isSyncing} className="py-4 bg-rose-600 text-white font-black rounded-2xl shadow-xl hover:bg-rose-700 transition-all uppercase text-[10px] disabled:opacity-50">
                    {isSyncing ? <Loader2 size={16} className="animate-spin mx-auto"/> : 'Confirm Purge'}
                  </button>
-                 <button onClick={() => setShowDeleteProfileConfirm(false)} className="py-5 bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 font-black rounded-2xl uppercase text-[10px]">Cancel</button>
               </div>
            </div>
         </div>
