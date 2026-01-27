@@ -7,7 +7,7 @@ import {
   CheckCircle2, Loader2, ChevronLeft, ChevronRight, 
   ArrowLeft, ArrowRight, RefreshCcw, LayoutGrid,
   ShieldCheck, AlertCircle, Hash, Zap, CornerDownLeft, Users, UserX, ChevronDown, Layers, Globe,
-  Info, Square, CheckSquare
+  Info, Square, CheckSquare, Umbrella, Plus, Trash2, CalendarX
 } from 'lucide-react';
 
 interface AttendanceProps { user: User; }
@@ -25,6 +25,7 @@ const WEEKDAYS = ['SUN', 'MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT'];
 const Attendance: React.FC<AttendanceProps> = ({ user }) => {
   const isStudent = user.role === 'STUDENT';
   const isTeacher = user.role === 'TEACHER';
+  const isAdmin = user.role === 'ADMIN';
   
   // Filter classes for teacher
   const authorizedClasses = useMemo(() => {
@@ -46,11 +47,18 @@ const Attendance: React.FC<AttendanceProps> = ({ user }) => {
   const [recordIds, setRecordIds] = useState<Record<string, string>>({}); 
   const [studentRecords, setStudentRecords] = useState<any[]>([]);
   const [monthlyMarkedDates, setMonthlyMarkedDates] = useState<Set<string>>(new Set());
+  const [holidays, setHolidays] = useState<any[]>([]);
+  
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
   const [isSyncing, setIsSyncing] = useState(false);
   const [showSuccess, setShowSuccess] = useState(false);
   const [showConfirmModal, setShowConfirmModal] = useState(false);
+  const [showHolidayModal, setShowHolidayModal] = useState(false);
+
+  // Holiday Form State
+  const [holidayTitle, setHolidayTitle] = useState('');
+  const [holidayDate, setHolidayDate] = useState(new Date().toISOString().split('T')[0]);
 
   const calendarDays = useMemo(() => {
     const year = viewDate.getFullYear();
@@ -67,6 +75,15 @@ const Attendance: React.FC<AttendanceProps> = ({ user }) => {
     }
     return days;
   }, [viewDate]);
+
+  const fetchHolidays = async () => {
+    try {
+      const { data, error } = await supabase.from('settings').select('*').eq('key', 'institutional_holidays').single();
+      if (!error && data) {
+        setHolidays(JSON.parse(data.value || '[]'));
+      }
+    } catch (e) {}
+  };
 
   const fetchMonthlyStatus = async () => {
     try {
@@ -145,6 +162,7 @@ const Attendance: React.FC<AttendanceProps> = ({ user }) => {
         setRecordIds(idMap);
       }
       fetchMonthlyStatus();
+      fetchHolidays();
     } catch (err) {
       console.error("Attendance Sync Error:", err);
     } finally {
@@ -154,10 +172,13 @@ const Attendance: React.FC<AttendanceProps> = ({ user }) => {
 
   useEffect(() => {
     fetchData();
-    const channel = supabase.channel('realtime-attendance-v28')
+    const channel = supabase.channel('realtime-attendance-v29')
       .on('postgres_changes', { event: '*', schema: 'public', table: 'attendance' }, () => {
         setIsSyncing(true);
         fetchData().then(() => setTimeout(() => setIsSyncing(false), 800));
+      })
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'settings', filter: 'key=eq.institutional_holidays' }, () => {
+        fetchHolidays();
       })
       .subscribe();
     return () => { supabase.removeChannel(channel); };
@@ -178,6 +199,14 @@ const Attendance: React.FC<AttendanceProps> = ({ user }) => {
       absentRegistry: baseList.filter(s => attendance[s.id] === 'ABSENT')
     };
   }, [baseList, attendance, isStudent]);
+
+  const isHoliday = useMemo(() => {
+    return holidays.some(h => h.date === selectedDate);
+  }, [holidays, selectedDate]);
+
+  const currentHoliday = useMemo(() => {
+    return holidays.find(h => h.date === selectedDate);
+  }, [holidays, selectedDate]);
 
   const isAllPresent = baseList.length > 0 && baseList.every(s => attendance[s.id] === 'PRESENT');
   const isAllAbsent = baseList.length > 0 && baseList.every(s => attendance[s.id] === 'ABSENT');
@@ -239,6 +268,30 @@ const Attendance: React.FC<AttendanceProps> = ({ user }) => {
     } finally {
       setIsSaving(false);
     }
+  };
+
+  const addHoliday = async () => {
+    if (!holidayTitle.trim()) return;
+    const newHolidays = [...holidays, { id: Date.now(), title: holidayTitle.toUpperCase(), date: holidayDate }];
+    setIsSyncing(true);
+    try {
+      await db.settings.update('institutional_holidays', JSON.stringify(newHolidays));
+      setHolidays(newHolidays);
+      setHolidayTitle('');
+      await createAuditLog(user, 'CREATE', 'Settings', `Marked Holiday: ${holidayTitle} on ${holidayDate}`);
+    } catch (e) {}
+    finally { setIsSyncing(false); }
+  };
+
+  const removeHoliday = async (id: number) => {
+    const newHolidays = holidays.filter(h => h.id !== id);
+    setIsSyncing(true);
+    try {
+      await db.settings.update('institutional_holidays', JSON.stringify(newHolidays));
+      setHolidays(newHolidays);
+      await createAuditLog(user, 'DELETE', 'Settings', `Removed institutional holiday record`);
+    } catch (e) {}
+    finally { setIsSyncing(false); }
   };
 
   const changeMonth = (offset: number) => {
@@ -312,6 +365,81 @@ const Attendance: React.FC<AttendanceProps> = ({ user }) => {
         </div>
       )}
 
+      {showHolidayModal && (
+        <div className="fixed inset-0 z-[2000] flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-md animate-in fade-in no-print">
+           <div className="bg-white dark:bg-slate-900 rounded-[3rem] p-1 shadow-2xl max-w-lg w-full border border-slate-100 dark:border-slate-800 animate-in zoom-in-95 overflow-hidden flex flex-col max-h-[85vh]">
+              <div className="p-8 border-b border-slate-50 dark:border-slate-800 bg-indigo-50 dark:bg-indigo-900/10 flex justify-between items-center">
+                 <div className="flex items-center gap-4">
+                    <div className="w-12 h-12 bg-indigo-600 text-white rounded-xl flex items-center justify-center shadow-lg"><Umbrella size={24}/></div>
+                    <div>
+                       <h3 className="text-xl font-black text-slate-900 dark:text-white uppercase tracking-tight">Holiday Registry</h3>
+                       <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Global Session Exemption</p>
+                    </div>
+                 </div>
+                 <button onClick={() => setShowHolidayModal(false)} className="p-2 hover:bg-white dark:hover:bg-slate-800 rounded-full transition-all text-slate-400"><X size={24}/></button>
+              </div>
+              <div className="p-10 space-y-8 flex-1 overflow-y-auto custom-scrollbar">
+                 <div className="space-y-4">
+                    <div className="space-y-2">
+                       <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Event Name</label>
+                       <input 
+                        type="text" 
+                        value={holidayTitle} 
+                        onChange={e => setHolidayTitle(e.target.value.toUpperCase())}
+                        placeholder="E.G. DIWALI VACATION" 
+                        className="w-full bg-slate-50 dark:bg-slate-800 border-none rounded-2xl px-6 py-4 font-black uppercase text-indigo-600 outline-none focus:ring-2 focus:ring-indigo-500 shadow-inner" 
+                       />
+                    </div>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                       <div className="space-y-2">
+                          <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Exemption Date</label>
+                          <input 
+                            type="date" 
+                            value={holidayDate} 
+                            onChange={e => setHolidayDate(e.target.value)}
+                            className="w-full bg-slate-50 dark:bg-slate-800 border-none rounded-2xl px-6 py-4 font-black outline-none shadow-inner" 
+                          />
+                       </div>
+                       <button 
+                        onClick={addHoliday} 
+                        disabled={!holidayTitle.trim() || isSyncing}
+                        className="self-end py-4 bg-indigo-600 text-white font-black rounded-2xl shadow-lg hover:bg-indigo-700 transition-all uppercase text-[10px] tracking-widest flex items-center justify-center gap-2"
+                       >
+                          {isSyncing ? <Loader2 size={16} className="animate-spin"/> : <Plus size={16} strokeWidth={3}/>} Add to Ledger
+                       </button>
+                    </div>
+                 </div>
+
+                 <div className="space-y-4 pt-6 border-t border-slate-50 dark:border-slate-800">
+                    <h4 className="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-1">Scheduled Exemptions</h4>
+                    <div className="space-y-2">
+                       {holidays.length > 0 ? holidays.sort((a,b) => a.date.localeCompare(b.date)).map(h => (
+                         <div key={h.id} className="flex items-center justify-between p-4 bg-slate-50 dark:bg-slate-800/50 rounded-2xl border border-slate-100 dark:border-slate-800 group">
+                            <div className="flex items-center gap-4">
+                               <div className="w-10 h-10 bg-white dark:bg-slate-900 rounded-xl flex items-center justify-center text-indigo-600 shadow-sm"><CalendarIcon size={18}/></div>
+                               <div>
+                                  <p className="text-xs font-black text-slate-800 dark:text-white uppercase truncate max-w-[150px]">{h.title}</p>
+                                  <p className="text-[9px] font-bold text-slate-400 uppercase">{h.date}</p>
+                               </div>
+                            </div>
+                            <button onClick={() => removeHoliday(h.id)} className="p-2 text-rose-300 hover:text-rose-500 hover:bg-rose-50 rounded-lg transition-all opacity-0 group-hover:opacity-100"><Trash2 size={16}/></button>
+                         </div>
+                       )) : (
+                         <div className="py-20 text-center opacity-20 flex flex-col items-center">
+                            <Umbrella size={48} className="mb-4" />
+                            <p className="text-[10px] font-black uppercase tracking-[0.3em]">No Holidays Recorded</p>
+                         </div>
+                       )}
+                    </div>
+                 </div>
+              </div>
+              <div className="p-8 border-t border-slate-100 bg-slate-50 dark:bg-slate-900">
+                 <button onClick={() => setShowHolidayModal(false)} className="w-full py-4 bg-slate-900 dark:bg-slate-800 text-white font-black rounded-2xl uppercase text-[10px] tracking-widest shadow-xl">Close Terminal</button>
+              </div>
+           </div>
+        </div>
+      )}
+
       {isSyncing && (
         <div className="fixed top-24 left-1/2 -translate-x-1/2 z-[1100] animate-bounce">
            <div className="bg-indigo-600 text-white px-4 py-2 rounded-full shadow-2xl flex items-center gap-2 border border-indigo-400">
@@ -331,9 +459,20 @@ const Attendance: React.FC<AttendanceProps> = ({ user }) => {
       )}
 
       <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6 no-print">
-        <div>
-          <h1 className="text-3xl font-black text-slate-900 dark:text-white tracking-tight uppercase flex items-center gap-3 leading-none">Attendance Terminal <UserCheck className="text-indigo-600" /></h1>
-          <p className="text-slate-500 dark:text-slate-400 font-bold text-xs uppercase tracking-widest mt-2">Institutional Presence Registry</p>
+        <div className="flex items-center gap-6">
+          <div>
+            <h1 className="text-3xl font-black text-slate-900 dark:text-white tracking-tight uppercase flex items-center gap-3 leading-none">Attendance Terminal <UserCheck className="text-indigo-600" /></h1>
+            <p className="text-slate-500 dark:text-slate-400 font-bold text-xs uppercase tracking-widest mt-2">Institutional Presence Registry</p>
+          </div>
+          {isAdmin && (
+            <button 
+              onClick={() => setShowHolidayModal(true)} 
+              className="px-6 py-3.5 bg-white dark:bg-slate-900 border-2 border-indigo-100 dark:border-indigo-900 rounded-2xl text-indigo-600 dark:text-indigo-400 font-black text-[9px] uppercase tracking-[0.2em] shadow-sm hover:bg-indigo-50 dark:hover:bg-indigo-900/30 transition-all flex items-center gap-3 group"
+            >
+               <Umbrella size={16} className="group-hover:rotate-12 transition-transform" />
+               Holiday Setup Profile
+            </button>
+          )}
         </div>
         <button onClick={handleSaveClick} disabled={isSaving} className="px-8 py-4 bg-indigo-600 text-white font-black rounded-2xl shadow-xl hover:bg-indigo-700 transition-all uppercase text-[10px] tracking-widest flex items-center justify-center gap-3 disabled:opacity-50">
           {isSaving ? <Loader2 size={18} className="animate-spin" /> : <Save size={18} />} Save Attendance
@@ -351,7 +490,7 @@ const Attendance: React.FC<AttendanceProps> = ({ user }) => {
                  <button onClick={() => changeMonth(1)} className="p-1.5 bg-white dark:bg-slate-900 rounded-lg text-slate-400 hover:text-indigo-600 shadow-sm transition-all"><ChevronRight size={14}/></button>
               </div>
               <div className="p-4">
-                 {/* Weekday Labels Added Here */}
+                 {/* Weekday Labels */}
                  <div className="grid grid-cols-7 gap-1 mb-2 border-b border-slate-50 dark:border-slate-800/50 pb-2">
                     {WEEKDAYS.map(day => (
                       <div key={day} className="text-center">
@@ -366,6 +505,7 @@ const Attendance: React.FC<AttendanceProps> = ({ user }) => {
                       const isSelected = selectedDate === dateStr;
                       const isToday = new Date().toLocaleDateString('en-CA') === dateStr;
                       const isMarked = monthlyMarkedDates.has(dateStr);
+                      const isCardHoliday = holidays.some(h => h.date === dateStr);
 
                       return (
                         <button
@@ -373,13 +513,15 @@ const Attendance: React.FC<AttendanceProps> = ({ user }) => {
                           onClick={() => setSelectedDate(dateStr)}
                           className={`aspect-square rounded-lg flex flex-col items-center justify-center transition-all border relative ${
                             isSelected ? 'bg-indigo-600 border-indigo-600 text-white shadow-lg z-10 scale-110' : 
+                            isCardHoliday ? 'bg-rose-50 dark:bg-rose-950/40 border-rose-200 dark:border-rose-900/50 text-rose-600 dark:text-rose-400' :
                             isMarked ? 'bg-emerald-50 dark:bg-emerald-900/20 border-emerald-100 dark:border-emerald-800 text-emerald-700 dark:text-emerald-400 font-black' :
                             isToday ? 'bg-slate-100 dark:bg-slate-800 border-indigo-200 dark:border-indigo-800 text-indigo-600 font-black' : 
                             'bg-slate-50 dark:bg-slate-800/50 border-transparent text-slate-500 text-[10px] font-bold hover:border-indigo-100'
                           }`}
                         >
                            <span className="text-[10px]">{day.getDate()}</span>
-                           {isMarked && !isSelected && (
+                           {isCardHoliday && !isSelected && <Umbrella size={8} className="mt-0.5 opacity-50"/>}
+                           {isMarked && !isSelected && !isCardHoliday && (
                              <div className="absolute bottom-1 w-1 h-1 bg-emerald-500 rounded-full"></div>
                            )}
                         </button>
@@ -432,31 +574,42 @@ const Attendance: React.FC<AttendanceProps> = ({ user }) => {
                     <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mt-1">{selectedMedium} • {new Date(selectedDate).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })}</p>
                  </div>
               </div>
-              <div className="relative w-full sm:w-80 group">
-                 <div className="relative">
-                    <Zap className="absolute left-4 top-1/2 -translate-y-1/2 text-rose-500" size={14} />
-                    <input 
-                      type="number" 
-                      placeholder="ROLL NO TO MARK ABSENT..." 
-                      value={absentRollInput}
-                      onChange={e => setAbsentRollInput(e.target.value)}
-                      onKeyDown={(e) => {
-                        if (e.key === 'Enter' && absentRollInput.trim()) {
-                          const studentToMark = presentPool.find(s => s.rollNo === absentRollInput.trim());
-                          if (studentToMark) {
-                            handleStatusChange(studentToMark.id, 'ABSENT');
-                            setAbsentRollInput('');
+              
+              {isHoliday ? (
+                <div className="bg-rose-50 dark:bg-rose-950/40 border-2 border-rose-100 dark:border-rose-900/50 px-8 py-4 rounded-[1.8rem] flex items-center gap-4 animate-in slide-in-from-right-4">
+                   <Umbrella size={24} className="text-rose-600" />
+                   <div>
+                      <p className="text-[10px] font-black text-rose-400 uppercase tracking-widest leading-none mb-1">Global Holiday Active</p>
+                      <p className="text-sm font-black text-rose-700 dark:text-rose-300 uppercase">{currentHoliday?.title || 'INSTITUTIONAL BREAK'}</p>
+                   </div>
+                </div>
+              ) : (
+                <div className="relative w-full sm:w-80 group">
+                   <div className="relative">
+                      <Zap className="absolute left-4 top-1/2 -translate-y-1/2 text-rose-500" size={14} />
+                      <input 
+                        type="number" 
+                        placeholder="ROLL NO TO MARK ABSENT..." 
+                        value={absentRollInput}
+                        onChange={e => setAbsentRollInput(e.target.value)}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter' && absentRollInput.trim()) {
+                            const studentToMark = presentPool.find(s => s.rollNo === absentRollInput.trim());
+                            if (studentToMark) {
+                              handleStatusChange(studentToMark.id, 'ABSENT');
+                              setAbsentRollInput('');
+                            }
                           }
-                        }
-                      }}
-                      className="w-full bg-slate-50 dark:bg-slate-800 border-2 border-slate-100 dark:border-slate-700 rounded-xl pl-12 pr-12 py-3.5 text-xs font-black text-slate-800 dark:text-white outline-none focus:border-rose-500 shadow-inner"
-                    />
-                    <CornerDownLeft className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-300" size={14} />
-                 </div>
-              </div>
+                        }}
+                        className="w-full bg-slate-50 dark:bg-slate-800 border-2 border-slate-100 dark:border-slate-700 rounded-xl pl-12 pr-12 py-3.5 text-xs font-black text-slate-800 dark:text-white outline-none focus:border-rose-500 shadow-inner"
+                      />
+                      <CornerDownLeft className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-300" size={14} />
+                   </div>
+                </div>
+              )}
            </div>
 
-           <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 h-full min-h-[600px]">
+           <div className={`grid grid-cols-1 lg:grid-cols-2 gap-8 h-full min-h-[600px] transition-opacity duration-500 ${isHoliday ? 'opacity-25 pointer-events-none grayscale' : ''}`}>
               <div className="bg-white dark:bg-slate-900 rounded-[3rem] shadow-sm border border-slate-100 dark:border-slate-800 overflow-hidden flex flex-col">
                  <div className="p-6 border-b border-slate-100 dark:border-slate-800 bg-emerald-50/30 dark:bg-emerald-950/10 flex items-center justify-between">
                     <div className="flex items-center gap-3">
@@ -525,6 +678,18 @@ const Attendance: React.FC<AttendanceProps> = ({ user }) => {
                  </div>
               </div>
            </div>
+           
+           {isHoliday && (
+              <div className="flex flex-col items-center justify-center py-32 bg-slate-50 dark:bg-slate-900/40 rounded-[4rem] border-4 border-dashed border-rose-100 dark:border-rose-900/30 animate-in zoom-in-95">
+                 <div className="w-24 h-24 bg-rose-50 dark:bg-rose-900/30 text-rose-600 rounded-full flex items-center justify-center mb-8 shadow-inner ring-4 ring-rose-50 dark:ring-rose-900/20">
+                    <CalendarX size={48} />
+                 </div>
+                 <h4 className="text-3xl font-black text-slate-800 dark:text-white uppercase tracking-tighter">Terminal Locked</h4>
+                 <p className="text-slate-500 dark:text-slate-400 font-bold text-sm uppercase tracking-widest mt-2 px-10 text-center max-w-lg leading-relaxed">
+                   Attendance marking is disabled on institutional holidays. To override this, please remove the holiday entry from the profile setup.
+                 </p>
+              </div>
+           )}
         </div>
       </div>
       <div className="p-10 bg-indigo-50 dark:bg-indigo-900/10 rounded-[3rem] border border-indigo-100 dark:border-indigo-800 flex items-start gap-5">
