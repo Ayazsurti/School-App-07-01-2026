@@ -140,7 +140,7 @@ const Attendance: React.FC<AttendanceProps> = ({ user }) => {
 
   useEffect(() => {
     fetchData();
-    const channel = supabase.channel('realtime-attendance-v31')
+    const channel = supabase.channel('realtime-attendance-v32')
       .on('postgres_changes', { event: '*', schema: 'public', table: 'attendance' }, () => {
         setIsSyncing(true);
         fetchData().then(() => setTimeout(() => setIsSyncing(false), 800));
@@ -268,127 +268,131 @@ const Attendance: React.FC<AttendanceProps> = ({ user }) => {
         </div>
       )}
 
-      {/* HOLIDAY MODAL */}
+      {/* HOLIDAY MODAL - CENTERED & MEDIUM SIZE */}
       {showHolidayModal && (
-        <div className="fixed inset-0 z-[2000] flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-md animate-in fade-in">
-           <div className="bg-white dark:bg-slate-900 rounded-[3rem] p-1 shadow-2xl max-w-4xl w-full border border-slate-100 dark:border-slate-800 animate-in zoom-in-95 overflow-hidden flex flex-col max-h-[90vh]">
+        <div className="fixed inset-0 z-[2000] flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-md animate-in fade-in no-print">
+           <div className="bg-white dark:bg-slate-900 rounded-[3rem] p-1 shadow-2xl max-w-2xl w-full border border-slate-100 dark:border-slate-800 animate-in zoom-in-95 overflow-hidden flex flex-col max-h-[90vh]">
               <div className="p-8 border-b border-slate-50 dark:border-slate-800 bg-indigo-50 dark:bg-indigo-900/10 flex justify-between items-center">
                  <div className="flex items-center gap-4">
                     <div className="w-12 h-12 bg-indigo-600 text-white rounded-xl flex items-center justify-center shadow-lg"><Umbrella size={24}/></div>
                     <div>
-                       <h3 className="text-xl font-black text-slate-900 dark:text-white uppercase tracking-tight">Holiday Setup Profile</h3>
-                       <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Institutional Exemption Terminal</p>
+                       <h3 className="text-xl font-black text-slate-900 dark:text-white uppercase tracking-tight leading-none">Holiday Setup</h3>
+                       <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-1">Institutional Exemption Portal</p>
                     </div>
                  </div>
                  <button onClick={() => setShowHolidayModal(false)} className="p-2 hover:bg-white dark:hover:bg-slate-800 rounded-full transition-all text-slate-400"><X size={24}/></button>
               </div>
 
-              <div className="p-10 flex flex-col lg:flex-row gap-10 overflow-y-auto custom-scrollbar">
-                 {/* LEFT: ENTRY FORM */}
-                 <div className="flex-1 space-y-8">
-                    <div className="grid grid-cols-2 gap-4">
-                       <div className="space-y-2">
-                          <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest ml-1">Start Date</label>
-                          <input type="date" value={holidayStartDate} onChange={e => setHolidayStartDate(e.target.value)} className="w-full bg-slate-50 dark:bg-slate-800 border-none rounded-2xl px-5 py-4 font-black outline-none focus:ring-2 focus:ring-indigo-500 shadow-inner" />
-                       </div>
-                       <div className="space-y-2">
-                          <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest ml-1">End Date</label>
-                          <input type="date" value={holidayEndDate} onChange={e => setHolidayEndDate(e.target.value)} className="w-full bg-slate-50 dark:bg-slate-800 border-none rounded-2xl px-5 py-4 font-black outline-none focus:ring-2 focus:ring-indigo-500 shadow-inner" />
-                       </div>
+              <div className="p-10 space-y-8 overflow-y-auto custom-scrollbar">
+                 {/* DATE RANGE INPUTS */}
+                 <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-1.5">
+                       <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest ml-1">Start Date</label>
+                       <input type="date" value={holidayStartDate} onChange={e => setHolidayStartDate(e.target.value)} className="w-full bg-slate-50 dark:bg-slate-800 border-none rounded-2xl px-5 py-4 font-black outline-none focus:ring-2 focus:ring-indigo-500 shadow-inner text-sm" />
                     </div>
-
-                    {/* CALENDAR VISUALIZATION BOX */}
-                    <div className="p-6 bg-slate-50 dark:bg-slate-800/50 rounded-[2rem] border border-slate-100 dark:border-slate-800 shadow-inner">
-                       <div className="grid grid-cols-7 gap-1">
-                          {calendarDays.map((day, idx) => {
-                             if (!day) return <div key={`empty-${idx}`} />;
-                             const dStr = day.toISOString().split('T')[0];
-                             const isInRange = dStr >= holidayStartDate && dStr <= holidayEndDate;
-                             return (
-                               <div key={dStr} className={`aspect-square rounded-lg flex items-center justify-center text-[10px] font-black transition-all ${isInRange ? 'bg-indigo-600 text-white shadow-lg scale-105' : 'bg-white dark:bg-slate-900 text-slate-300 opacity-30'}`}>
-                                  {day.getDate()}
-                               </div>
-                             );
-                          })}
-                       </div>
-                       <div className="mt-4 text-center">
-                          <span className="text-[10px] font-black text-indigo-500 uppercase tracking-widest bg-indigo-50 dark:bg-indigo-900/30 px-3 py-1 rounded-full">Date Range: {getRangeDisplay(holidayStartDate, holidayEndDate)}</span>
-                       </div>
-                    </div>
-
-                    <div className="space-y-2">
-                       <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest ml-1">Holiday Reason</label>
-                       <textarea value={holidayReason} onChange={e => setHolidayReason(e.target.value)} placeholder="TYPE REASON HERE..." className="w-full bg-slate-50 dark:bg-slate-800 border-none rounded-2xl px-6 py-4 font-black text-slate-700 dark:text-white outline-none focus:ring-2 focus:ring-indigo-500 shadow-inner resize-none h-24 uppercase" />
-                    </div>
-
-                    <div className="space-y-4">
-                       <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest ml-1">Holiday Type Classification</label>
-                       <div className="grid grid-cols-3 gap-3">
-                          {[
-                            { key: 'PUBLIC', label: 'Public Holiday' },
-                            { key: 'WEEK_OFF', label: 'Week off' },
-                            { key: 'OTHER', label: 'Other Holiday' }
-                          ].map(t => (
-                            <button key={t.key} onClick={() => setHolidayType(t.key as any)} className={`flex items-center gap-2 p-3 rounded-xl border-2 transition-all ${holidayType === t.key ? 'bg-indigo-600 border-indigo-600 text-white shadow-lg' : 'bg-slate-50 dark:bg-slate-800 border-transparent text-slate-400'}`}>
-                               {holidayType === t.key ? <CheckSquare size={14} /> : <Square size={14} />}
-                               <span className="text-[8px] font-black uppercase tracking-tight leading-none">{t.label}</span>
-                            </button>
-                          ))}
-                       </div>
-                    </div>
-
-                    <div className="flex gap-3 pt-4">
-                       <button onClick={resetHolidayForm} className="flex-1 py-4 bg-slate-100 dark:bg-slate-800 text-slate-500 font-black rounded-2xl uppercase text-[10px] tracking-widest hover:bg-slate-200 transition-all">Clear Form</button>
-                       <button onClick={addOrUpdateHoliday} disabled={!holidayReason.trim()} className="flex-[2] py-4 bg-indigo-600 text-white font-black rounded-2xl shadow-xl hover:bg-indigo-700 transition-all uppercase text-[10px] tracking-widest flex items-center justify-center gap-2">
-                          <Plus size={16} strokeWidth={3}/> {editingHolidayId ? 'Save Modification' : 'Add to Ledger'}
-                       </button>
+                    <div className="space-y-1.5">
+                       <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest ml-1">End Date</label>
+                       <input type="date" value={holidayEndDate} onChange={e => setHolidayEndDate(e.target.value)} className="w-full bg-slate-50 dark:bg-slate-800 border-none rounded-2xl px-5 py-4 font-black outline-none focus:ring-2 focus:ring-indigo-500 shadow-inner text-sm" />
                     </div>
                  </div>
 
-                 {/* RIGHT: LIST VIEW */}
-                 <div className="lg:w-96 flex flex-col space-y-6">
-                    <h4 className="text-[10px] font-black text-slate-500 uppercase tracking-[0.2em] ml-1">Holiday List for Selected Month</h4>
-                    <div className="flex-1 bg-slate-50 dark:bg-slate-800/50 rounded-[2.5rem] border border-slate-100 dark:border-slate-800 overflow-hidden flex flex-col shadow-inner">
+                 {/* VISUAL CALENDAR BOX */}
+                 <div className="p-6 bg-slate-50 dark:bg-slate-800/50 rounded-[2rem] border border-slate-100 dark:border-slate-800 shadow-inner">
+                    <div className="grid grid-cols-7 gap-1">
+                       {calendarDays.map((day, idx) => {
+                          if (!day) return <div key={`empty-${idx}`} />;
+                          const dStr = day.toISOString().split('T')[0];
+                          const isInRange = dStr >= holidayStartDate && dStr <= holidayEndDate;
+                          return (
+                            <div key={dStr} className={`aspect-square rounded-lg flex items-center justify-center text-[9px] font-black transition-all ${isInRange ? 'bg-indigo-600 text-white shadow-lg scale-105' : 'bg-white dark:bg-slate-900 text-slate-300 opacity-20'}`}>
+                               {day.getDate()}
+                            </div>
+                          );
+                       })}
+                    </div>
+                    <div className="mt-4 flex justify-between items-center px-2">
+                       <span className="text-[9px] font-black text-indigo-500 uppercase tracking-widest bg-indigo-50 dark:bg-indigo-900/30 px-3 py-1 rounded-full">Date Range: {getRangeDisplay(holidayStartDate, holidayEndDate)}</span>
+                       <p className="text-[9px] font-bold text-slate-400 uppercase">Interactive Grid Preview</p>
+                    </div>
+                 </div>
+
+                 {/* HOLIDAY REASON */}
+                 <div className="space-y-2">
+                    <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest ml-1">Holiday Reason / Event Name</label>
+                    <textarea value={holidayReason} onChange={e => setHolidayReason(e.target.value)} placeholder="E.G. EID-UL-FITR VACATION..." className="w-full bg-slate-50 dark:bg-slate-800 border-none rounded-2xl px-6 py-4 font-black text-slate-700 dark:text-white outline-none focus:ring-2 focus:ring-indigo-500 shadow-inner resize-none h-24 uppercase text-xs" />
+                 </div>
+
+                 {/* HOLIDAY TYPE SELECTION */}
+                 <div className="space-y-4">
+                    <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest ml-1">Classification Type</label>
+                    <div className="grid grid-cols-3 gap-3">
+                       {[
+                         { key: 'PUBLIC', label: 'Public Holiday' },
+                         { key: 'WEEK_OFF', label: 'Week off' },
+                         { key: 'OTHER', label: 'Other Holiday' }
+                       ].map(t => (
+                         <button key={t.key} onClick={() => setHolidayType(t.key as any)} className={`flex items-center gap-2 p-4 rounded-xl border-2 transition-all ${holidayType === t.key ? 'bg-indigo-600 border-indigo-600 text-white shadow-lg' : 'bg-slate-50 dark:bg-slate-800 border-transparent text-slate-400'}`}>
+                            {holidayType === t.key ? <CheckSquare size={14} /> : <Square size={14} />}
+                            <span className="text-[8px] font-black uppercase tracking-tight leading-none text-left">{t.label}</span>
+                         </button>
+                       ))}
+                    </div>
+                 </div>
+
+                 {/* MONTHLY LEDGER BOX */}
+                 <div className="space-y-4 pt-6 border-t border-slate-50 dark:border-slate-800">
+                    <h4 className="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-1">Institutional Ledger for {viewDate.toLocaleString('default', { month: 'long' })}</h4>
+                    <div className="bg-slate-50 dark:bg-slate-800/50 rounded-3xl border border-slate-100 dark:border-slate-800 overflow-hidden flex flex-col shadow-inner">
                        <div className="grid grid-cols-12 bg-slate-900 text-white p-4 text-[8px] font-black uppercase tracking-widest">
-                          <div className="col-span-2">Sel</div>
-                          <div className="col-span-5">Holiday Date</div>
-                          <div className="col-span-5">Reason</div>
+                          <div className="col-span-2">Select</div>
+                          <div className="col-span-4">Holiday Date</div>
+                          <div className="col-span-6">Holiday Reason</div>
                        </div>
-                       <div className="flex-1 overflow-y-auto custom-scrollbar">
+                       <div className="max-h-48 overflow-y-auto custom-scrollbar">
                           {holidays.length > 0 ? holidays.sort((a,b) => b.startDate.localeCompare(a.startDate)).map(h => (
                             <div key={h.id} className={`grid grid-cols-12 p-4 border-b border-slate-100 dark:border-slate-800 items-center transition-all ${selectedHolidaysForDeletion.includes(h.id) ? 'bg-rose-50 dark:bg-rose-900/20' : 'hover:bg-white dark:hover:bg-slate-800'}`}>
                                <div className="col-span-2">
-                                  <input type="checkbox" checked={selectedHolidaysForDeletion.includes(h.id)} onChange={() => toggleHolidaySelection(h.id)} className="w-4 h-4 rounded text-indigo-600" />
+                                  <input type="checkbox" checked={selectedHolidaysForDeletion.includes(h.id)} onChange={() => toggleHolidaySelection(h.id)} className="w-4 h-4 rounded text-indigo-600 cursor-pointer" />
                                </div>
-                               <div className="col-span-5 text-[10px] font-black text-slate-700 dark:text-slate-300 uppercase">{getRangeDisplay(h.startDate, h.endDate)} {new Date(h.startDate).toLocaleString('default', { month: 'short' })}</div>
-                               <div className="col-span-5 flex justify-between items-center min-w-0">
-                                  <span className="text-[10px] font-bold text-slate-400 truncate uppercase pr-2">{h.reason}</span>
+                               <div className="col-span-4 text-[9px] font-black text-slate-700 dark:text-slate-300 uppercase">{getRangeDisplay(h.startDate, h.endDate)} {new Date(h.startDate).toLocaleString('default', { month: 'short' })}</div>
+                               <div className="col-span-6 flex justify-between items-center min-w-0">
+                                  <span className="text-[9px] font-bold text-slate-400 truncate uppercase pr-2">{h.reason}</span>
                                   <button onClick={() => {
                                     setEditingHolidayId(h.id);
                                     setHolidayReason(h.reason);
                                     setHolidayStartDate(h.startDate);
                                     setHolidayEndDate(h.endDate);
                                     setHolidayType(h.type || 'PUBLIC');
-                                  }} className="p-1.5 text-indigo-400 hover:bg-indigo-50 rounded-lg shrink-0"><Edit3 size={14}/></button>
+                                  }} className="p-1.5 text-indigo-400 hover:bg-indigo-50 rounded-lg shrink-0 transition-all"><Edit3 size={14}/></button>
                                </div>
                             </div>
                           )) : (
-                            <div className="py-20 text-center opacity-20 flex flex-col items-center">
-                               <Umbrella size={48} className="mb-4" />
-                               <p className="text-[10px] font-black uppercase tracking-[0.2em]">List Empty</p>
+                            <div className="py-12 text-center opacity-10 flex flex-col items-center">
+                               <Umbrella size={40} className="mb-2" />
+                               <p className="text-[9px] font-black uppercase tracking-widest">No entries found</p>
                             </div>
                           )}
                        </div>
-                       <div className="p-6 bg-white dark:bg-slate-900 border-t border-slate-100 dark:border-slate-800">
-                          <button 
-                            disabled={selectedHolidaysForDeletion.length === 0} 
-                            onClick={deleteSelectedHolidays}
-                            className={`w-full py-4 rounded-2xl font-black uppercase text-[10px] tracking-widest flex items-center justify-center gap-2 transition-all ${selectedHolidaysForDeletion.length > 0 ? 'bg-rose-600 text-white shadow-xl hover:bg-rose-700' : 'bg-slate-100 text-slate-300'}`}
-                          >
-                             <Trash2 size={16}/> Delete Selection ({selectedHolidaysForDeletion.length})
-                          </button>
-                       </div>
                     </div>
+                 </div>
+
+                 {/* ACTION BAR */}
+                 <div className="grid grid-cols-4 gap-3 pt-4 border-t border-slate-100 dark:border-slate-800">
+                    <button onClick={resetHolidayForm} className="py-4 bg-slate-100 dark:bg-slate-800 text-slate-500 font-black rounded-2xl uppercase text-[9px] tracking-widest hover:bg-slate-200 transition-all">Clear</button>
+                    <button 
+                      onClick={addOrUpdateHoliday} 
+                      disabled={!holidayReason.trim()}
+                      className="col-span-2 py-4 bg-indigo-600 text-white font-black rounded-2xl shadow-xl hover:bg-indigo-700 transition-all uppercase text-[9px] tracking-widest flex items-center justify-center gap-2"
+                    >
+                       {editingHolidayId ? <Save size={16}/> : <Plus size={16} strokeWidth={3}/>} {editingHolidayId ? 'Save Modification' : 'Add to Ledger'}
+                    </button>
+                    <button 
+                      disabled={selectedHolidaysForDeletion.length === 0}
+                      onClick={deleteSelectedHolidays}
+                      className={`py-4 rounded-2xl font-black uppercase text-[9px] tracking-widest flex items-center justify-center transition-all ${selectedHolidaysForDeletion.length > 0 ? 'bg-rose-600 text-white shadow-lg' : 'bg-slate-50 text-slate-300'}`}
+                    >
+                       <Trash2 size={16}/>
+                    </button>
                  </div>
               </div>
            </div>
