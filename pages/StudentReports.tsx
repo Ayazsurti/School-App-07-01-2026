@@ -7,7 +7,7 @@ import {
   CheckCircle2, ShieldCheck, Type, Terminal, ArrowLeftRight, MoveHorizontal, Lock, Unlock,
   PlusCircle, Tag, FileDown, School, ClipboardList, AlertTriangle,
   Loader2, Printer, Eye, Download, FileText, Check, Ruler, Box, Grid, ArrowUp, ArrowDown,
-  Minus
+  Minus, FileType, Monitor, Smartphone, CheckSquare, Square
 } from 'lucide-react';
 import { supabase, db, getErrorMessage } from '../supabase';
 import { createAuditLog } from '../utils/auditLogger';
@@ -18,6 +18,16 @@ interface ReportFieldConfig {
   width: number;
   fontSize: number;
   isBold: boolean;
+}
+
+interface PageSettings {
+  reportTitle: string;
+  fieldHeight: string;
+  marginLeft: string;
+  marginRight: string;
+  pageSize: 'A3' | 'A4' | 'LEGAL' | 'B5';
+  orientation: 'PORTRAIT' | 'LANDSCAPE';
+  includeLeftStudent: boolean;
 }
 
 const WINGS = ['GIRLS', 'BOYS'];
@@ -73,6 +83,7 @@ const StudentReports: React.FC<{ user: User; schoolLogo?: string | null; schoolN
   const [profiles, setProfiles] = useState<any[]>([]);
   const [activeProfileName, setActiveProfileName] = useState('');
   const [showProfileModal, setShowProfileModal] = useState(false);
+  const [showPageConfigModal, setShowPageConfigModal] = useState(false);
   const [newProfileName, setNewProfileName] = useState('');
   const [showDeleteProfileConfirm, setShowDeleteProfileConfirm] = useState(false);
 
@@ -88,6 +99,16 @@ const StudentReports: React.FC<{ user: User; schoolLogo?: string | null; schoolN
   const [reportData, setReportData] = useState<Student[]>([]);
   const [isGenerating, setIsGenerating] = useState(false);
   const [showPreviewModal, setShowPreviewModal] = useState(false);
+
+  const [pageSettings, setPageSettings] = useState<PageSettings>({
+    reportTitle: '',
+    fieldHeight: '10',
+    marginLeft: '15',
+    marginRight: '15',
+    pageSize: 'A4',
+    orientation: 'LANDSCAPE',
+    includeLeftStudent: false
+  });
 
   const matrixScrollRef = useRef<HTMLDivElement>(null);
   const fieldScrollRef = useRef<HTMLDivElement>(null);
@@ -303,12 +324,15 @@ const StudentReports: React.FC<{ user: User; schoolLogo?: string | null; schoolN
             top: 0 !important;
             width: 100% !important;
             background: white !important;
-            padding: 15mm !important;
+            padding: ${pageSettings.marginLeft}mm ${pageSettings.marginRight}mm !important;
             color: black !important;
           }
           
           .report-print-area * { visibility: visible !important; color: black !important; }
-          @page { size: A4 landscape; margin: 0; }
+          @page { 
+            size: ${pageSettings.pageSize} ${pageSettings.orientation.toLowerCase()}; 
+            margin: 0; 
+          }
           
           .report-table { 
             width: 100%; 
@@ -324,12 +348,14 @@ const StudentReports: React.FC<{ user: User; schoolLogo?: string | null; schoolN
             -webkit-print-color-adjust: exact;
             font-weight: 900;
             text-transform: uppercase;
+            height: ${pageSettings.fieldHeight}mm;
           }
           .report-table td { 
             border: 1px solid #000; 
             padding: 6px 4px; 
             text-align: left; 
             word-break: break-word;
+            height: ${pageSettings.fieldHeight}mm;
           }
         }
       `}</style>
@@ -351,7 +377,14 @@ const StudentReports: React.FC<{ user: User; schoolLogo?: string | null; schoolN
             </div>
          </div>
          
-         <div className="mt-3 mb-8">
+         {pageSettings.reportTitle && (
+            <div className="mt-8 mb-4 text-center">
+               <h2 className="text-lg font-black uppercase text-slate-800 tracking-[0.2em] whitespace-pre-wrap">{pageSettings.reportTitle}</h2>
+               <div className="w-32 h-0.5 bg-slate-900 mx-auto mt-1"></div>
+            </div>
+         )}
+         
+         <div className="mt-4 mb-8">
             <p className="text-[11px] font-black text-slate-900 uppercase tracking-widest">CLASS: {formattedSelectedClasses.join(' • ') || 'ALL CLASSES'}</p>
          </div>
          
@@ -429,7 +462,14 @@ const StudentReports: React.FC<{ user: User; schoolLogo?: string | null; schoolN
                     </div>
                  </div>
 
-                 <div className="mt-3 mb-8">
+                 {pageSettings.reportTitle && (
+                    <div className="mt-8 mb-4 text-center animate-in slide-in-from-top-2">
+                       <h2 className="text-sm font-black uppercase text-slate-800 tracking-[0.25em] whitespace-pre-wrap">{pageSettings.reportTitle}</h2>
+                       <div className="w-20 h-0.5 bg-slate-900 mx-auto mt-1 opacity-50"></div>
+                    </div>
+                 )}
+
+                 <div className="mt-4 mb-8">
                     <p className="text-[10px] font-black text-slate-900 uppercase tracking-tight">CLASS: {formattedSelectedClasses.join(' • ') || 'ALL CLASSES'}</p>
                  </div>
                  
@@ -437,7 +477,7 @@ const StudentReports: React.FC<{ user: User; schoolLogo?: string | null; schoolN
                     <thead>
                        <tr className="bg-slate-50">
                           {reportConfigs.map(config => (
-                             <th key={config.key} className="border border-slate-900 p-2 text-left font-black uppercase" style={{ fontSize: `${config.fontSize * 0.8}px`, width: `${config.width}mm` }}>
+                             <th key={config.key} className="border border-slate-900 p-2 text-left font-black uppercase" style={{ fontSize: `${config.fontSize * 0.8}px`, width: `${config.width}mm`, height: `${pageSettings.fieldHeight}mm` }}>
                                 {config.displayName}
                              </th>
                           ))}
@@ -447,7 +487,7 @@ const StudentReports: React.FC<{ user: User; schoolLogo?: string | null; schoolN
                        {reportData.map((student, idx) => (
                           <tr key={student.id + idx} className="hover:bg-slate-50 transition-colors">
                              {reportConfigs.map(config => (
-                                <td key={config.key} className="border border-slate-900 p-2 truncate" style={{ fontSize: `${config.fontSize * 0.75}px`, fontWeight: config.isBold ? 'bold' : 'normal', width: `${config.width}mm` }}>
+                                <td key={config.key} className="border border-slate-900 p-2 truncate" style={{ fontSize: `${config.fontSize * 0.75}px`, fontWeight: config.isBold ? 'bold' : 'normal', width: `${config.width}mm`, height: `${pageSettings.fieldHeight}mm` }}>
                                    {(student as any)[config.key] || '-'}
                                 </td>
                              ))}
@@ -475,7 +515,7 @@ const StudentReports: React.FC<{ user: User; schoolLogo?: string | null; schoolN
           {/* Left Column */}
           <div className="lg:col-span-4 space-y-8">
             <ModuleWrapper title="CLASS SELECTION MATRIX" id="MOD-01">
-              <div ref={matrixScrollRef} className="max-h-[400px] overflow-y-auto custom-scrollbar border border-slate-100 dark:border-slate-800 bg-slate-50/30 dark:bg-slate-950/20">
+              <div ref={matrixScrollRef} className="h-[380px] w-full overflow-y-auto custom-scrollbar border border-slate-100 dark:border-slate-800 bg-slate-50/30 dark:bg-slate-950/20 rounded-2xl">
                 <table className="w-full text-[8px] font-black uppercase border-collapse">
                   <thead className="sticky top-0 bg-slate-100 dark:bg-slate-800 z-10">
                     <tr className="border-b border-slate-200 dark:border-slate-700">
@@ -514,7 +554,7 @@ const StudentReports: React.FC<{ user: User; schoolLogo?: string | null; schoolN
             </ModuleWrapper>
 
             <ModuleWrapper title="FIELD REPOSITORY" id="MOD-02" className={!isModifying ? 'opacity-40 grayscale pointer-events-none' : ''}>
-              <div className="relative mb-6">
+              <div className="relative mb-4">
                 <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-300" size={14} />
                 <input 
                   type="text" 
@@ -524,23 +564,23 @@ const StudentReports: React.FC<{ user: User; schoolLogo?: string | null; schoolN
                   className="w-full pl-10 pr-4 py-3 bg-slate-50 dark:bg-slate-800 border-none rounded-xl text-[9px] font-black uppercase outline-none focus:ring-2 focus:ring-indigo-500 shadow-inner" 
                 />
               </div>
-              <div ref={fieldScrollRef} className="grid grid-cols-2 gap-2 max-h-80 overflow-y-auto custom-scrollbar pr-1">
+              <div ref={fieldScrollRef} className="grid grid-cols-2 gap-2 h-[260px] w-full overflow-y-auto custom-scrollbar pr-1 bg-slate-50/30 dark:bg-slate-950/20 rounded-xl p-2">
                  {filteredAvailableFields.map(field => (
                     <div 
                       key={field.key} 
                       onClick={() => setPendingFieldFromInfo(field.key)} 
-                      className={`p-3 border-2 transition-all cursor-pointer select-none text-center rounded-xl flex flex-col justify-center gap-1 ${pendingFieldFromInfo === field.key ? 'bg-indigo-600 border-indigo-600 text-white shadow-lg scale-[1.02]' : 'bg-slate-50 dark:bg-slate-800 border-transparent text-slate-600 dark:text-slate-400 hover:border-slate-200'}`}
+                      className={`p-3 border-2 transition-all cursor-pointer select-none text-center rounded-xl flex flex-col justify-center gap-1 ${pendingFieldFromInfo === field.key ? 'bg-indigo-600 border-indigo-600 text-white shadow-lg scale-[1.02]' : 'bg-white dark:bg-slate-800 border-transparent text-slate-600 dark:text-slate-400 hover:border-slate-200 shadow-sm'}`}
                     >
                        <span className="text-[8px] font-black uppercase tracking-wider leading-none">{field.label}</span>
                     </div>
                  ))}
               </div>
-              <div className="mt-6 flex gap-2">
-                 <button onClick={handleMoveRight} disabled={!isModifying || !pendingFieldFromInfo} className={`flex-1 py-4 rounded-xl shadow-lg border transition-all flex items-center justify-center gap-2 font-black text-[9px] uppercase tracking-widest ${isModifying && pendingFieldFromInfo ? 'bg-indigo-600 text-white border-indigo-500' : 'bg-slate-100 text-slate-300 border-slate-100'}`}>
-                    Inject Field <ChevronRight size={14} />
+              <div className="mt-4 flex gap-2">
+                 <button onClick={handleMoveRight} disabled={!isModifying || !pendingFieldFromInfo} className={`flex-1 py-3 rounded-xl shadow-md border transition-all flex items-center justify-center gap-2 font-black text-[9px] uppercase tracking-widest ${isModifying && pendingFieldFromInfo ? 'bg-indigo-600 text-white border-indigo-500' : 'bg-slate-100 text-slate-300 border-slate-100'}`}>
+                    Inject <ChevronRight size={14} />
                  </button>
-                 <button onClick={handleMoveLeft} disabled={!isModifying || !lastSelectedConfigKey} className={`flex-1 py-4 rounded-xl shadow-lg border transition-all flex items-center justify-center gap-2 font-black text-[9px] uppercase tracking-widest ${isModifying && lastSelectedConfigKey ? 'bg-slate-700 text-white border-slate-600' : 'bg-slate-100 text-slate-300 border-slate-100'}`}>
-                    <ChevronLeft size={14} /> Revert Field
+                 <button onClick={handleMoveLeft} disabled={!isModifying || !lastSelectedConfigKey} className={`flex-1 py-3 rounded-xl shadow-md border transition-all flex items-center justify-center gap-2 font-black text-[9px] uppercase tracking-widest ${isModifying && lastSelectedConfigKey ? 'bg-slate-700 text-white border-slate-600' : 'bg-slate-100 text-slate-300 border-slate-100'}`}>
+                    <ChevronLeft size={14} /> Revert
                  </button>
               </div>
             </ModuleWrapper>
@@ -668,6 +708,15 @@ const StudentReports: React.FC<{ user: User; schoolLogo?: string | null; schoolN
                    )}
                 </div>
 
+                <div className="px-8 pt-4 pb-0 no-print">
+                   <button 
+                    onClick={() => setShowPageConfigModal(true)} 
+                    className="w-full py-4 bg-indigo-50 dark:bg-indigo-900/30 border-2 border-indigo-100 dark:border-indigo-800 rounded-2xl text-[9px] font-black uppercase tracking-widest text-indigo-600 dark:text-indigo-400 hover:bg-indigo-600 hover:text-white transition-all flex items-center justify-center gap-3 shadow-sm group"
+                   >
+                      <FileType size={16} className="group-hover:rotate-12 transition-transform"/> PAGE AND LANGUAGE CONFIGURATION
+                   </button>
+                </div>
+
                 <div className="p-8 bg-slate-50 dark:bg-slate-900 border-t-2 border-slate-100 dark:border-slate-800 grid grid-cols-2 lg:grid-cols-4 gap-4">
                    <button onClick={() => setIsModifying(!isModifying)} className={`py-4 rounded-2xl text-[9px] font-black uppercase tracking-widest shadow-lg transition-all flex items-center justify-center gap-2 border-2 ${isModifying ? 'bg-indigo-600 border-indigo-600 text-white' : 'bg-white dark:bg-slate-900 border-indigo-100 dark:border-indigo-900 text-indigo-600'}`}>
                       {isModifying ? <Unlock size={14} /> : <Lock size={14} />} {isModifying ? 'Lock Grid' : 'Modify Grid'}
@@ -686,7 +735,124 @@ const StudentReports: React.FC<{ user: User; schoolLogo?: string | null; schoolN
         </div>
       </div>
 
-      {/* MODALS */}
+      {/* PAGE CONFIGURATION MODAL - STRICT SQUARE SIZE & OPTIMIZED FOR SCREEN */}
+      {showPageConfigModal && (
+        <div className="fixed inset-0 z-[1600] flex items-center justify-center p-4 bg-slate-950/85 backdrop-blur-sm animate-in fade-in duration-300 no-print">
+           <div className="bg-white dark:bg-slate-900 rounded-[3rem] p-1 shadow-2xl w-[500px] h-[500px] max-w-[95vw] max-h-[90vh] overflow-hidden flex flex-col border border-slate-100 dark:border-slate-800 animate-in zoom-in-95">
+              <div className="p-6 border-b border-slate-100 dark:border-slate-800 flex justify-between items-center bg-slate-50/50 dark:bg-slate-800/30">
+                 <div className="flex items-center gap-3">
+                    <div className="w-8 h-8 bg-indigo-600 rounded-xl flex items-center justify-center text-white shadow-md"><FileType size={16}/></div>
+                    <div>
+                       <h3 className="text-[12px] font-black uppercase tracking-tight text-slate-900 dark:text-white leading-none">PAGE ARCHITECTURE</h3>
+                       <p className="text-[7px] font-bold text-slate-400 uppercase tracking-[0.3em] mt-1">Layout Node</p>
+                    </div>
+                 </div>
+                 <button onClick={() => setShowPageConfigModal(false)} className="p-1.5 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg text-slate-400 transition-all"><X size={18} /></button>
+              </div>
+              
+              <div className="flex-1 overflow-y-auto p-6 space-y-4 custom-scrollbar">
+                 {/* Report Title */}
+                 <div className="space-y-1 group">
+                    <label className="text-[8px] font-black text-slate-400 group-hover:text-indigo-600 transition-colors uppercase tracking-widest ml-1">Report Title</label>
+                    <input 
+                      type="text" 
+                      value={pageSettings.reportTitle} 
+                      onChange={e => setPageSettings({...pageSettings, reportTitle: e.target.value.toUpperCase()})}
+                      placeholder="HEADING..." 
+                      className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl px-4 py-2 font-black text-[9px] uppercase outline-none focus:ring-2 focus:ring-indigo-500 shadow-inner" 
+                    />
+                 </div>
+
+                 {/* Field Height */}
+                 <div className="space-y-1 group">
+                    <label className="text-[8px] font-black text-slate-400 group-hover:text-indigo-600 transition-colors uppercase tracking-widest ml-1">Field Height (mm)</label>
+                    <input 
+                      type="text" 
+                      value={pageSettings.fieldHeight} 
+                      onChange={e => setPageSettings({...pageSettings, fieldHeight: e.target.value})}
+                      placeholder="E.G. 10" 
+                      className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl px-4 py-2 font-black text-[9px] uppercase outline-none focus:ring-2 focus:ring-indigo-500 shadow-inner" 
+                    />
+                 </div>
+
+                 {/* Page Margins */}
+                 <div className="space-y-2">
+                    <label className="text-[8px] font-black text-indigo-500 uppercase tracking-[0.3em] block ml-1">Page Margins</label>
+                    <div className="grid grid-cols-2 gap-3">
+                       <div className="space-y-1 group">
+                          <label className="text-[7px] font-black text-slate-400 group-hover:text-indigo-600 transition-colors uppercase tracking-widest ml-1">Left (mm)</label>
+                          <input 
+                            type="text" 
+                            value={pageSettings.marginLeft} 
+                            onChange={e => setPageSettings({...pageSettings, marginLeft: e.target.value})}
+                            className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-1.5 font-black text-[9px] uppercase outline-none focus:ring-2 focus:ring-indigo-500 shadow-inner text-center" 
+                          />
+                       </div>
+                       <div className="space-y-1 group">
+                          <label className="text-[7px] font-black text-slate-400 group-hover:text-indigo-600 transition-colors uppercase tracking-widest ml-1">Right (mm)</label>
+                          <input 
+                            type="text" 
+                            value={pageSettings.marginRight} 
+                            onChange={e => setPageSettings({...pageSettings, marginRight: e.target.value})}
+                            className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-1.5 font-black text-[9px] uppercase outline-none focus:ring-2 focus:ring-indigo-500 shadow-inner text-center" 
+                          />
+                       </div>
+                    </div>
+                 </div>
+
+                 {/* Page Size & Orientation */}
+                 <div className="pt-3 border-t border-slate-100 dark:border-slate-800 space-y-4">
+                    <div className="space-y-2">
+                       <h4 className="text-[8px] font-black text-slate-900 dark:text-white uppercase tracking-widest ml-1">Page Size</h4>
+                       <div className="grid grid-cols-4 gap-1">
+                          {(['A3', 'A4', 'LEGAL', 'B5'] as const).map(size => (
+                             <button 
+                              key={size} 
+                              onClick={() => setPageSettings({...pageSettings, pageSize: size})}
+                              className={`flex flex-col items-center justify-center py-1.5 rounded-lg border-2 transition-all ${pageSettings.pageSize === size ? 'bg-indigo-50 dark:bg-indigo-900/20 border-indigo-500 text-indigo-600' : 'bg-white dark:bg-slate-800 border-transparent text-slate-300 hover:border-slate-200'}`}
+                             >
+                                <span className="text-[8px] font-black uppercase">{size}</span>
+                             </button>
+                          ))}
+                       </div>
+                    </div>
+                    <div className="space-y-2">
+                       <h4 className="text-[8px] font-black text-slate-900 dark:text-white uppercase tracking-widest ml-1">Orientation</h4>
+                       <div className="grid grid-cols-2 gap-1">
+                          {(['PORTRAIT', 'LANDSCAPE'] as const).map(orient => (
+                             <button 
+                              key={orient} 
+                              onClick={() => setPageSettings({...pageSettings, orientation: orient})}
+                              className={`flex items-center justify-center py-2 rounded-lg border-2 transition-all ${pageSettings.orientation === orient ? 'bg-indigo-50 dark:bg-indigo-900/20 border-indigo-500 text-indigo-600' : 'bg-white dark:bg-slate-800 border-transparent text-slate-300 hover:border-slate-200'}`}
+                             >
+                                <span className="text-[8px] font-black uppercase">{orient}</span>
+                             </button>
+                          ))}
+                       </div>
+                    </div>
+                 </div>
+
+                 {/* Extra Flags */}
+                 <div className="pt-3 border-t border-slate-100 dark:border-slate-800">
+                    <button 
+                      onClick={() => setPageSettings({...pageSettings, includeLeftStudent: !pageSettings.includeLeftStudent})}
+                      className={`flex items-center gap-2 p-2 rounded-lg border-2 transition-all w-full ${pageSettings.includeLeftStudent ? 'bg-emerald-50 dark:bg-emerald-950/20 border-emerald-500 text-emerald-600' : 'bg-slate-50 dark:bg-slate-800 border-transparent text-slate-400'}`}
+                    >
+                       {pageSettings.includeLeftStudent ? <CheckSquare size={14} /> : <Square size={14} />}
+                       <span className="text-[8px] font-black uppercase tracking-widest">Include Left Student</span>
+                    </button>
+                 </div>
+              </div>
+
+              <div className="p-4 bg-slate-50 dark:bg-slate-900 border-t border-slate-100 dark:border-slate-800 flex gap-2">
+                 <button onClick={() => setShowPageConfigModal(false)} className="flex-1 py-3 bg-indigo-600 text-white font-black rounded-xl text-[9px] uppercase tracking-widest shadow-xl hover:bg-indigo-700 active:scale-95 transition-all">APPLY</button>
+                 <button onClick={() => setShowPageConfigModal(false)} className="flex-1 py-3 bg-slate-100 dark:bg-slate-800 text-slate-500 font-black rounded-xl text-[9px] uppercase tracking-widest hover:bg-slate-200 transition-all">CLOSE</button>
+              </div>
+           </div>
+        </div>
+      )}
+
+      {/* PROFILE MODAL */}
       {showProfileModal && (
         <div className="fixed inset-0 z-[1500] flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-sm animate-in fade-in duration-200 no-print">
            <div className="bg-white dark:bg-slate-900 rounded-[3rem] p-10 max-sm w-full shadow-2xl animate-in zoom-in-95 border-t-8 border-indigo-600">
