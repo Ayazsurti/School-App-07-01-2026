@@ -5,9 +5,9 @@ import { createAuditLog } from '../utils/auditLogger';
 import { 
   Calendar as CalendarIcon, Check, X, Clock, UserCheck, Save, 
   CheckCircle2, Loader2, ChevronLeft, ChevronRight, 
-  ArrowLeft, ArrowRight, RefreshCcw, LayoutGrid,
-  ShieldCheck, AlertCircle, Hash, Zap, CornerDownLeft, Users, UserX, ChevronDown, Layers, Globe,
-  Info, Square, CheckSquare, Umbrella, Plus, Trash2, CalendarX, Edit3
+  ArrowLeft, ArrowRight, LayoutGrid,
+  AlertCircle, Zap, CornerDownLeft, Umbrella, Plus, Trash2, Edit3,
+  Square, CheckSquare
 } from 'lucide-react';
 
 interface AttendanceProps { user: User; }
@@ -19,7 +19,6 @@ const ALL_CLASSES = [
   '1 - BOYS', '2 - BOYS', '3 - BOYS', '4 - BOYS', '5 - BOYS', '6 - BOYS', '7 - BOYS', '8 - BOYS', '9 - BOYS', '10 - BOYS', '11 - BOYS', '12 - BOYS'
 ];
 
-const ALL_SECTIONS = ['A', 'B', 'C', 'D'];
 const MEDIUMS = ['ENGLISH MEDIUM'];
 const WEEKDAYS = ['MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT', 'SUN'];
 
@@ -45,7 +44,6 @@ const Attendance: React.FC<AttendanceProps> = ({ user }) => {
   const [students, setStudents] = useState<Student[]>([]);
   const [attendance, setAttendance] = useState<Record<string, AttendanceStatus>>({});
   const [recordIds, setRecordIds] = useState<Record<string, string>>({}); 
-  const [studentRecords, setStudentRecords] = useState<any[]>([]);
   const [monthlyMarkedDates, setMonthlyMarkedDates] = useState<Set<string>>(new Set());
   const [holidays, setHolidays] = useState<any[]>([]);
   
@@ -55,6 +53,7 @@ const Attendance: React.FC<AttendanceProps> = ({ user }) => {
   const [showSuccess, setShowSuccess] = useState(false);
   const [showConfirmModal, setShowConfirmModal] = useState(false);
   const [showHolidayModal, setShowHolidayModal] = useState(false);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
 
   // Holiday Form State
   const [holidayReason, setHolidayReason] = useState('');
@@ -64,12 +63,12 @@ const Attendance: React.FC<AttendanceProps> = ({ user }) => {
   const [selectedHolidaysForDeletion, setSelectedHolidaysForDeletion] = useState<number[]>([]);
   const [editingHolidayId, setEditingHolidayId] = useState<number | null>(null);
 
-  // Monday-Start Calendar Days
+  // Monday-Start Calendar Days for the Setup Grid
   const calendarDays = useMemo(() => {
     const year = viewDate.getFullYear();
     const month = viewDate.getMonth();
     let firstDay = new Date(year, month, 1).getDay();
-    firstDay = firstDay === 0 ? 6 : firstDay - 1; // Shift to Monday
+    firstDay = firstDay === 0 ? 6 : firstDay - 1; // Align to Monday
     const daysInMonth = new Date(year, month + 1, 0).getDate();
     const days: (Date | null)[] = [];
     for (let i = 0; i < firstDay; i++) { days.push(null); }
@@ -100,25 +99,19 @@ const Attendance: React.FC<AttendanceProps> = ({ user }) => {
   const fetchData = async () => {
     setIsLoading(true);
     try {
-      if (isStudent) {
-        const { data, error } = await supabase.from('attendance').select('*').eq('student_id', user.id).order('date', { ascending: false });
-        if (error) throw error;
-        setStudentRecords(data || []);
-      } else {
-        const [studentData, attendanceData] = await Promise.all([db.students.getAll(), db.attendance.getByDate(selectedDate)]);
-        const mappedStudents = (studentData || []).map((s: any) => ({
-          id: s.id, fullName: s.full_name, name: s.full_name, grNumber: s.gr_number, class: s.class, section: s.section, rollNo: s.roll_no, gender: s.gender, medium: s.medium, status: s.status
-        }));
-        const activeStudents = mappedStudents.filter(s => s.status !== 'CANCELLED');
-        setStudents(activeStudents as any);
-        const attendanceMap: Record<string, AttendanceStatus> = {};
-        const idMap: Record<string, string> = {};
-        attendanceData.forEach((record: any) => { attendanceMap[record.student_id] = record.status as AttendanceStatus; idMap[record.student_id] = record.id; });
-        const currentSet = activeStudents.filter((s: any) => s.class === selectedClass && s.section === selectedSection && s.medium === selectedMedium);
-        currentSet.forEach((s: any) => { if (!attendanceMap[s.id]) attendanceMap[s.id] = 'PRESENT'; });
-        setAttendance(attendanceMap);
-        setRecordIds(idMap);
-      }
+      const [studentData, attendanceData] = await Promise.all([db.students.getAll(), db.attendance.getByDate(selectedDate)]);
+      const mappedStudents = (studentData || []).map((s: any) => ({
+        id: s.id, fullName: s.full_name, name: s.full_name, grNumber: s.gr_number, class: s.class, section: s.section, rollNo: s.roll_no, gender: s.gender, medium: s.medium, status: s.status
+      }));
+      const activeStudents = mappedStudents.filter(s => s.status !== 'CANCELLED');
+      setStudents(activeStudents as any);
+      const attendanceMap: Record<string, AttendanceStatus> = {};
+      const idMap: Record<string, string> = {};
+      attendanceData.forEach((record: any) => { attendanceMap[record.student_id] = record.status as AttendanceStatus; idMap[record.student_id] = record.id; });
+      const currentSet = activeStudents.filter((s: any) => s.class === selectedClass && s.section === selectedSection && s.medium === selectedMedium);
+      currentSet.forEach((s: any) => { if (!attendanceMap[s.id]) attendanceMap[s.id] = 'PRESENT'; });
+      setAttendance(attendanceMap);
+      setRecordIds(idMap);
       fetchMonthlyStatus();
       fetchHolidays();
     } catch (err) {} finally { setIsLoading(false); }
@@ -126,7 +119,7 @@ const Attendance: React.FC<AttendanceProps> = ({ user }) => {
 
   useEffect(() => {
     fetchData();
-    const channel = supabase.channel('realtime-attendance-v33')
+    const channel = supabase.channel('realtime-attendance-v34')
       .on('postgres_changes', { event: '*', schema: 'public', table: 'attendance' }, () => {
         setIsSyncing(true);
         fetchData().then(() => setTimeout(() => setIsSyncing(false), 800));
@@ -177,7 +170,7 @@ const Attendance: React.FC<AttendanceProps> = ({ user }) => {
     } catch (e) {} finally { setIsSyncing(false); }
   };
 
-  const deleteSelectedHolidays = async () => {
+  const executeDeleteHolidays = async () => {
     if (selectedHolidaysForDeletion.length === 0) return;
     setIsSyncing(true);
     try {
@@ -185,6 +178,7 @@ const Attendance: React.FC<AttendanceProps> = ({ user }) => {
       await db.settings.update('institutional_holidays', JSON.stringify(nextHolidays));
       setHolidays(nextHolidays);
       setSelectedHolidaysForDeletion([]);
+      setShowDeleteConfirm(false);
     } catch (e) {} finally { setIsSyncing(false); }
   };
 
@@ -203,17 +197,17 @@ const Attendance: React.FC<AttendanceProps> = ({ user }) => {
     <div className="space-y-8 pb-20 animate-in fade-in duration-500 relative">
       {/* SUCCESS POPUP */}
       {showSuccess && (
-        <div className="fixed top-24 right-8 z-[1000] animate-in slide-in-from-right-8">
-           <div className="bg-emerald-600 text-white px-6 py-4 rounded-2xl shadow-2xl flex items-center gap-3 border border-emerald-500/50">
+        <div className="fixed top-24 right-8 z-[1000] animate-in slide-in-from-right-8 duration-500">
+           <div className="bg-emerald-600 text-white px-6 py-4 rounded-2xl shadow-2xl flex items-center gap-3 border border-emerald-500/50 backdrop-blur-xl">
               <CheckCircle2 size={20} strokeWidth={3} />
               <p className="font-black text-[10px] uppercase tracking-widest">Attendance Recorded</p>
            </div>
         </div>
       )}
 
-      {/* HOLIDAY SETUP PROFILE - COMPACT CENTERING */}
+      {/* HOLIDAY SETUP PROFILE MODAL */}
       {showHolidayModal && (
-        <div className="fixed inset-0 z-[2000] flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-md animate-in fade-in">
+        <div className="fixed inset-0 z-[2000] flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-md animate-in fade-in no-print">
            <div className="bg-white dark:bg-slate-900 rounded-[3rem] p-1 shadow-2xl max-w-[420px] w-full border border-slate-100 dark:border-slate-800 animate-in zoom-in-95 overflow-hidden flex flex-col max-h-[90vh]">
               <div className="p-6 border-b border-slate-50 dark:border-slate-800 bg-indigo-50 dark:bg-indigo-900/10 flex justify-between items-center">
                  <div className="flex items-center gap-4">
@@ -227,19 +221,19 @@ const Attendance: React.FC<AttendanceProps> = ({ user }) => {
               </div>
 
               <div className="p-6 space-y-6 overflow-y-auto custom-scrollbar">
-                 {/* DATE INPUTS */}
+                 {/* DATE RANGE CONTROLS */}
                  <div className="grid grid-cols-2 gap-3">
                     <div className="space-y-1">
                        <label className="text-[8px] font-black text-slate-950 dark:text-white uppercase tracking-widest ml-1">Start Date</label>
-                       <input type="date" value={holidayStartDate} onChange={e => setHolidayStartDate(e.target.value)} className="w-full bg-slate-50 dark:bg-slate-800 border-none rounded-xl px-4 py-2.5 font-black text-xs outline-none focus:ring-1 focus:ring-indigo-500 shadow-inner" />
+                       <input type="date" value={holidayStartDate} onChange={e => setHolidayStartDate(e.target.value)} className="w-full bg-slate-50 dark:bg-slate-800 border-none rounded-xl px-4 py-2.5 font-black text-xs outline-none focus:ring-1 focus:ring-indigo-500 shadow-inner text-slate-950 dark:text-white" />
                     </div>
                     <div className="space-y-1">
                        <label className="text-[8px] font-black text-slate-950 dark:text-white uppercase tracking-widest ml-1">End Date</label>
-                       <input type="date" value={holidayEndDate} onChange={e => setHolidayEndDate(e.target.value)} className="w-full bg-slate-50 dark:bg-slate-800 border-none rounded-xl px-4 py-2.5 font-black text-xs outline-none focus:ring-1 focus:ring-indigo-500 shadow-inner" />
+                       <input type="date" value={holidayEndDate} onChange={e => setHolidayEndDate(e.target.value)} className="w-full bg-slate-50 dark:bg-slate-800 border-none rounded-xl px-4 py-2.5 font-black text-xs outline-none focus:ring-1 focus:ring-indigo-500 shadow-inner text-slate-950 dark:text-white" />
                     </div>
                  </div>
 
-                 {/* SMALL NEURAL CALENDAR GRID - MONDAY TO SUNDAY */}
+                 {/* MINI GRID CALENDAR - MONDAY TO SUNDAY */}
                  <div className="p-4 bg-slate-50 dark:bg-slate-800/50 rounded-2xl border border-slate-100 dark:border-slate-800 shadow-inner">
                     <div className="grid grid-cols-7 gap-1 mb-2">
                        {WEEKDAYS.map(d => <div key={d} className="text-center"><span className="text-[7px] font-black text-slate-950 dark:text-white uppercase">{d.charAt(0)}</span></div>)}
@@ -250,7 +244,7 @@ const Attendance: React.FC<AttendanceProps> = ({ user }) => {
                           const dStr = day.toISOString().split('T')[0];
                           const isInRange = dStr >= holidayStartDate && dStr <= holidayEndDate;
                           return (
-                            <div key={dStr} className={`aspect-square rounded-md flex items-center justify-center text-[8px] font-black transition-all ${isInRange ? 'bg-indigo-600 text-white shadow-md' : 'bg-white dark:bg-slate-900 text-slate-950 dark:text-slate-200 border border-slate-100 dark:border-slate-800 opacity-20'}`}>
+                            <div key={dStr} className={`aspect-square rounded-md flex items-center justify-center text-[8px] font-black transition-all ${isInRange ? 'bg-indigo-600 text-white shadow-md scale-105' : 'bg-white dark:bg-slate-900 text-slate-950 dark:text-slate-200 border border-slate-100 dark:border-slate-800 opacity-20'}`}>
                                {day.getDate()}
                             </div>
                           );
@@ -258,13 +252,13 @@ const Attendance: React.FC<AttendanceProps> = ({ user }) => {
                     </div>
                  </div>
 
-                 {/* REASON BOX */}
+                 {/* REASON FOR HOLIDAY */}
                  <div className="space-y-1">
                     <label className="text-[8px] font-black text-slate-950 dark:text-white uppercase tracking-widest ml-1">Holiday Reason</label>
                     <textarea value={holidayReason} onChange={e => setHolidayReason(e.target.value)} placeholder="ENTER EVENT DESCRIPTION..." className="w-full bg-slate-50 dark:bg-slate-800 border-none rounded-xl px-4 py-3 font-black text-slate-950 dark:text-white outline-none focus:ring-1 focus:ring-indigo-500 shadow-inner resize-none h-16 uppercase text-[10px]" />
                  </div>
 
-                 {/* HOLIDAY TYPE SELECTION */}
+                 {/* CLASSIFICATION CHECKBOXES */}
                  <div className="space-y-3">
                     <label className="text-[8px] font-black text-slate-950 dark:text-white uppercase tracking-widest ml-1">Holiday Type</label>
                     <div className="flex flex-wrap gap-2">
@@ -281,33 +275,38 @@ const Attendance: React.FC<AttendanceProps> = ({ user }) => {
                     </div>
                  </div>
 
-                 {/* RANGE INDICATOR */}
                  <div className="bg-indigo-50 dark:bg-indigo-900/30 px-3 py-1.5 rounded-lg text-center">
                     <span className="text-[8px] font-black text-indigo-600 dark:text-indigo-400 uppercase tracking-widest">Date Range: {getRangeDisplay(holidayStartDate, holidayEndDate)}</span>
                  </div>
 
-                 {/* MONTHLY LEDGER - RECTANGULAR BOX */}
+                 {/* MONTHLY LIST - RECTANGULAR BOX */}
                  <div className="space-y-2 pt-4 border-t border-slate-50 dark:border-slate-800">
                     <h4 className="text-[8px] font-black text-slate-950 dark:text-white uppercase tracking-widest ml-1">Holiday list for {viewDate.toLocaleString('default', { month: 'short' })}</h4>
                     <div className="bg-slate-50 dark:bg-slate-800/50 rounded-2xl border border-slate-100 dark:border-slate-800 overflow-hidden flex flex-col shadow-inner">
                        <div className="grid grid-cols-12 bg-slate-950 text-white p-2 text-[7px] font-black uppercase tracking-widest">
-                          <div className="col-span-2">Sel</div>
+                          <div className="col-span-2 text-center">Sel</div>
                           <div className="col-span-5 border-l border-white/10 pl-2">Holiday Date</div>
-                          <div className="col-span-5 border-l border-white/10 pl-2">Reason</div>
+                          <div className="col-span-5 border-l border-white/10 pl-2">Holiday Reason</div>
                        </div>
                        <div className="max-h-32 overflow-y-auto custom-scrollbar">
-                          {holidays.filter(h => new Date(h.startDate).getMonth() === viewDate.getMonth()).length > 0 ? holidays.filter(h => new Date(h.startDate).getMonth() === viewDate.getMonth()).sort((a,b) => b.startDate.localeCompare(a.startDate)).map(h => (
+                          {holidays.filter(h => new Date(h.startDate).getMonth() === viewDate.getMonth()).length > 0 ? 
+                            holidays.filter(h => new Date(h.startDate).getMonth() === viewDate.getMonth()).sort((a,b) => b.startDate.localeCompare(a.startDate)).map(h => (
                             <div key={h.id} className={`grid grid-cols-12 p-2 border-b border-slate-100 dark:border-slate-800 items-center transition-all ${selectedHolidaysForDeletion.includes(h.id) ? 'bg-rose-50 dark:bg-rose-900/20' : 'hover:bg-white dark:hover:bg-slate-800'}`}>
                                <div className="col-span-2 flex justify-center">
                                   <input type="checkbox" checked={selectedHolidaysForDeletion.includes(h.id)} onChange={() => setSelectedHolidaysForDeletion(prev => prev.includes(h.id) ? prev.filter(i => i !== h.id) : [...prev, h.id])} className="w-3 h-3 rounded text-indigo-600" />
                                </div>
-                               <div className="col-span-5 text-[8px] font-black text-slate-950 dark:text-slate-200 uppercase pl-2">{getRangeDisplay(h.startDate, h.endDate)} {new Date(h.startDate).toLocaleString('default', { month: 'short' })}</div>
-                               <div className="col-span-5 text-[8px] font-bold text-slate-400 uppercase truncate pl-2">{h.reason}</div>
+                               <div className="col-span-5 text-[8px] font-black text-slate-950 dark:text-slate-200 uppercase pl-2 leading-none">{getRangeDisplay(h.startDate, h.endDate)} {new Date(h.startDate).toLocaleString('default', { month: 'short' })}</div>
+                               <div className="col-span-5 text-[8px] font-bold text-slate-400 uppercase truncate pl-2 flex justify-between items-center pr-1">
+                                  <span className="truncate">{h.reason}</span>
+                                  <button onClick={() => {
+                                    setEditingHolidayId(h.id); setHolidayReason(h.reason); setHolidayStartDate(h.startDate); setHolidayEndDate(h.endDate); setHolidayType(h.type || 'PUBLIC');
+                                  }} className="text-indigo-600 hover:scale-110 transition-transform"><Edit3 size={10}/></button>
+                               </div>
                             </div>
                           )) : (
                             <div className="py-8 text-center opacity-10 flex flex-col items-center">
                                <Umbrella size={24} className="mb-1" />
-                               <p className="text-[7px] font-black uppercase tracking-widest">No Records</p>
+                               <p className="text-[7px] font-black uppercase tracking-widest">Archive Empty</p>
                             </div>
                           )}
                        </div>
@@ -315,31 +314,17 @@ const Attendance: React.FC<AttendanceProps> = ({ user }) => {
                  </div>
 
                  {/* COMMAND CENTER BUTTONS */}
-                 <div className="grid grid-cols-2 gap-2 pt-4 border-t border-slate-100 dark:border-slate-800">
-                    <button onClick={resetHolidayForm} className="py-3 bg-slate-100 dark:bg-slate-800 text-slate-950 dark:text-slate-200 font-black rounded-xl uppercase text-[8px] tracking-widest shadow-sm hover:bg-slate-200 transition-all flex items-center justify-center gap-2"><Plus size={12}/> Add New</button>
-                    <button onClick={addOrUpdateHoliday} disabled={!holidayReason.trim()} className="py-3 bg-indigo-600 text-white font-black rounded-xl uppercase text-[8px] tracking-widest shadow-lg hover:bg-indigo-700 transition-all flex items-center justify-center gap-2"><Save size={12}/> Save Entry</button>
-                    <button 
-                      onClick={() => {
-                        const firstChecked = holidays.find(h => selectedHolidaysForDeletion.includes(h.id));
-                        if (firstChecked) {
-                           setEditingHolidayId(firstChecked.id);
-                           setHolidayReason(firstChecked.reason);
-                           setHolidayStartDate(firstChecked.startDate);
-                           setHolidayEndDate(firstChecked.endDate);
-                           setHolidayType(firstChecked.type || 'PUBLIC');
-                        }
-                      }} 
-                      disabled={selectedHolidaysForDeletion.length !== 1}
-                      className="py-3 bg-white dark:bg-slate-800 border-2 border-slate-100 dark:border-slate-700 text-slate-950 dark:text-slate-200 font-black rounded-xl uppercase text-[8px] tracking-widest disabled:opacity-30 flex items-center justify-center gap-2"
-                    >
-                       <Edit3 size={12}/> Modify
+                 <div className="grid grid-cols-4 gap-2 pt-4 border-t border-slate-100 dark:border-slate-800">
+                    <button onClick={resetHolidayForm} className="py-3 bg-slate-100 dark:bg-slate-800 text-slate-950 dark:text-slate-200 font-black rounded-xl uppercase text-[8px] tracking-widest shadow-sm hover:bg-slate-200 transition-all flex items-center justify-center gap-1.5"><Plus size={12}/> Add</button>
+                    <button onClick={addOrUpdateHoliday} disabled={!holidayReason.trim()} className="col-span-2 py-3 bg-indigo-600 text-white font-black rounded-xl uppercase text-[8px] tracking-widest shadow-lg hover:bg-indigo-700 transition-all flex items-center justify-center gap-1.5 disabled:opacity-40">
+                       <Save size={12}/> Save Entry
                     </button>
                     <button 
-                      onClick={deleteSelectedHolidays} 
+                      onClick={() => setShowDeleteConfirm(true)} 
                       disabled={selectedHolidaysForDeletion.length === 0}
-                      className={`py-3 rounded-xl font-black uppercase text-[8px] tracking-widest flex items-center justify-center gap-2 transition-all ${selectedHolidaysForDeletion.length > 0 ? 'bg-rose-600 text-white shadow-md hover:bg-rose-700' : 'bg-slate-100 text-slate-300'}`}
+                      className={`py-3 rounded-xl font-black uppercase text-[8px] tracking-widest flex items-center justify-center transition-all ${selectedHolidaysForDeletion.length > 0 ? 'bg-rose-600 text-white shadow-md hover:bg-rose-700' : 'bg-slate-100 text-slate-300'}`}
                     >
-                       <Trash2 size={12}/> Delete
+                       <Trash2 size={12}/>
                     </button>
                  </div>
               </div>
@@ -347,8 +332,25 @@ const Attendance: React.FC<AttendanceProps> = ({ user }) => {
         </div>
       )}
 
-      {/* TERMINAL INTERFACE */}
-      <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6 no-print">
+      {/* DELETE CONFIRMATION MINI-MODAL */}
+      {showDeleteConfirm && (
+        <div className="fixed inset-0 z-[2500] flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-sm animate-in fade-in no-print">
+           <div className="bg-white dark:bg-slate-900 rounded-[2.5rem] p-8 max-w-xs w-full shadow-2xl text-center border border-slate-100 animate-in zoom-in-95">
+              <div className="w-16 h-16 bg-rose-50 dark:bg-rose-900/20 text-rose-600 rounded-[1.8rem] flex items-center justify-center mb-6 mx-auto shadow-inner border border-rose-100">
+                 <AlertCircle size={32} strokeWidth={2.5} />
+              </div>
+              <h3 className="text-xl font-black text-slate-900 dark:text-white mb-2 uppercase tracking-tight">Purge Data?</h3>
+              <p className="text-slate-500 dark:text-slate-400 mb-8 font-medium text-[10px] uppercase tracking-widest leading-relaxed">Delete {selectedHolidaysForDeletion.length} selected entries permanently?</p>
+              <div className="grid grid-cols-2 gap-3">
+                 <button onClick={() => setShowDeleteConfirm(false)} className="py-4 bg-slate-100 dark:bg-slate-800 text-slate-950 dark:text-slate-200 font-black rounded-2xl uppercase text-[10px]">Cancel</button>
+                 <button onClick={executeDeleteHolidays} className="py-4 bg-rose-600 text-white font-black rounded-2xl shadow-xl hover:bg-rose-700 transition-all uppercase text-[10px]">Purge</button>
+              </div>
+           </div>
+        </div>
+      )}
+
+      {/* HEADER SECTION */}
+      <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6 no-print px-4 sm:px-0">
         <div className="flex items-center gap-6">
           <div>
             <h1 className="text-3xl font-black text-slate-900 dark:text-white tracking-tight uppercase flex items-center gap-3 leading-none">Attendance Terminal <UserCheck className="text-indigo-600" /></h1>
@@ -366,7 +368,7 @@ const Attendance: React.FC<AttendanceProps> = ({ user }) => {
         </button>
       </div>
 
-      <div className="grid grid-cols-1 xl:grid-cols-12 gap-8">
+      <div className="grid grid-cols-1 xl:grid-cols-12 gap-8 px-4 sm:px-0">
         <div className="xl:col-span-3 space-y-6">
            {/* CALENDAR SIDEBAR */}
            <div className="bg-white dark:bg-slate-900 rounded-[2rem] shadow-sm border border-slate-100 dark:border-slate-800 overflow-hidden flex flex-col">
