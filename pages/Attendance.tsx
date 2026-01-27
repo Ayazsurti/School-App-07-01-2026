@@ -24,13 +24,21 @@ const WEEKDAYS = ['SUN', 'MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT'];
 
 const Attendance: React.FC<AttendanceProps> = ({ user }) => {
   const isStudent = user.role === 'STUDENT';
+  const isTeacher = user.role === 'TEACHER';
   
+  // Filter classes for teacher
+  const authorizedClasses = useMemo(() => {
+    if (user.role === 'ADMIN') return ALL_CLASSES;
+    const teacherClasses = (user as any).classes || (user.class ? [user.class] : []);
+    return ALL_CLASSES.filter(c => teacherClasses.includes(c));
+  }, [user]);
+
   const [selectedDate, setSelectedDate] = useState(new Date().toLocaleDateString('en-CA'));
   const [viewDate, setViewDate] = useState(new Date());
   
   const [selectedMedium, setSelectedMedium] = useState(MEDIUMS[0]);
-  const [selectedClass, setSelectedClass] = useState(ALL_CLASSES[0]);
-  const [selectedSection, setSelectedSection] = useState('A');
+  const [selectedClass, setSelectedClass] = useState(authorizedClasses[0] || ALL_CLASSES[0]);
+  const [selectedSection, setSelectedSection] = useState(isTeacher && user.section ? user.section : 'A');
   
   const [absentRollInput, setAbsentRollInput] = useState('');
   const [students, setStudents] = useState<Student[]>([]);
@@ -395,7 +403,7 @@ const Attendance: React.FC<AttendanceProps> = ({ user }) => {
               <div className="space-y-3 pt-4 border-t border-slate-50 dark:border-slate-800">
                  <label className="text-[8px] font-black text-slate-400 uppercase tracking-[0.2em] ml-1 block">Select Class</label>
                  <div className="grid grid-cols-2 gap-2 max-h-[300px] overflow-y-auto custom-scrollbar pr-1">
-                    {ALL_CLASSES.map(cls => (
+                    {authorizedClasses.map(cls => (
                       <button key={cls} onClick={() => setSelectedClass(cls)} className={`py-2.5 px-2 rounded-xl text-[8px] font-black uppercase transition-all border ${selectedClass === cls ? 'bg-indigo-600 border-indigo-600 text-white shadow-md' : 'bg-slate-50 dark:bg-slate-800 border-transparent text-slate-500 hover:border-indigo-100'}`}>
                         {cls}
                       </button>

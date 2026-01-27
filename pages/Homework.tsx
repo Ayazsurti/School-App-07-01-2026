@@ -1,4 +1,3 @@
-
 import React, { useState, useRef, useEffect, useMemo } from 'react';
 import { User, Homework as HomeworkType, NoticeMedia } from '../types';
 import { createAuditLog } from '../utils/auditLogger';
@@ -18,6 +17,16 @@ const ALL_CLASSES = [
 const SECTIONS = ['A', 'B', 'C', 'D'];
 
 const Homework: React.FC<HomeworkProps> = ({ user }) => {
+  const isStudent = user.role === 'STUDENT';
+  const isTeacher = user.role === 'TEACHER';
+  
+  // Restricted classes for Teacher
+  const authorizedClasses = useMemo(() => {
+    if (user.role === 'ADMIN') return ALL_CLASSES;
+    const teacherClasses = (user as any).classes || (user.class ? [user.class] : []);
+    return ALL_CLASSES.filter(c => teacherClasses.includes(c));
+  }, [user]);
+
   const [homeworks, setHomeworks] = useState<HomeworkType[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isSyncing, setIsSyncing] = useState(false);
@@ -132,10 +141,10 @@ const Homework: React.FC<HomeworkProps> = ({ user }) => {
               <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-300" size={18} />
               <input type="text" placeholder="Search archives..." value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} className="w-full pl-12 pr-4 py-4 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl font-bold outline-none focus:ring-2 focus:ring-indigo-500 transition-all shadow-inner dark:text-white uppercase text-xs" />
           </div>
-          <div className="flex gap-2 overflow-x-auto w-full pb-2 custom-scrollbar">
+          <div className="flex gap-2 overflow-x-auto w-full pb-2 md:pb-0 custom-scrollbar">
               <button onClick={() => setSelectedClassFilter('All')} className={`whitespace-nowrap px-6 py-3 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${selectedClassFilter === 'All' ? 'bg-indigo-600 text-white shadow-lg' : 'bg-slate-100 dark:bg-slate-800 text-slate-400'}`}>All Archive</button>
-              {ALL_CLASSES.map(c => (
-                <button key={c} onClick={() => setSelectedClassFilter(c)} className={`whitespace-nowrap px-4 py-3 rounded-xl text-[10px] font-black uppercase transition-all ${selectedClassFilter === c ? 'bg-indigo-600 text-white shadow-lg' : 'bg-slate-100 dark:bg-slate-800 text-slate-400'}`}>{c}</button>
+              {authorizedClasses.map(c => (
+                <button key={c} onClick={() => setSelectedClassFilter(c)} className={`whitespace-nowrap px-4 py-3 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${selectedClassFilter === c ? 'bg-indigo-600 text-white shadow-lg' : 'bg-slate-100 dark:bg-slate-800 text-slate-400'}`}>{c}</button>
               ))}
           </div>
       </div>
@@ -222,10 +231,10 @@ const Homework: React.FC<HomeworkProps> = ({ user }) => {
                     <div className="space-y-4">
                        <div className="flex justify-between items-center px-1">
                           <h4 className="text-[10px] font-black text-indigo-600 uppercase tracking-widest flex items-center gap-2"><CheckSquare size={14}/> Standards</h4>
-                          <button type="button" onClick={() => setTargetClasses(targetClasses.length === ALL_CLASSES.length ? [] : [...ALL_CLASSES])} className="text-[9px] font-black text-slate-400 uppercase hover:text-indigo-600">Toggle All</button>
+                          <button type="button" onClick={() => setTargetClasses(targetClasses.length === authorizedClasses.length ? [] : [...authorizedClasses])} className="text-[9px] font-black text-slate-400 uppercase hover:text-indigo-600">Toggle All</button>
                        </div>
                        <div className="grid grid-cols-1 gap-2 max-h-[300px] overflow-y-auto custom-scrollbar pr-2">
-                          {ALL_CLASSES.map(cls => (
+                          {authorizedClasses.map(cls => (
                              <button key={cls} type="button" onClick={() => toggleClass(cls)} className={`flex items-center gap-3 p-3 rounded-xl border transition-all text-left ${targetClasses.includes(cls) ? 'bg-indigo-600 border-indigo-600 text-white shadow-lg' : 'bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-700 text-slate-400 hover:border-indigo-100'}`}>
                                 {targetClasses.includes(cls) ? <CheckSquare size={14} /> : <Square size={14} />}
                                 <span className="text-[9px] font-black uppercase truncate">{cls}</span>

@@ -1,4 +1,3 @@
-
 import React, { useState, useRef, useMemo, useEffect } from 'react';
 import { User, MediaAsset } from '../types';
 import { createAuditLog } from '../utils/auditLogger';
@@ -17,6 +16,15 @@ const ALL_CLASSES = [
 const SECTIONS = ['A', 'B', 'C', 'D'];
 
 const MediaGallery: React.FC<MediaGalleryProps> = ({ user }) => {
+  const isTeacher = user.role === 'TEACHER';
+  
+  // Restricted classes for Teacher
+  const authorizedClasses = useMemo(() => {
+    if (user.role === 'ADMIN') return ALL_CLASSES;
+    const teacherClasses = (user as any).classes || (user.class ? [user.class] : []);
+    return ALL_CLASSES.filter(c => teacherClasses.includes(c));
+  }, [user]);
+
   const [assets, setAssets] = useState<MediaAsset[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isSyncing, setIsSyncing] = useState(false);
@@ -203,10 +211,10 @@ const MediaGallery: React.FC<MediaGalleryProps> = ({ user }) => {
                     <div className="space-y-4">
                        <div className="flex justify-between items-center px-1">
                           <h4 className="text-[10px] font-black text-indigo-600 uppercase tracking-widest flex items-center gap-2"><CheckSquare size={14}/> Targets</h4>
-                          <button type="button" onClick={() => setTargetClasses(targetClasses.length === ALL_CLASSES.length ? [] : [...ALL_CLASSES])} className="text-[8px] font-black text-slate-400 uppercase">Toggle All</button>
+                          <button type="button" onClick={() => setTargetClasses(targetClasses.length === authorizedClasses.length ? [] : [...authorizedClasses])} className="text-[8px] font-black text-slate-400 uppercase">Toggle All</button>
                        </div>
                        <div className="grid grid-cols-1 gap-2 max-h-[250px] overflow-y-auto custom-scrollbar pr-2">
-                          {ALL_CLASSES.map(cls => (
+                          {authorizedClasses.map(cls => (
                              <button key={cls} type="button" onClick={() => toggleClass(cls)} className={`flex items-center gap-3 p-3 rounded-xl border transition-all text-left ${targetClasses.includes(cls) ? 'bg-indigo-600 border-indigo-600 text-white shadow-lg' : 'bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-700 text-slate-400 hover:border-indigo-100'}`}>
                                 {targetClasses.includes(cls) ? <CheckSquare size={14} /> : <Square size={14} />}
                                 <span className="text-[9px] font-black uppercase truncate">{cls}</span>

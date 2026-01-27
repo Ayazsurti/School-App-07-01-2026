@@ -1,4 +1,3 @@
-
 import React, { useState, useMemo, useEffect } from 'react';
 import { User, Student } from '../types';
 import { createAuditLog } from '../utils/auditLogger';
@@ -18,6 +17,15 @@ const ALL_CLASSES = [
 const SECTIONS = ['A', 'B', 'C', 'D'];
 
 const SMSPanel: React.FC<SMSPanelProps> = ({ user }) => {
+  const isTeacher = user.role === 'TEACHER';
+  
+  // Restricted classes for Teacher
+  const authorizedClasses = useMemo(() => {
+    if (user.role === 'ADMIN') return ALL_CLASSES;
+    const teacherClasses = (user as any).classes || (user.class ? [user.class] : []);
+    return ALL_CLASSES.filter(c => teacherClasses.includes(c));
+  }, [user]);
+
   const [students, setStudents] = useState<Student[]>([]);
   const [smsLogs, setSmsLogs] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -204,10 +212,10 @@ const SMSPanel: React.FC<SMSPanelProps> = ({ user }) => {
               <div className="space-y-4">
                  <div className="flex justify-between items-center px-1">
                     <h4 className="text-[10px] font-black text-indigo-600 uppercase tracking-widest flex items-center gap-2"><CheckSquare size={14}/> Target Standards</h4>
-                    <button type="button" onClick={() => setTargetClasses(targetClasses.length === ALL_CLASSES.length ? [] : [...ALL_CLASSES])} className="text-[9px] font-black text-slate-400 uppercase hover:text-indigo-600 transition-colors">Select All</button>
+                    <button type="button" onClick={() => setTargetClasses(targetClasses.length === authorizedClasses.length ? [] : [...authorizedClasses])} className="text-[9px] font-black text-slate-400 uppercase hover:text-indigo-600 transition-colors">Select All</button>
                  </div>
                  <div className="grid grid-cols-2 gap-2 max-h-[400px] overflow-y-auto custom-scrollbar pr-2">
-                    {ALL_CLASSES.map(cls => (
+                    {authorizedClasses.map(cls => (
                        <button key={cls} type="button" onClick={() => toggleClass(cls)} className={`flex items-center gap-3 p-3 rounded-xl border transition-all text-left ${targetClasses.includes(cls) ? 'bg-indigo-600 border-indigo-600 text-white shadow-lg' : 'bg-slate-50 dark:bg-slate-800 border-transparent text-slate-400 hover:border-slate-200'}`}>
                           {targetClasses.includes(cls) ? <CheckSquare size={14} /> : <Square size={14} />}
                           <span className="text-[9px] font-black uppercase truncate">{cls}</span>

@@ -1,4 +1,3 @@
-
 import React, { useState, useRef, useEffect, useMemo } from 'react';
 import { User } from '../types';
 import { createAuditLog } from '../utils/auditLogger';
@@ -18,6 +17,15 @@ const SECTIONS = ['A', 'B', 'C', 'D'];
 
 const Curriculum: React.FC<CurriculumProps> = ({ user }) => {
   const isStudent = user.role === 'STUDENT';
+  const isTeacher = user.role === 'TEACHER';
+  
+  // Restricted classes for Teacher
+  const authorizedClasses = useMemo(() => {
+    if (user.role === 'ADMIN') return ALL_CLASSES;
+    const teacherClasses = (user as any).classes || (user.class ? [user.class] : []);
+    return ALL_CLASSES.filter(c => teacherClasses.includes(c));
+  }, [user]);
+
   const [folders, setFolders] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isSyncing, setIsSyncing] = useState(false);
@@ -216,17 +224,20 @@ const Curriculum: React.FC<CurriculumProps> = ({ user }) => {
 
   const filteredFolders = useMemo(() => {
     return folders.filter(f => {
-      if (isStudent) {
+      if (isStudent || isTeacher) {
         const targets = f.metadata?.target_classes?.split(',') || [];
         const sections = f.metadata?.target_sections?.split(',') || [];
-        const studentClass = user.class;
-        const studentSection = user.section;
+        const userClass = user.class;
+        const userSection = user.section;
         if (!f.metadata) return true; 
-        return targets.includes(studentClass) && sections.includes(studentSection);
+        
+        // For Teacher/Student, they only see folders that overlap with their authorized classes
+        const teacherClasses = (user as any).classes || (user.class ? [user.class] : []);
+        return targets.some(t => teacherClasses.includes(t));
       }
       return true;
     });
-  }, [folders, isStudent, user]);
+  }, [folders, isStudent, isTeacher, user]);
 
   const activeFolder = useMemo(() => folders.find(f => f.id === activeFolderId), [folders, activeFolderId]);
   
@@ -435,10 +446,10 @@ const Curriculum: React.FC<CurriculumProps> = ({ user }) => {
                     <div className="space-y-4">
                        <div className="flex justify-between items-center px-1">
                           <h4 className="text-[9px] font-black text-indigo-600 uppercase tracking-widest flex items-center gap-2"><CheckSquare size={14}/> Standards</h4>
-                          <button type="button" onClick={() => setTargetClasses(targetClasses.length === ALL_CLASSES.length ? [] : [...ALL_CLASSES])} className="text-[8px] font-black text-slate-400 uppercase hover:text-indigo-600 transition-colors">Select All</button>
+                          <button type="button" onClick={() => setTargetClasses(targetClasses.length === authorizedClasses.length ? [] : [...authorizedClasses])} className="text-[8px] font-black text-slate-400 uppercase hover:text-indigo-600 transition-colors">Select All</button>
                        </div>
                        <div className="grid grid-cols-1 gap-1.5 max-h-[200px] overflow-y-auto custom-scrollbar pr-2">
-                          {ALL_CLASSES.map(cls => (
+                          {authorizedClasses.map(cls => (
                              <button key={cls} type="button" onClick={() => toggleClass(cls)} className={`flex items-center gap-3 p-3 rounded-xl border transition-all text-left ${targetClasses.includes(cls) ? 'bg-indigo-600 border-indigo-600 text-white shadow-md' : 'bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-700 text-slate-400 hover:border-indigo-100'}`}>
                                 {targetClasses.includes(cls) ? <CheckSquare size={14} strokeWidth={3} /> : <Square size={14} />}
                                 <span className="text-[10px] font-black uppercase truncate">{cls}</span>
@@ -501,10 +512,10 @@ const Curriculum: React.FC<CurriculumProps> = ({ user }) => {
                        <div className="space-y-4">
                           <div className="flex justify-between items-center px-1">
                              <h4 className="text-[9px] font-black text-indigo-600 uppercase tracking-widest flex items-center gap-2"><CheckSquare size={14}/> Standards</h4>
-                             <button type="button" onClick={() => setTargetClasses(targetClasses.length === ALL_CLASSES.length ? [] : [...ALL_CLASSES])} className="text-[8px] font-black text-slate-400 uppercase">All</button>
+                             <button type="button" onClick={() => setTargetClasses(targetClasses.length === authorizedClasses.length ? [] : [...authorizedClasses])} className="text-[8px] font-black text-slate-400 uppercase">All</button>
                           </div>
                           <div className="grid grid-cols-1 gap-1 max-h-[150px] overflow-y-auto custom-scrollbar pr-1">
-                             {ALL_CLASSES.map(cls => (
+                             {authorizedClasses.map(cls => (
                                 <button key={cls} type="button" onClick={() => toggleClass(cls)} className={`flex items-center gap-3 p-3 rounded-xl border transition-all text-left ${targetClasses.includes(cls) ? 'bg-indigo-600 border-indigo-600 text-white shadow-md' : 'bg-white dark:bg-slate-900 border-slate-100'}`}>
                                    {targetClasses.includes(cls) ? <CheckSquare size={14} /> : <Square size={14} />}
                                    <span className="text-[9px] font-black uppercase truncate">{cls}</span>
