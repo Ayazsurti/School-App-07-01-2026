@@ -5,15 +5,16 @@ import { createAuditLog } from '../utils/auditLogger';
 import { 
   Plus, Search, Trash2, Edit2, X, UserPlus, User as UserIcon, Camera, Upload, 
   CheckCircle2, ShieldCheck, Smartphone, Loader2, RefreshCw,
-  GraduationCap, FileSpreadsheet, FileDown, FileSearch, MapPin, 
-  CreditCard, Calendar, Eye, StopCircle, Mail, Fingerprint, Tags,
-  Users, Check, ArrowRight, AlertTriangle, Layers, Globe, ChevronDown, Heart, Shield, Hash
+  GraduationCap, ChevronDown, Heart, Shield,
+  Filter, Grid3X3, RotateCcw, Database, MousePointer2, UserSearch,
+  // Fix: Added missing icon imports to resolve build errors
+  Fingerprint, CreditCard, AlertTriangle
 } from 'lucide-react';
 import { db, supabase, getErrorMessage } from '../supabase';
 
 interface StudentsManagerProps { user: User; }
 
-const MEDIUMS = ['ENGLISH MEDIUM'];
+const SECTIONS_LIST = ['A', 'B', 'C', 'D'];
 
 const ALL_CLASSES = [
   '1 - GIRLS', '2 - GIRLS', '3 - GIRLS', '4 - GIRLS', '5 - GIRLS', '6 - GIRLS', '7 - GIRLS', '8 - GIRLS', '9 - GIRLS', '10 - GIRLS', '11 - GIRLS', '12 - GIRLS',
@@ -25,11 +26,19 @@ const StudentsManager: React.FC<StudentsManagerProps> = ({ user }) => {
   const [isLoading, setIsLoading] = useState(true);
   const [isSyncing, setIsSyncing] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
-  const [selectedClass, setSelectedClass] = useState('All');
+  
+  // Initial states set to empty to hide list by default
+  const [selectedClass, setSelectedClass] = useState('');
+  const [selectedSection, setSelectedSection] = useState('');
+  
   const [showModal, setShowModal] = useState(false);
   const [editingStudent, setEditingStudent] = useState<Student | null>(null);
   const [deleteId, setDeleteId] = useState<string | null>(null);
   const [showSuccess, setShowSuccess] = useState(false);
+
+  // Dropdown States
+  const [isClassDropdownOpen, setIsClassDropdownOpen] = useState(false);
+  const [isSectionDropdownOpen, setIsSectionDropdownOpen] = useState(false);
   
   // Camera & File States
   const [isCameraActive, setIsCameraActive] = useState(false);
@@ -109,7 +118,7 @@ const StudentsManager: React.FC<StudentsManagerProps> = ({ user }) => {
 
   useEffect(() => {
     fetchCloudData();
-    const channel = supabase.channel('realtime-students-v18')
+    const channel = supabase.channel('realtime-students-v22')
       .on('postgres_changes', { event: '*', schema: 'public', table: 'students' }, () => {
         setIsSyncing(true);
         fetchCloudData().then(() => setTimeout(() => setIsSyncing(false), 800));
@@ -208,15 +217,26 @@ const StudentsManager: React.FC<StudentsManagerProps> = ({ user }) => {
   };
 
   const filteredStudents = useMemo(() => {
+    // REQUIREMENT: Return empty if Class or Section is not selected
+    if (!selectedClass || !selectedSection) {
+      return [];
+    }
+
     let list = students.filter(s => {
       if (s.status === 'CANCELLED') return false;
       const query = searchQuery.toLowerCase();
       const nameMatch = (s.fullName || '').toLowerCase().includes(query);
       const grMatch = (s.grNumber || '').toLowerCase().includes(query);
-      return (nameMatch || grMatch) && (selectedClass === 'All' || s.class === selectedClass);
+      
+      const matchesClass = s.class === selectedClass;
+      const matchesSection = s.section === selectedSection;
+      
+      return (nameMatch || grMatch) && matchesClass && matchesSection;
     });
     return list.sort((a, b) => (parseInt(a.rollNo) || 0) - (parseInt(b.rollNo) || 0));
-  }, [students, searchQuery, selectedClass]);
+  }, [students, searchQuery, selectedClass, selectedSection]);
+
+  const isSelectionActive = selectedClass !== '' && selectedSection !== '';
 
   return (
     <div className="space-y-8 pb-20 animate-in fade-in duration-500 relative">
@@ -241,34 +261,131 @@ const StudentsManager: React.FC<StudentsManagerProps> = ({ user }) => {
         </div>
       )}
 
-      <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6 no-print">
+      <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6 no-print px-4 sm:px-0">
         <div>
-          <h1 className="text-4xl font-black text-slate-900 dark:text-white tracking-tight flex items-center gap-3 uppercase">Student Registry <ShieldCheck className="text-indigo-600" /></h1>
-          <p className="text-slate-500 dark:text-slate-400 font-medium text-lg uppercase tracking-tight">Identity Management System.</p>
+          <h1 className="text-4xl font-black text-slate-900 dark:text-white tracking-tight flex items-center gap-3 uppercase leading-none">Student Registry <ShieldCheck className="text-indigo-600" /></h1>
+          <p className="text-slate-500 dark:text-slate-400 font-bold text-xs uppercase tracking-[0.3em] mt-3">Institutional Identity Management System</p>
         </div>
         <div className="flex flex-wrap gap-3">
-          <button onClick={() => { setEditingStudent(null); setFormData(initialFormData); setShowModal(true); stopCamera(); }} className="px-8 py-4 bg-indigo-600 text-white font-black rounded-2xl shadow-xl flex items-center justify-center gap-3 hover:-translate-y-1 transition-all uppercase text-xs tracking-widest"><UserPlus size={20} strokeWidth={3} /> Register Student</button>
+          <button onClick={() => { setEditingStudent(null); setFormData(initialFormData); setShowModal(true); stopCamera(); }} className="px-8 py-4 bg-indigo-600 text-white font-black rounded-2xl shadow-xl flex items-center justify-center gap-3 hover:-translate-y-1 transition-all uppercase text-xs tracking-widest active:scale-95"><UserPlus size={20} strokeWidth={3} /> Register Student</button>
         </div>
       </div>
 
-      <div className="bg-white dark:bg-slate-900 p-6 rounded-[2.5rem] shadow-sm border border-slate-100 dark:border-slate-800 flex flex-col md:flex-row gap-4 items-center no-print">
-          <div className="relative group w-full max-w-md">
-              <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-300" size={18} />
-              <input type="text" placeholder="Identity name or GR number..." value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} className="w-full pl-12 pr-4 py-4 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl font-bold outline-none focus:ring-2 focus:ring-indigo-500 transition-all shadow-inner dark:text-white uppercase text-xs" />
+      {/* FILTER TERMINAL */}
+      <div className="bg-white dark:bg-slate-900 p-8 rounded-[3rem] shadow-sm border border-slate-100 dark:border-slate-800 space-y-8 mx-4 sm:mx-0 no-print">
+          {/* SEARCH BAR FULL WIDTH */}
+          <div className="relative group">
+              <Search className="absolute left-6 top-1/2 -translate-y-1/2 text-slate-300" size={24} />
+              <input 
+                type="text" 
+                placeholder="Identity name or GR number..." 
+                value={searchQuery} 
+                onChange={(e) => setSearchQuery(e.target.value)} 
+                className="w-full pl-16 pr-6 py-6 bg-slate-50 dark:bg-slate-800 border-2 border-transparent focus:border-indigo-100 dark:focus:border-indigo-900 rounded-[2.5rem] font-black outline-none shadow-inner dark:text-white uppercase text-base tracking-tight transition-all placeholder:text-slate-300" 
+              />
           </div>
-          <div className="flex gap-2 overflow-x-auto w-full pb-2 md:pb-0 custom-scrollbar">
-              <button onClick={() => setSelectedClass('All')} className={`whitespace-nowrap px-6 py-3 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${selectedClass === 'All' ? 'bg-indigo-600 text-white shadow-lg' : 'bg-slate-100 dark:bg-slate-800 text-slate-400'}`}>All Grades</button>
-              {ALL_CLASSES.map(c => (
-                <button key={c} onClick={() => setSelectedClass(c)} className={`whitespace-nowrap px-4 py-3 rounded-xl text-[10px] font-black uppercase transition-all ${selectedClass === c ? 'bg-indigo-600 text-white shadow-lg' : 'bg-slate-100 dark:bg-slate-800 text-slate-400'}`}>{c}</button>
-              ))}
+
+          <div className="pt-6 border-t border-slate-50 dark:border-slate-800">
+              <div className="flex items-center gap-2 px-2 mb-6">
+                 <Filter size={14} className="text-indigo-500" />
+                 <label className="text-[8px] font-black text-slate-400 uppercase tracking-[0.3em]">Academic Standard Filters</label>
+              </div>
+              
+              <div className="flex flex-col md:flex-row items-center gap-6">
+                 {/* CUSTOM CLASS DROPDOWN */}
+                 <div className="flex-1 w-full space-y-2 relative">
+                    <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest ml-1 flex items-center gap-2"><GraduationCap size={12}/> Standard Selection</label>
+                    <button 
+                      onClick={() => { setIsClassDropdownOpen(!isClassDropdownOpen); setIsSectionDropdownOpen(false); }}
+                      className={`w-full bg-slate-50 dark:bg-slate-800 border-2 rounded-2xl px-6 py-4 font-black flex items-center justify-between transition-all hover:border-indigo-200 outline-none ${selectedClass ? 'text-slate-800 dark:text-white border-indigo-100 dark:border-indigo-900' : 'text-slate-300 border-slate-100 dark:border-slate-700'}`}
+                    >
+                       <span className="uppercase text-xs">{selectedClass || 'Select Standard'}</span>
+                       <ChevronDown className={`text-slate-400 transition-transform duration-300 ${isClassDropdownOpen ? 'rotate-180' : ''}`} size={20} />
+                    </button>
+                    
+                    {isClassDropdownOpen && (
+                      <div className="absolute top-[calc(100%+8px)] left-0 w-full bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 rounded-3xl shadow-2xl z-[100] py-4 max-h-[300px] overflow-y-auto custom-scrollbar animate-in slide-in-from-top-2">
+                         {ALL_CLASSES.map(c => (
+                           <button 
+                            key={c} 
+                            onClick={() => { setSelectedClass(c); setIsClassDropdownOpen(false); }}
+                            className={`w-full px-6 py-3.5 text-left text-xs font-black uppercase transition-all ${selectedClass === c ? 'bg-indigo-600 text-white' : 'text-slate-500 hover:bg-slate-50 dark:hover:bg-slate-800'}`}
+                           >
+                              {c}
+                           </button>
+                         ))}
+                      </div>
+                    )}
+                 </div>
+
+                 {/* CUSTOM SECTION DROPDOWN */}
+                 <div className="flex-1 w-full space-y-2 relative">
+                    <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest ml-1 flex items-center gap-2"><Grid3X3 size={12}/> Node Section</label>
+                    <button 
+                      onClick={() => { setIsSectionDropdownOpen(!isSectionDropdownOpen); setIsClassDropdownOpen(false); }}
+                      className={`w-full bg-slate-50 dark:bg-slate-800 border-2 rounded-2xl px-6 py-4 font-black flex items-center justify-between transition-all hover:border-indigo-200 outline-none ${selectedSection ? 'text-slate-800 dark:text-white border-indigo-100 dark:border-indigo-900' : 'text-slate-300 border-slate-100 dark:border-slate-700'}`}
+                    >
+                       <span className="uppercase text-xs">{selectedSection ? `Section ${selectedSection}` : 'Select Section'}</span>
+                       <ChevronDown className={`text-slate-400 transition-transform duration-300 ${isSectionDropdownOpen ? 'rotate-180' : ''}`} size={20} />
+                    </button>
+
+                    {isSectionDropdownOpen && (
+                      <div className="absolute top-[calc(100%+8px)] left-0 w-full bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 rounded-3xl shadow-2xl z-[100] py-4 animate-in slide-in-from-top-2">
+                         {SECTIONS_LIST.map(sec => (
+                           <button 
+                             key={sec} 
+                             onClick={() => { setSelectedSection(sec); setIsSectionDropdownOpen(false); }}
+                             className={`w-full px-6 py-3.5 text-left text-xs font-black uppercase transition-all ${selectedSection === sec ? 'bg-indigo-600 text-white' : 'text-slate-500 hover:bg-slate-50 dark:hover:bg-slate-800'}`}
+                           >
+                              Section {sec}
+                           </button>
+                         ))}
+                      </div>
+                    )}
+                 </div>
+
+                 <div className="shrink-0 flex items-center gap-3 pt-6 md:pt-0">
+                    <button 
+                      onClick={() => { setSelectedClass(''); setSelectedSection(''); setSearchQuery(''); setIsClassDropdownOpen(false); setIsSectionDropdownOpen(false); }}
+                      className="p-5 bg-slate-100 dark:bg-slate-800 text-slate-500 rounded-2xl hover:bg-slate-200 transition-all shadow-sm"
+                      title="Reset Selection"
+                    >
+                       <RotateCcw size={20} />
+                    </button>
+                    {isSelectionActive && (
+                      <div className="px-6 py-4 bg-indigo-50 dark:bg-indigo-900/20 border border-indigo-100 dark:border-indigo-800 rounded-2xl animate-in fade-in slide-in-from-right-2">
+                         <p className="text-[8px] font-black text-indigo-400 uppercase">Nodes Found</p>
+                         <p className="text-sm font-black text-indigo-600 dark:text-indigo-300 leading-none mt-1">{filteredStudents.length} Students</p>
+                      </div>
+                    )}
+                 </div>
+              </div>
           </div>
       </div>
 
-      <div className="bg-white dark:bg-slate-900 rounded-[3rem] shadow-sm border border-slate-100 dark:border-slate-800 overflow-hidden min-h-[400px] no-print">
+      {/* CLICK OVERLAY TO CLOSE DROPDOWNS */}
+      {(isClassDropdownOpen || isSectionDropdownOpen) && (
+        <div className="fixed inset-0 z-[90]" onClick={() => { setIsClassDropdownOpen(false); setIsSectionDropdownOpen(false); }} />
+      )}
+
+      <div className="bg-white dark:bg-slate-900 rounded-[3rem] shadow-sm border border-slate-100 dark:border-slate-800 overflow-hidden min-h-[500px] mx-4 sm:mx-0 no-print">
         {isLoading ? (
           <div className="py-40 flex flex-col items-center justify-center text-slate-400 animate-pulse">
             <Loader2 size={64} className="animate-spin text-indigo-600 mb-6" />
             <p className="font-black text-xs uppercase tracking-widest text-slate-400">Pinging Archive...</p>
+          </div>
+        ) : !isSelectionActive ? (
+          /* PLACEHOLDER STATE - Shown when no selection is made */
+          <div className="py-40 flex flex-col items-center justify-center text-slate-400 text-center animate-in fade-in">
+             <div className="w-24 h-24 bg-slate-50 dark:bg-slate-800/50 rounded-[2.5rem] flex items-center justify-center mb-8 shadow-inner">
+                <UserSearch size={48} className="text-slate-200 dark:text-slate-700" />
+             </div>
+             <h3 className="text-2xl font-black text-slate-900 dark:text-white uppercase tracking-tight mb-3">Sync Node Required</h3>
+             <p className="text-slate-500 dark:text-slate-400 font-medium max-w-sm mx-auto text-sm leading-relaxed">Choose an academic <b>Standard</b> and <b>Section Node</b> from the terminal above to fetch student identities from the cloud.</p>
+             <div className="mt-8 flex items-center gap-2 px-4 py-2 bg-indigo-50 dark:bg-indigo-900/10 border border-indigo-100 dark:border-indigo-900/50 rounded-full">
+                <MousePointer2 size={12} className="text-indigo-500" />
+                <span className="text-[8px] font-black text-indigo-600 dark:text-indigo-400 uppercase tracking-widest">Awaiting User Selection</span>
+             </div>
           </div>
         ) : (
           <div className="overflow-x-auto">
@@ -284,7 +401,7 @@ const StudentsManager: React.FC<StudentsManagerProps> = ({ user }) => {
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
-                {filteredStudents.map((student) => (
+                {filteredStudents.length > 0 ? filteredStudents.map((student) => (
                   <tr key={student.id} className="hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-all group">
                     <td className="px-8 py-6 text-center">
                        <div className="w-10 h-10 bg-indigo-50 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400 rounded-xl flex items-center justify-center font-black text-sm border border-indigo-100 dark:border-indigo-800 mx-auto">
@@ -296,18 +413,18 @@ const StudentsManager: React.FC<StudentsManagerProps> = ({ user }) => {
                     </td>
                     <td className="px-8 py-6">
                       <div className="flex items-center gap-4">
-                        <div className="w-10 h-10 bg-slate-100 dark:bg-slate-800 rounded-xl flex items-center justify-center text-slate-400 overflow-hidden shadow-inner border border-slate-200 dark:border-slate-700">
+                        <div className="w-12 h-12 bg-slate-100 dark:bg-slate-800 rounded-2xl flex items-center justify-center text-slate-400 overflow-hidden shadow-inner border border-slate-200 dark:border-slate-700">
                            {student.profileImage ? <img src={student.profileImage} className="w-full h-full object-cover" /> : <UserIcon size={20}/>}
                         </div>
                         <div>
-                           <p className="font-black text-slate-800 dark:text-white text-sm uppercase leading-tight">{student.fullName}</p>
-                           <p className="text-[8px] font-bold text-slate-400 uppercase mt-0.5">{student.gender} • {student.dob}</p>
+                           <p className="font-black text-slate-800 dark:text-white text-base uppercase leading-tight">{student.fullName}</p>
+                           <p className="text-[8px] font-bold text-slate-400 uppercase mt-0.5 tracking-widest">{student.gender} • {student.dob}</p>
                         </div>
                       </div>
                     </td>
                     <td className="px-8 py-6">
                       <div className="inline-flex flex-col">
-                         <span className="font-bold text-slate-700 dark:text-slate-300 text-[11px] uppercase">{student.class}</span>
+                         <span className="font-black text-slate-700 dark:text-slate-300 text-[11px] uppercase tracking-tighter">STD {student.class}</span>
                          <span className="text-[10px] font-black text-indigo-500 uppercase tracking-widest">Section {student.section}</span>
                       </div>
                     </td>
@@ -324,7 +441,13 @@ const StudentsManager: React.FC<StudentsManagerProps> = ({ user }) => {
                       </div>
                     </td>
                   </tr>
-                ))}
+                )) : (
+                  <tr>
+                    <td colSpan={6} className="py-20 text-center opacity-50">
+                       <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">No matching identities found in {selectedClass} Section {selectedSection}</p>
+                    </td>
+                  </tr>
+                )}
               </tbody>
             </table>
           </div>
@@ -354,7 +477,7 @@ const StudentsManager: React.FC<StudentsManagerProps> = ({ user }) => {
                        <div className="absolute inset-0 bg-black/40 text-white opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2">
                           {!isCameraActive ? (
                             <>
-                              <button type="button" onClick={() => startCamera('profileImage')} className="p-2 bg-indigo-600 rounded-xl hover:bg-indigo-50 transition-all"><Camera size={14}/></button>
+                              <button type="button" onClick={() => startCamera('profileImage')} className="p-2 bg-indigo-600 text-white rounded-xl hover:bg-indigo-50 transition-all"><Camera size={14}/></button>
                               <button type="button" onClick={() => { setCaptureTarget('profileImage'); fileInputRef.current?.click(); }} className="p-2 bg-white text-indigo-600 rounded-xl hover:bg-indigo-50 transition-all"><Upload size={14}/></button>
                             </>
                           ) : (
@@ -370,12 +493,12 @@ const StudentsManager: React.FC<StudentsManagerProps> = ({ user }) => {
                        {isCameraActive && captureTarget === 'fatherPhoto' ? (
                          <video ref={videoRef} autoPlay playsInline muted className="w-full h-full object-cover scale-x-[-1]" />
                        ) : (
-                         formData.fatherPhoto ? <img src={formData.fatherPhoto} className="w-full h-full object-cover" alt="Father" /> : <Users size={40} className="text-slate-200" />
+                         formData.fatherPhoto ? <img src={formData.fatherPhoto} className="w-full h-full object-cover" alt="Father" /> : <UserIcon size={40} className="text-slate-200" />
                        )}
                        <div className="absolute inset-0 bg-black/40 text-white opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2">
                           {!isCameraActive ? (
                             <>
-                              <button type="button" onClick={() => startCamera('fatherPhoto')} className="p-2 bg-indigo-600 rounded-xl hover:bg-indigo-50 transition-all"><Camera size={14}/></button>
+                              <button type="button" onClick={() => startCamera('fatherPhoto')} className="p-2 bg-indigo-600 text-white rounded-xl hover:bg-indigo-50 transition-all"><Camera size={14}/></button>
                               <button type="button" onClick={() => { setCaptureTarget('fatherPhoto'); fileInputRef.current?.click(); }} className="p-2 bg-white text-indigo-600 rounded-xl hover:bg-indigo-50 transition-all"><Upload size={14}/></button>
                             </>
                           ) : (
@@ -396,7 +519,7 @@ const StudentsManager: React.FC<StudentsManagerProps> = ({ user }) => {
                        <div className="absolute inset-0 bg-black/40 text-white opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2">
                           {!isCameraActive ? (
                             <>
-                              <button type="button" onClick={() => startCamera('motherPhoto')} className="p-2 bg-indigo-600 rounded-xl hover:bg-indigo-50 transition-all"><Camera size={14}/></button>
+                              <button type="button" onClick={() => startCamera('motherPhoto')} className="p-2 bg-indigo-600 text-white rounded-xl hover:bg-indigo-50 transition-all"><Camera size={14}/></button>
                               <button type="button" onClick={() => { setCaptureTarget('motherPhoto'); fileInputRef.current?.click(); }} className="p-2 bg-white text-indigo-600 rounded-xl hover:bg-indigo-50 transition-all"><Upload size={14}/></button>
                             </>
                           ) : (
@@ -464,7 +587,7 @@ const StudentsManager: React.FC<StudentsManagerProps> = ({ user }) => {
                            </select>
                         </div>
                         
-                        {/* New Identification Fields */}
+                        {/* Identification Fields */}
                         <div className="space-y-1">
                            <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Aadhar Number</label>
                            <div className="relative">
@@ -530,7 +653,7 @@ const StudentsManager: React.FC<StudentsManagerProps> = ({ user }) => {
 
       {deleteId && (
         <div className="fixed inset-0 z-[2000] flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-md no-print animate-in fade-in">
-           <div className="bg-white dark:bg-slate-900 rounded-[3rem] p-8 max-w-xs w-full shadow-2xl text-center border border-rose-100/20 animate-in zoom-in-95">
+           <div className="bg-white dark:bg-slate-900 rounded-[3rem] p-8 max-xs w-full shadow-2xl text-center border border-rose-100/20 animate-in zoom-in-95">
               <div className="w-16 h-16 bg-rose-50 dark:bg-rose-900/20 text-rose-600 rounded-[1.8rem] flex items-center justify-center mb-6 mx-auto shadow-inner border border-rose-100">
                  <AlertTriangle size={32} strokeWidth={2.5} />
               </div>
