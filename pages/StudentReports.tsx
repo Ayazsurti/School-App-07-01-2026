@@ -143,7 +143,7 @@ const StudentReports: React.FC<{ user: User; schoolLogo?: string | null; schoolN
 
   useEffect(() => {
     fetchCloudData();
-    const channel = supabase.channel('realtime-report-profiles-sync-v7')
+    const channel = supabase.channel('realtime-report-profiles-sync-v8')
       .on('postgres_changes', { event: '*', schema: 'public', table: 'report_profiles' }, () => {
         setIsSyncing(true);
         fetchCloudData().then(() => setTimeout(() => setIsSyncing(false), 800));
@@ -323,7 +323,8 @@ const StudentReports: React.FC<{ user: User; schoolLogo?: string | null; schoolN
       }).join(',');
     });
     
-    const csvContent = [headers, ...rows].join('\n');
+    // Add BOM for proper Excel encoding (Row/Column identification)
+    const csvContent = "\uFEFF" + [headers, ...rows].join('\n');
     const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
     const url = URL.createObjectURL(blob);
     const link = document.createElement("a");
@@ -363,18 +364,16 @@ const StudentReports: React.FC<{ user: User; schoolLogo?: string | null; schoolN
       {/* PRINT ENGINE STYLES */}
       <style>{`
         @media print {
-          body > :not(.report-print-buffer) { display: none !important; }
-          #root { display: none !important; }
+          /* Do not hide root entirely, hide UI components instead */
           .no-print { display: none !important; }
           
+          /* Ensure the specific buffer is shown and styled for paper */
           .report-print-buffer {
             display: block !important;
             visibility: visible !important;
-            position: absolute !important;
-            left: 0 !important;
-            top: 0 !important;
-            width: 100% !important;
             background: white !important;
+            width: 100% !important;
+            margin: 0 !important;
             padding: ${pageSettings.marginLeft}mm ${pageSettings.marginRight}mm !important;
             color: black !important;
             min-height: 100vh;
@@ -417,7 +416,7 @@ const StudentReports: React.FC<{ user: User; schoolLogo?: string | null; schoolN
         }
       `}</style>
 
-      {/* OFF-SCREEN PRINT BUFFER */}
+      {/* OFF-SCREEN PRINT BUFFER - Visible only to Printer */}
       <div className="report-print-buffer hidden">
          <div className="flex items-end justify-between border-b-4 border-slate-900 pb-6 mb-8">
             <div className="flex items-center gap-6">
@@ -447,7 +446,7 @@ const StudentReports: React.FC<{ user: User; schoolLogo?: string | null; schoolN
          
          <table className="print-table">
             <colgroup>
-               {reportConfigs.map(c => <col key={c.key} style={{ width: `${c.width}mm` }} />)}
+               {reportConfigs.map(c => <col key={c.key} style={{ width: `${(c.width / totalConfigWidth) * 100}%` }} />)}
             </colgroup>
             <thead>
                <tr>
@@ -807,7 +806,7 @@ const StudentReports: React.FC<{ user: User; schoolLogo?: string | null; schoolN
                     <div className="overflow-x-visible">
                       <table className="border-collapse border-[1.5pt] border-slate-900 w-full" style={{ tableLayout: 'fixed' }}>
                          <colgroup>
-                            {reportConfigs.map(c => <col key={c.key} style={{ width: `${c.width}mm` }} />)}
+                            {reportConfigs.map(c => <col key={c.key} style={{ width: `${(c.width / totalConfigWidth) * 100}%` }} />)}
                          </colgroup>
                          <thead>
                             <tr className="bg-slate-100 border-b border-slate-900">
