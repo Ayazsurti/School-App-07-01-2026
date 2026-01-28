@@ -207,6 +207,7 @@ export const db = {
         gender: t.gender,
         status: t.status,
         profile_image: t.profileImage,
+        signature_image: t.signatureImage,
         joining_date: t.joiningDate,
         dob: t.dob,
         subject: Array.isArray(t.subjects) ? t.subjects.join(', ') : t.subjects,

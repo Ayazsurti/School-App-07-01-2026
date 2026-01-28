@@ -108,6 +108,7 @@ export interface Teacher extends User {
   branchAddress?: string;
   branchCode?: string;
   branchPhone?: string;
+  signatureImage?: string;
 }
 
 export interface IdCardField {

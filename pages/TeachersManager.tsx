@@ -1,3 +1,4 @@
+
 import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { User, Teacher } from '../types';
 import { createAuditLog } from '../utils/auditLogger';
@@ -10,7 +11,7 @@ import {
   Printer, ShieldAlert, Key, Eye, EyeOff, Activity, AlertTriangle,
   Building2, Fingerprint, Lock, Zap, Cpu, Shield, GraduationCap, Layers, BookOpen, ClipboardList, Clock,
   Check, CreditCard, ChevronDown, CalendarCheck, PencilRuler, FileSpreadsheet, Images, Bell, MessageSquareQuote,
-  UtensilsCrossed, CalendarDays
+  UtensilsCrossed, CalendarDays, FileSignature
 } from 'lucide-react';
 
 interface TeachersManagerProps { user: User; }
@@ -49,12 +50,13 @@ const TeachersManager: React.FC<TeachersManagerProps> = ({ user }) => {
 
   // Camera & File States
   const [isCameraActive, setIsCameraActive] = useState(false);
+  const [captureTarget, setCaptureTarget] = useState<'profileImage' | 'signatureImage'>('profileImage');
   const fileInputRef = useRef<HTMLInputElement>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
 
   const initialFormData: Partial<Teacher> = {
-    fullName: '', email: '', staffId: '', mobile: '', alternateMobile: '', profileImage: '',
+    fullName: '', email: '', staffId: '', mobile: '', alternateMobile: '', profileImage: '', signatureImage: '',
     qualification: '', subjects: [], classes: [], permissions: [], status: 'ACTIVE', gender: 'Male',
     joiningDate: new Date().toISOString().split('T')[0],
     dob: '', residenceAddress: '', assignedRole: 'SUBJECT_TEACHER',
@@ -81,6 +83,7 @@ const TeachersManager: React.FC<TeachersManagerProps> = ({ user }) => {
         gender: t.gender,
         status: t.status,
         profileImage: t.profile_image,
+        signatureImage: t.signature_image,
         joiningDate: t.joining_date,
         dob: t.dob,
         subjects: t.subject ? t.subject.split(', ') : [],
@@ -117,7 +120,8 @@ const TeachersManager: React.FC<TeachersManagerProps> = ({ user }) => {
     return () => { supabase.removeChannel(channel); };
   }, []);
 
-  const startCamera = async () => {
+  const startCamera = async (target: 'profileImage' | 'signatureImage') => {
+    setCaptureTarget(target);
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ 
         video: { facingMode: 'user', width: { ideal: 480 }, height: { ideal: 480 } }, 
@@ -148,7 +152,7 @@ const TeachersManager: React.FC<TeachersManagerProps> = ({ user }) => {
         canvasRef.current.height = videoRef.current.videoHeight;
         context.drawImage(videoRef.current, 0, 0);
         const dataUrl = canvasRef.current.toDataURL('image/jpeg', 0.7);
-        setFormData(prev => ({ ...prev, profileImage: dataUrl }));
+        setFormData(prev => ({ ...prev, [captureTarget]: dataUrl }));
         stopCamera();
       }
     }
@@ -158,7 +162,7 @@ const TeachersManager: React.FC<TeachersManagerProps> = ({ user }) => {
     const file = e.target.files?.[0];
     if (file) {
       const reader = new FileReader();
-      reader.onload = (ev) => setFormData(prev => ({ ...prev, profileImage: ev.target?.result as string }));
+      reader.onload = (ev) => setFormData(prev => ({ ...prev, [captureTarget]: ev.target?.result as string }));
       reader.readAsDataURL(file);
     }
   };
@@ -372,10 +376,11 @@ const TeachersManager: React.FC<TeachersManagerProps> = ({ user }) => {
             <form onSubmit={handleSave} className="flex-1 overflow-y-auto p-8 custom-scrollbar space-y-10 bg-white dark:bg-slate-900">
                {activeTab === 'profile' && (
                  <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 animate-in slide-in-from-bottom-2">
-                    <div className="lg:col-span-4">
-                       <div className="flex flex-col items-center gap-5 sticky top-0">
+                    <div className="lg:col-span-4 space-y-8">
+                       {/* Profile Photo Area */}
+                       <div className="flex flex-col items-center gap-3">
                           <div className="w-48 h-48 bg-slate-50 dark:bg-slate-800 rounded-[2rem] border-4 border-white dark:border-slate-700 shadow-xl overflow-hidden flex items-center justify-center relative group">
-                             {isCameraActive ? (
+                             {isCameraActive && captureTarget === 'profileImage' ? (
                                <video ref={videoRef} autoPlay playsInline className="w-full h-full object-cover scale-x-[-1]" />
                              ) : (
                                formData.profileImage ? <img src={formData.profileImage} className="w-full h-full object-cover" alt="Profile" /> : <UserIcon size={64} className="text-slate-200" />
@@ -383,21 +388,48 @@ const TeachersManager: React.FC<TeachersManagerProps> = ({ user }) => {
                              <div className="absolute inset-0 bg-black/40 text-white opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-3">
                                 {!isCameraActive ? (
                                   <>
-                                    <button type="button" onClick={startCamera} className="p-2.5 bg-indigo-600 text-white rounded-xl shadow-lg hover:scale-110 transition-transform"><Camera size={18}/></button>
-                                    <button type="button" onClick={() => fileInputRef.current?.click()} className="p-2.5 bg-white text-indigo-600 rounded-xl shadow-lg hover:scale-110 transition-transform"><Upload size={18}/></button>
+                                    <button type="button" onClick={() => startCamera('profileImage')} className="p-2.5 bg-indigo-600 text-white rounded-xl shadow-lg hover:scale-110 transition-transform"><Camera size={18}/></button>
+                                    <button type="button" onClick={() => { setCaptureTarget('profileImage'); fileInputRef.current?.click(); }} className="p-2.5 bg-white text-indigo-600 rounded-xl shadow-lg hover:scale-110 transition-transform"><Upload size={18}/></button>
                                   </>
                                 ) : (
-                                  <>
-                                    <button type="button" onClick={capturePhoto} className="p-3 bg-emerald-600 text-white rounded-2xl animate-pulse"><Check size={20}/></button>
-                                    <button type="button" onClick={stopCamera} className="p-3 bg-rose-600 text-white rounded-2xl"><X size={20}/></button>
-                                  </>
+                                  captureTarget === 'profileImage' && (
+                                    <>
+                                      <button type="button" onClick={capturePhoto} className="p-3 bg-emerald-600 text-white rounded-2xl animate-pulse"><Check size={20}/></button>
+                                      <button type="button" onClick={stopCamera} className="p-3 bg-rose-600 text-white rounded-2xl"><X size={20}/></button>
+                                    </>
+                                  )
                                 )}
                              </div>
                           </div>
-                          <input type="file" ref={fileInputRef} className="hidden" accept="image/*" onChange={handleFileUpload} />
-                          <canvas ref={canvasRef} className="hidden" />
                           <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest text-center leading-relaxed">Official Portrait</p>
                        </div>
+
+                       {/* Teacher Signature Area */}
+                       <div className="flex flex-col items-center gap-3 pt-6 border-t border-slate-100 dark:border-slate-800">
+                          <div className="w-full h-28 bg-slate-50 dark:bg-slate-800 rounded-2xl border-2 border-dashed border-indigo-100 dark:border-indigo-900/50 flex flex-col items-center justify-center relative group overflow-hidden">
+                             {isCameraActive && captureTarget === 'signatureImage' ? (
+                               <video ref={videoRef} autoPlay playsInline className="w-full h-full object-cover" />
+                             ) : (
+                               formData.signatureImage ? <img src={formData.signatureImage} className="max-h-full object-contain p-2 mix-blend-multiply dark:mix-blend-normal" alt="Signature" /> : <FileSignature size={32} className="text-slate-200" />
+                             )}
+                             <div className="absolute inset-0 bg-black/40 text-white opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-3">
+                                {!isCameraActive ? (
+                                  <>
+                                    <button type="button" onClick={() => startCamera('signatureImage')} className="p-2 bg-indigo-600 text-white rounded-lg shadow-lg"><Camera size={14}/></button>
+                                    <button type="button" onClick={() => { setCaptureTarget('signatureImage'); fileInputRef.current?.click(); }} className="p-2 bg-white text-indigo-600 rounded-lg shadow-lg"><Upload size={14}/></button>
+                                  </>
+                                ) : (
+                                  captureTarget === 'signatureImage' && (
+                                    <button type="button" onClick={capturePhoto} className="p-2.5 bg-emerald-600 text-white rounded-xl animate-pulse"><Check size={16}/></button>
+                                  )
+                                )}
+                             </div>
+                          </div>
+                          <p className="text-[9px] font-black text-indigo-500 uppercase tracking-widest text-center">Teacher Signature Image</p>
+                       </div>
+
+                       <input type="file" ref={fileInputRef} className="hidden" accept="image/*" onChange={handleFileUpload} />
+                       <canvas ref={canvasRef} className="hidden" />
                     </div>
 
                     <div className="lg:col-span-8 space-y-10">
