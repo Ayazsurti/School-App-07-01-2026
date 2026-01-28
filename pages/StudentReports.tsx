@@ -1,3 +1,4 @@
+
 import React, { useState, useMemo, useRef, useEffect } from 'react';
 import { User, Student } from '../types';
 import { 
@@ -52,23 +53,23 @@ const INITIAL_AVAILABLE_FIELDS = [
 ];
 
 const ModuleWrapper: React.FC<{ title: string; id: string; children: React.ReactNode; className?: string }> = ({ title, id, children, className = "" }) => (
-  <div className={`relative bg-white dark:bg-slate-900 border-2 border-slate-200 dark:border-slate-800 shadow-sm transition-all hover:shadow-md ${className}`}>
-    <div className="absolute top-0 left-0 w-2 h-2 border-t-4 border-l-4 border-indigo-600"></div>
-    <div className="absolute top-0 right-0 w-2 h-2 border-t-4 border-r-4 border-indigo-600"></div>
-    <div className="absolute bottom-0 left-0 w-2 h-2 border-b-4 border-l-4 border-indigo-600"></div>
-    <div className="absolute bottom-0 right-0 w-2 h-2 border-b-4 border-r-4 border-indigo-600"></div>
+  <div className={`relative bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-sm transition-all hover:shadow-md ${className}`}>
+    <div className="absolute top-0 left-0 w-1.5 h-1.5 border-t-2 border-l-2 border-indigo-600"></div>
+    <div className="absolute top-0 right-0 w-1.5 h-1.5 border-t-2 border-r-2 border-indigo-600"></div>
+    <div className="absolute bottom-0 left-0 w-1.5 h-1.5 border-b-2 border-l-2 border-indigo-600"></div>
+    <div className="absolute bottom-0 right-0 w-1.5 h-1.5 border-b-2 border-r-2 border-indigo-600"></div>
     
-    <div className="px-6 py-4 border-b-2 border-slate-50 dark:border-slate-800 flex items-center justify-between bg-slate-50/50 dark:bg-slate-800/30">
-      <div className="flex items-center gap-3">
-        <span className="bg-indigo-600 text-white font-black text-[8px] px-2 py-1 rounded shadow-sm">{id}</span>
-        <h3 className="text-[10px] font-black text-slate-800 dark:text-white uppercase tracking-[0.2em]">{title}</h3>
+    <div className="px-3 py-2 border-b border-slate-50 dark:border-slate-800 flex items-center justify-between bg-slate-50/50 dark:bg-slate-800/30">
+      <div className="flex items-center gap-2">
+        <span className="bg-indigo-600 text-white font-black text-[7px] px-1.5 py-0.5 rounded shadow-sm">{id}</span>
+        <h3 className="text-[9px] font-black text-slate-800 dark:text-white uppercase tracking-wider">{title}</h3>
       </div>
-      <div className="flex gap-1">
-        <div className="w-1.5 h-1.5 bg-slate-200 dark:bg-slate-700 rounded-full"></div>
-        <div className="w-1.5 h-1.5 bg-slate-200 dark:bg-slate-700 rounded-full"></div>
+      <div className="flex gap-0.5">
+        <div className="w-1 h-1 bg-slate-200 dark:bg-slate-700 rounded-full"></div>
+        <div className="w-1 h-1 bg-slate-200 dark:bg-slate-700 rounded-full"></div>
       </div>
     </div>
-    <div className="p-6">
+    <div className="p-3">
       {children}
     </div>
   </div>
@@ -307,7 +308,7 @@ const StudentReports: React.FC<{ user: User; schoolLogo?: string | null; schoolN
   }, [selectedClasses]);
 
   return (
-    <div className="min-h-screen bg-slate-50 dark:bg-slate-950 p-4 lg:p-6 animate-in fade-in duration-500">
+    <div className="min-h-full bg-slate-50 dark:bg-slate-950 p-2 lg:p-4 animate-in fade-in duration-500">
       
       {/* PRINT STYLES */}
       <style>{`
@@ -342,7 +343,7 @@ const StudentReports: React.FC<{ user: User; schoolLogo?: string | null; schoolN
           }
           .report-table th { 
             border: 1px solid #000; 
-            padding: 8px 4px; 
+            padding: 4px 2px; 
             text-align: left; 
             background-color: #f8fafc !important; 
             -webkit-print-color-adjust: exact;
@@ -352,7 +353,7 @@ const StudentReports: React.FC<{ user: User; schoolLogo?: string | null; schoolN
           }
           .report-table td { 
             border: 1px solid #000; 
-            padding: 6px 4px; 
+            padding: 4px 2px; 
             text-align: left; 
             word-break: break-word;
             height: ${pageSettings.fieldHeight}mm;
@@ -362,37 +363,37 @@ const StudentReports: React.FC<{ user: User; schoolLogo?: string | null; schoolN
 
       {/* OFF-SCREEN PRINT BUFFER */}
       <div className="report-print-area hidden">
-         <div className="flex items-center justify-between border-b-4 border-slate-900 pb-6">
-            <div className="flex items-center gap-6">
-               <div className="w-20 h-20 overflow-hidden rounded-xl border-2 border-slate-200">
-                  {schoolLogo ? <img src={schoolLogo} className="w-full h-full object-cover" /> : <div className="w-full h-full bg-slate-900 flex items-center justify-center text-white font-black text-xs">LOGO</div>}
+         <div className="flex items-center justify-between border-b-4 border-slate-900 pb-4">
+            <div className="flex items-center gap-4">
+               <div className="w-16 h-16 overflow-hidden rounded-xl border-2 border-slate-200">
+                  {schoolLogo ? <img src={schoolLogo} className="w-full h-full object-cover" /> : <div className="w-full h-full bg-slate-900 flex items-center justify-center text-white font-black text-[10px]">LOGO</div>}
                </div>
                <div>
-                  <h1 className="text-2xl font-black uppercase text-slate-900 leading-tight">{schoolName || 'INSTITUTIONAL DATABASE'}</h1>
-                  <p className="text-[8px] font-bold uppercase tracking-widest text-slate-400 mt-1">Date: {new Date().toLocaleDateString('en-GB')}</p>
+                  <h1 className="text-xl font-black uppercase text-slate-900 leading-tight">{schoolName || 'INSTITUTIONAL DATABASE'}</h1>
+                  <p className="text-[7px] font-bold uppercase tracking-widest text-slate-400 mt-1">Date: {new Date().toLocaleDateString('en-GB')}</p>
                </div>
             </div>
             <div className="text-right">
-               <div className="bg-slate-900 text-white px-4 py-2 rounded-lg font-black text-[10px] uppercase mb-1">Authenticated Record</div>
+               <div className="bg-slate-900 text-white px-3 py-1.5 rounded font-black text-[9px] uppercase">Authenticated</div>
             </div>
          </div>
          
          {pageSettings.reportTitle && (
-            <div className="mt-8 mb-4 text-center">
-               <h2 className="text-lg font-black uppercase text-slate-800 tracking-[0.2em] whitespace-pre-wrap">{pageSettings.reportTitle}</h2>
-               <div className="w-32 h-0.5 bg-slate-900 mx-auto mt-1"></div>
+            <div className="mt-4 mb-4 text-center">
+               <h2 className="text-sm font-black uppercase text-slate-800 tracking-widest">{pageSettings.reportTitle}</h2>
+               <div className="w-20 h-0.5 bg-slate-900 mx-auto mt-1"></div>
             </div>
          )}
          
-         <div className="mt-4 mb-8">
-            <p className="text-[11px] font-black text-slate-900 uppercase tracking-widest">CLASS: {formattedSelectedClasses.join(' • ') || 'ALL CLASSES'}</p>
+         <div className="mt-2 mb-4">
+            <p className="text-[10px] font-black text-slate-900 uppercase tracking-tight">CLASS: {formattedSelectedClasses.join(' • ') || 'ALL CLASSES'}</p>
          </div>
          
          <table className="report-table">
             <thead>
                <tr>
                   {reportConfigs.map(config => (
-                     <th key={config.key} style={{ fontSize: `${config.fontSize}px`, width: `${config.width}mm` }}>
+                     <th key={config.key} style={{ fontSize: `${config.fontSize * 0.9}px`, width: `${config.width}mm` }}>
                         {config.displayName}
                      </th>
                   ))}
@@ -402,7 +403,7 @@ const StudentReports: React.FC<{ user: User; schoolLogo?: string | null; schoolN
                {reportData.map((student, idx) => (
                   <tr key={student.id + idx}>
                      {reportConfigs.map(config => (
-                        <td key={config.key} style={{ fontSize: `${config.fontSize * 0.9}px`, fontWeight: config.isBold ? 'bold' : 'normal' }}>
+                        <td key={config.key} style={{ fontSize: `${config.fontSize * 0.8}px`, fontWeight: config.isBold ? 'bold' : 'normal' }}>
                            {(student as any)[config.key] || '-'}
                         </td>
                      ))}
@@ -410,138 +411,50 @@ const StudentReports: React.FC<{ user: User; schoolLogo?: string | null; schoolN
                ))}
             </tbody>
          </table>
-
-         <div className="mt-12 flex justify-end opacity-40">
-            <div className="text-center">
-               <div className="w-40 border-b border-slate-900 mb-1"></div>
-               <p className="text-[8px] font-black uppercase tracking-widest text-slate-900">Authenticated By</p>
-            </div>
-         </div>
       </div>
 
-      {/* A4 SIZE PREVIEW MODAL */}
-      {showPreviewModal && (
-        <div className="fixed inset-0 z-[2000] bg-slate-950/85 backdrop-blur-md flex flex-col p-4 animate-in fade-in duration-300 no-print">
-           {/* Top Control Bar */}
-           <div className="w-full max-w-[210mm] mx-auto mb-4 flex items-center justify-between bg-white dark:bg-slate-900 p-4 rounded-2xl shadow-2xl border border-slate-100 dark:border-slate-800 animate-in slide-in-from-top-4">
-              <div className="flex items-center gap-4">
-                 <div className="w-10 h-10 bg-indigo-600 rounded-xl flex items-center justify-center text-white shadow-lg"><FileText size={20}/></div>
-                 <div>
-                    <h3 className="text-sm font-black uppercase tracking-tight text-slate-900 dark:text-white leading-none">Document Preview</h3>
-                    <p className="text-[9px] font-black text-indigo-500 uppercase tracking-widest mt-1.5">{reportData.length} Records In Grid</p>
-                 </div>
-              </div>
-              <div className="flex items-center gap-2">
-                 <button 
-                   onClick={handleDownload} 
-                   className="px-6 py-3 bg-indigo-600 text-white font-black rounded-xl shadow-xl flex items-center gap-2 hover:bg-indigo-700 transition-all uppercase text-[10px] tracking-widest"
-                 >
-                    <Download size={14} strokeWidth={3} /> Download PDF
-                 </button>
-                 <button onClick={() => setShowPreviewModal(false)} className="p-3 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-xl text-slate-400 transition-all"><X size={20} /></button>
-              </div>
+      {/* COMPACT MAIN UI */}
+      <div className="no-print space-y-4 max-w-[1400px] mx-auto">
+        
+        {/* Header Section */}
+        <div className="flex items-center justify-between px-2">
+           <div>
+              <h1 className="text-xl font-black text-slate-900 dark:text-white uppercase tracking-tight flex items-center gap-2">Student Reports <FileDown size={20} className="text-indigo-600" /></h1>
+              <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">Management Terminal • Small Scale</p>
            </div>
-           
-           <div className="flex-1 overflow-auto custom-scrollbar p-2 flex justify-center">
-              <div 
-                className="bg-white shadow-2xl p-[15mm] mx-auto mb-10 animate-in zoom-in-95 origin-top" 
-                style={{ width: '210mm', minHeight: '297mm', color: 'black' }}
-              >
-                 <div className="flex items-center justify-between border-b-4 border-slate-900 pb-6">
-                    <div className="flex items-center gap-6">
-                       <div className="w-16 h-16 bg-white rounded-xl flex items-center justify-center text-slate-900 font-black text-[10px] overflow-hidden border-2 border-slate-100">
-                          {schoolLogo ? <img src={schoolLogo} className="w-full h-full object-cover" /> : "LOGO"}
-                       </div>
-                       <div>
-                          <h1 className="text-xl font-black uppercase tracking-tight text-slate-900">{schoolName || 'INSTITUTIONAL DATABASE'}</h1>
-                       </div>
-                    </div>
-                    <div className="text-right">
-                       <p className="text-[8px] font-bold text-slate-400 uppercase tracking-widest">Generated On</p>
-                       <p className="text-[10px] font-black text-slate-900 uppercase">{new Date().toLocaleDateString('en-GB')}</p>
-                    </div>
-                 </div>
-
-                 {pageSettings.reportTitle && (
-                    <div className="mt-8 mb-4 text-center animate-in slide-in-from-top-2">
-                       <h2 className="text-sm font-black uppercase text-slate-800 tracking-[0.25em] whitespace-pre-wrap">{pageSettings.reportTitle}</h2>
-                       <div className="w-20 h-0.5 bg-slate-900 mx-auto mt-1 opacity-50"></div>
-                    </div>
-                 )}
-
-                 <div className="mt-4 mb-8">
-                    <p className="text-[10px] font-black text-slate-900 uppercase tracking-tight">CLASS: {formattedSelectedClasses.join(' • ') || 'ALL CLASSES'}</p>
-                 </div>
-                 
-                 <table className="w-full border-collapse border border-slate-900" style={{ tableLayout: 'fixed' }}>
-                    <thead>
-                       <tr className="bg-slate-50">
-                          {reportConfigs.map(config => (
-                             <th key={config.key} className="border border-slate-900 p-2 text-left font-black uppercase" style={{ fontSize: `${config.fontSize * 0.8}px`, width: `${config.width}mm`, height: `${pageSettings.fieldHeight}mm` }}>
-                                {config.displayName}
-                             </th>
-                          ))}
-                       </tr>
-                    </thead>
-                    <tbody>
-                       {reportData.map((student, idx) => (
-                          <tr key={student.id + idx} className="hover:bg-slate-50 transition-colors">
-                             {reportConfigs.map(config => (
-                                <td key={config.key} className="border border-slate-900 p-2 truncate" style={{ fontSize: `${config.fontSize * 0.75}px`, fontWeight: config.isBold ? 'bold' : 'normal', width: `${config.width}mm`, height: `${pageSettings.fieldHeight}mm` }}>
-                                   {(student as any)[config.key] || '-'}
-                                </td>
-                             ))}
-                          </tr>
-                       ))}
-                    </tbody>
-                 </table>
-
-                 <div className="mt-12 flex justify-between items-end opacity-40">
-                    <div className="flex-1"></div>
-                    <div className="text-center">
-                       <div className="w-32 border-b border-slate-900 mb-1"></div>
-                       <p className="text-[8px] font-black uppercase tracking-widest text-slate-900">Authenticated By</p>
-                    </div>
-                 </div>
-              </div>
-           </div>
+           {isSyncing && <div className="flex items-center gap-2 text-indigo-600 bg-indigo-50 dark:bg-indigo-900/20 px-3 py-1 rounded-full"><RefreshCw size={10} className="animate-spin" /><span className="text-[7px] font-black uppercase tracking-widest">Syncing</span></div>}
         </div>
-      )}
 
-      {/* NORMAL PAGE UI */}
-      <div className="no-print space-y-8 max-w-[1600px] mx-auto">
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 items-start">
           
-          {/* Left Column */}
-          <div className="lg:col-span-4 space-y-8">
-            <ModuleWrapper title="CLASS SELECTION MATRIX" id="MOD-01">
-              <div ref={matrixScrollRef} className="h-[380px] w-full overflow-y-auto custom-scrollbar border border-slate-100 dark:border-slate-800 bg-slate-50/30 dark:bg-slate-950/20 rounded-2xl">
-                <table className="w-full text-[8px] font-black uppercase border-collapse">
+          {/* Left Column - Filters and Repository */}
+          <div className="lg:col-span-4 space-y-4">
+            <ModuleWrapper title="SELECTION MATRIX" id="MOD-01">
+              <div ref={matrixScrollRef} className="h-[240px] w-full overflow-y-auto custom-scrollbar border border-slate-100 dark:border-slate-800 bg-slate-50/30 dark:bg-slate-950/20 rounded-xl">
+                <table className="w-full text-[7px] font-black uppercase border-collapse">
                   <thead className="sticky top-0 bg-slate-100 dark:bg-slate-800 z-10">
                     <tr className="border-b border-slate-200 dark:border-slate-700">
-                      <th className="text-left p-3 text-slate-400 border-r border-slate-200 dark:border-slate-700">STD / WING</th>
-                      {SECTIONS.map(s => <th key={s} className="p-3 text-center text-slate-400">SEC {s}</th>)}
+                      <th className="text-left p-2 text-slate-400 border-r border-slate-200 dark:border-slate-700">STD / WING</th>
+                      {SECTIONS.map(s => <th key={s} className="p-2 text-center text-slate-400">SEC {s}</th>)}
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
                     {WINGS.map(wing => (
                       <React.Fragment key={wing}>
-                        <tr className="bg-indigo-50/30 dark:bg-indigo-900/10">
-                          <td colSpan={5} className="p-2.5 text-[7px] font-black text-indigo-500 uppercase tracking-widest border-b border-indigo-100 dark:border-indigo-900/50">{wing} WING</td>
+                        <tr className="bg-indigo-50/20 dark:bg-indigo-900/5">
+                          <td colSpan={5} className="p-1.5 text-[6px] font-black text-indigo-500 uppercase tracking-widest border-b border-indigo-100/50 dark:border-indigo-900/30">{wing} WING</td>
                         </tr>
                         {CLASSES.map(std => (
-                           <tr key={`${std}-${wing}`} className="hover:bg-indigo-50/50 dark:hover:bg-indigo-900/10 transition-colors">
-                              <td className="p-3 font-black text-slate-600 dark:text-slate-400 border-r border-slate-100 dark:border-slate-800">STD {std}</td>
+                           <tr key={`${std}-${wing}`} className="hover:bg-indigo-50/30 dark:hover:bg-indigo-900/5 transition-colors">
+                              <td className="p-2 font-black text-slate-600 dark:text-slate-400 border-r border-slate-100 dark:border-slate-800">STD {std}</td>
                               {SECTIONS.map(sec => (
-                                 <td key={sec} className="p-3 text-center">
-                                    <div className="relative flex items-center justify-center">
-                                      <input 
-                                        type="checkbox" 
-                                        checked={(selectedClasses[`${std} - ${wing}`] || []).includes(sec)} 
-                                        onChange={() => toggleClassSection(wing, std, sec)} 
-                                        className="w-4 h-4 rounded border-slate-300 text-indigo-600 focus:ring-0 cursor-pointer" 
-                                      />
-                                    </div>
+                                 <td key={sec} className="p-2 text-center">
+                                    <input 
+                                      type="checkbox" 
+                                      checked={(selectedClasses[`${std} - ${wing}`] || []).includes(sec)} 
+                                      onChange={() => toggleClassSection(wing, std, sec)} 
+                                      className="w-3 h-3 rounded border-slate-300 text-indigo-600 focus:ring-0 cursor-pointer" 
+                                    />
                                  </td>
                               ))}
                            </tr>
@@ -553,181 +466,136 @@ const StudentReports: React.FC<{ user: User; schoolLogo?: string | null; schoolN
               </div>
             </ModuleWrapper>
 
-            <ModuleWrapper title="FIELD REPOSITORY" id="MOD-02" className={!isModifying ? 'opacity-40 grayscale pointer-events-none' : ''}>
-              <div className="relative mb-4">
-                <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-300" size={14} />
+            <ModuleWrapper title="FIELD REPOSITORY" id="MOD-02" className={!isModifying ? 'opacity-40 grayscale' : ''}>
+              <div className="relative mb-2">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-300" size={12} />
                 <input 
                   type="text" 
-                  placeholder="FILTER REPOSITORY..." 
+                  placeholder="FILTER FIELDS..." 
                   value={fieldSearch} 
                   onChange={e => setFieldSearch(e.target.value)} 
-                  className="w-full pl-10 pr-4 py-3 bg-slate-50 dark:bg-slate-800 border-none rounded-xl text-[9px] font-black uppercase outline-none focus:ring-2 focus:ring-indigo-500 shadow-inner" 
+                  className="w-full pl-8 pr-3 py-2 bg-slate-50 dark:bg-slate-800 border-none rounded-lg text-[8px] font-black uppercase outline-none focus:ring-1 focus:ring-indigo-500 shadow-inner" 
                 />
               </div>
-              <div ref={fieldScrollRef} className="grid grid-cols-2 gap-2 h-[260px] w-full overflow-y-auto custom-scrollbar pr-1 bg-slate-50/30 dark:bg-slate-950/20 rounded-xl p-2">
+              <div ref={fieldScrollRef} className="grid grid-cols-2 gap-1.5 h-[160px] w-full overflow-y-auto custom-scrollbar pr-1 bg-slate-50/30 dark:bg-slate-950/20 rounded-lg p-1.5">
                  {filteredAvailableFields.map(field => (
                     <div 
                       key={field.key} 
                       onClick={() => setPendingFieldFromInfo(field.key)} 
-                      className={`p-3 border-2 transition-all cursor-pointer select-none text-center rounded-xl flex flex-col justify-center gap-1 ${pendingFieldFromInfo === field.key ? 'bg-indigo-600 border-indigo-600 text-white shadow-lg scale-[1.02]' : 'bg-white dark:bg-slate-800 border-transparent text-slate-600 dark:text-slate-400 hover:border-slate-200 shadow-sm'}`}
+                      className={`p-2 border transition-all cursor-pointer select-none text-center rounded-lg flex flex-col justify-center gap-1 ${pendingFieldFromInfo === field.key ? 'bg-indigo-600 border-indigo-600 text-white shadow-sm' : 'bg-white dark:bg-slate-800 border-transparent text-slate-600 dark:text-slate-400 hover:border-slate-100 shadow-sm'}`}
                     >
-                       <span className="text-[8px] font-black uppercase tracking-wider leading-none">{field.label}</span>
+                       <span className="text-[7px] font-black uppercase tracking-wider leading-none">{field.label}</span>
                     </div>
                  ))}
               </div>
-              <div className="mt-4 flex gap-2">
-                 <button onClick={handleMoveRight} disabled={!isModifying || !pendingFieldFromInfo} className={`flex-1 py-3 rounded-xl shadow-md border transition-all flex items-center justify-center gap-2 font-black text-[9px] uppercase tracking-widest ${isModifying && pendingFieldFromInfo ? 'bg-indigo-600 text-white border-indigo-500' : 'bg-slate-100 text-slate-300 border-slate-100'}`}>
-                    Inject <ChevronRight size={14} />
+              <div className="mt-3 flex gap-1.5">
+                 <button onClick={handleMoveRight} disabled={!isModifying || !pendingFieldFromInfo} className={`flex-1 py-2 rounded-lg shadow-sm border transition-all flex items-center justify-center gap-1.5 font-black text-[8px] uppercase tracking-widest ${isModifying && pendingFieldFromInfo ? 'bg-indigo-600 text-white border-indigo-500' : 'bg-slate-100 text-slate-300 border-slate-100'}`}>
+                    Inject <ChevronRight size={10} />
                  </button>
-                 <button onClick={handleMoveLeft} disabled={!isModifying || !lastSelectedConfigKey} className={`flex-1 py-3 rounded-xl shadow-md border transition-all flex items-center justify-center gap-2 font-black text-[9px] uppercase tracking-widest ${isModifying && lastSelectedConfigKey ? 'bg-slate-700 text-white border-slate-600' : 'bg-slate-100 text-slate-300 border-slate-100'}`}>
-                    <ChevronLeft size={14} /> Revert
+                 <button onClick={handleMoveLeft} disabled={!isModifying || !lastSelectedConfigKey} className={`flex-1 py-2 rounded-lg shadow-sm border transition-all flex items-center justify-center gap-1.5 font-black text-[8px] uppercase tracking-widest ${isModifying && lastSelectedConfigKey ? 'bg-slate-700 text-white border-slate-600' : 'bg-slate-100 text-slate-300 border-slate-100'}`}>
+                    <ChevronLeft size={10} /> Revert
                  </button>
               </div>
             </ModuleWrapper>
           </div>
 
-          {/* Right Column */}
-          <div className="lg:col-span-8 space-y-8">
-            <ModuleWrapper title="PROFILE IDENTIFICATION CONTROL" id="MOD-03">
-              <div className="grid grid-cols-1 md:grid-cols-12 gap-8 items-center">
-                <div className="md:col-span-6 bg-slate-50 dark:bg-slate-800 p-5 rounded-2xl border-2 border-slate-100 dark:border-slate-700 shadow-inner relative group">
-                  <label className="absolute -top-2 left-4 bg-white dark:bg-slate-900 px-2 text-[7px] font-black text-slate-400 uppercase tracking-widest">ACTIVE REGISTRY</label>
-                  <select 
-                    value={activeProfileName} 
-                    onChange={e => setActiveProfileName(e.target.value)} 
-                    className="w-full bg-transparent border-none font-black text-xs outline-none uppercase text-indigo-600 dark:text-indigo-400 cursor-pointer"
-                  >
-                     <option value="">SELECT SYSTEM PROFILE</option>
-                     {profiles.map(p => <option key={p.id} value={p.name}>{p.name}</option>)}
-                  </select>
-                </div>
-                <div className="md:col-span-6 flex gap-3">
-                  <button onClick={() => setShowProfileModal(true)} className="flex-1 py-5 bg-indigo-600 text-white font-black rounded-2xl shadow-xl hover:bg-indigo-700 flex items-center justify-center gap-2 text-[9px] uppercase tracking-widest transition-all">
-                     <Plus size={16} strokeWidth={3}/> INITIALIZE PROFILE
-                  </button>
-                  <button disabled={!activeProfileName} onClick={() => setShowDeleteProfileConfirm(true)} className={`p-5 font-black rounded-2xl transition-all border shadow-sm ${activeProfileName ? 'bg-rose-50 text-rose-600 border-rose-100 hover:bg-rose-600 hover:text-white' : 'bg-slate-50 text-slate-200 cursor-not-allowed border-slate-50'}`}>
-                     <Trash2 size={18}/>
-                  </button>
-                </div>
-              </div>
-            </ModuleWrapper>
-
-            <ModuleWrapper title="DATA ARCHITECTURE GRID" id="MOD-04">
-              <div className="flex-1 flex flex-col min-h-[550px] bg-slate-50 dark:bg-slate-950/40 rounded-[2.5rem] border-2 border-slate-100 dark:border-slate-800 overflow-hidden">
-                <div className="grid grid-cols-12 gap-2 p-5 bg-slate-900 text-white text-[8px] font-black uppercase tracking-[0.2em]">
-                   <div className="col-span-1 text-center">ORDER</div>
-                   <div className="col-span-2 px-2 flex items-center gap-2"><Layers size={10}/> Node</div>
-                   <div className="col-span-3 px-2 flex items-center gap-2"><Type size={10}/> Public Label</div>
-                   <div className="col-span-3 text-center flex items-center justify-center gap-1"><Ruler size={10}/> Width (mm)</div>
-                   <div className="col-span-2 text-center flex items-center justify-center gap-1"><Type size={10}/> Size</div>
-                   <div className="col-span-1 text-center">Bold</div>
-                </div>
-
-                <div className="flex-1 overflow-y-auto custom-scrollbar p-6 space-y-3">
-                   {formattedSelectedClasses.length > 0 && (
-                     <div className="p-4 bg-indigo-600 text-white rounded-2xl mb-6 shadow-lg border-2 border-indigo-400 flex items-center justify-between animate-in slide-in-from-top-2">
-                        <div className="flex items-center gap-3">
-                           <div className="p-2 bg-white/20 rounded-lg"><Grid size={14}/></div>
-                           <div>
-                              <p className="text-[8px] font-black uppercase tracking-widest opacity-60">Selection Trace</p>
-                              <p className="text-[10px] font-black truncate max-w-md">{formattedSelectedClasses.join(' • ')}</p>
-                           </div>
+          {/* Right Column - Architecture and Profiles */}
+          <div className="lg:col-span-8 space-y-4">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+               <div className="md:col-span-2">
+                  <ModuleWrapper title="IDENTIFICATION CONTROL" id="MOD-03">
+                    <div className="flex gap-2 items-center">
+                      <div className="flex-1 bg-slate-50 dark:bg-slate-800 p-2.5 rounded-xl border border-slate-100 dark:border-slate-700 shadow-inner relative">
+                        <select 
+                          value={activeProfileName} 
+                          onChange={e => setActiveProfileName(e.target.value)} 
+                          className="w-full bg-transparent border-none font-black text-[9px] outline-none uppercase text-indigo-600 dark:text-indigo-400 cursor-pointer"
+                        >
+                           <option value="">SELECT SYSTEM PROFILE</option>
+                           {profiles.map(p => <option key={p.id} value={p.name}>{p.name}</option>)}
+                        </select>
+                      </div>
+                      <button onClick={() => setShowProfileModal(true)} className="px-4 py-2.5 bg-indigo-600 text-white font-black rounded-xl shadow-md hover:bg-indigo-700 flex items-center justify-center gap-1.5 text-[8px] uppercase tracking-widest transition-all">
+                         <Plus size={12} strokeWidth={3}/> NEW
+                      </button>
+                      <button disabled={!activeProfileName} onClick={() => setShowDeleteProfileConfirm(true)} className={`p-2.5 font-black rounded-xl transition-all border ${activeProfileName ? 'bg-rose-50 text-rose-600 border-rose-100 hover:bg-rose-600 hover:text-white' : 'bg-slate-50 text-slate-200 border-slate-50'}`}>
+                         <Trash2 size={12}/>
+                      </button>
+                    </div>
+                  </ModuleWrapper>
+               </div>
+               <div className="md:col-span-1">
+                  <ModuleWrapper title="SYSTEM LOG" id="MOD-05">
+                     <div className="flex items-center gap-3">
+                        <div className={`w-8 h-8 rounded-full flex items-center justify-center ${activeProfileName ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-100' : 'bg-slate-100 text-slate-300'}`}><Monitor size={14}/></div>
+                        <div>
+                           <p className="text-[7px] font-black text-slate-400 uppercase leading-none">NODE STATE</p>
+                           <p className="text-[8px] font-black text-indigo-600 uppercase mt-1">{activeProfileName || 'NEUTRAL'}</p>
                         </div>
                      </div>
-                   )}
+                  </ModuleWrapper>
+               </div>
+            </div>
 
+            <ModuleWrapper title="DATA ARCHITECTURE GRID" id="MOD-04">
+              <div className="flex flex-col min-h-[350px] bg-slate-50 dark:bg-slate-950/40 rounded-2xl border border-slate-100 dark:border-slate-800 overflow-hidden">
+                <div className="grid grid-cols-12 gap-1 p-2.5 bg-slate-900 text-white text-[7px] font-black uppercase tracking-widest">
+                   <div className="col-span-1 text-center">ORD</div>
+                   <div className="col-span-2 px-1">NODE</div>
+                   <div className="col-span-3 px-1">LABEL</div>
+                   <div className="col-span-3 text-center">WIDTH(mm)</div>
+                   <div className="col-span-2 text-center">FONT</div>
+                   <div className="col-span-1 text-center">B</div>
+                </div>
+
+                <div className="flex-1 overflow-y-auto custom-scrollbar p-3 space-y-1.5 h-[300px]">
                    {reportConfigs.map((config, index) => (
-                      <div key={config.key} onClick={() => setLastSelectedConfigKey(config.key)} className={`grid grid-cols-12 gap-2 items-center p-3 rounded-2xl border-2 transition-all cursor-pointer ${lastSelectedConfigKey === config.key ? 'border-indigo-500 bg-white dark:bg-slate-800 shadow-xl' : 'border-transparent hover:bg-white dark:hover:bg-slate-900 hover:shadow-sm'}`}>
-                         <div className="col-span-1 flex flex-col items-center gap-1">
-                            <button 
-                              disabled={!isModifying || index === 0} 
-                              onClick={(e) => { e.stopPropagation(); moveConfig(index, 'UP'); }}
-                              className={`p-1 rounded-md transition-all ${isModifying && index !== 0 ? 'hover:bg-indigo-600 hover:text-white text-indigo-600' : 'text-indigo-600'}`}
-                            >
-                               <ChevronUp size={14} strokeWidth={3} />
-                            </button>
-                            <button 
-                              disabled={!isModifying || index === reportConfigs.length - 1} 
-                              onClick={(e) => { e.stopPropagation(); moveConfig(index, 'DOWN'); }}
-                              className={`p-1 rounded-md transition-all ${isModifying && index !== reportConfigs.length - 1 ? 'hover:bg-indigo-600 hover:text-white text-indigo-600' : 'text-indigo-600'}`}
-                            >
-                               <ChevronDown size={14} strokeWidth={3} />
-                            </button>
+                      <div key={config.key} onClick={() => setLastSelectedConfigKey(config.key)} className={`grid grid-cols-12 gap-1 items-center p-2 rounded-xl border transition-all cursor-pointer ${lastSelectedConfigKey === config.key ? 'border-indigo-500 bg-white dark:bg-slate-800 shadow-sm' : 'border-transparent hover:bg-white dark:hover:bg-slate-900'}`}>
+                         <div className="col-span-1 flex flex-col items-center">
+                            <button disabled={!isModifying || index === 0} onClick={(e) => { e.stopPropagation(); moveConfig(index, 'UP'); }} className="p-0.5 text-indigo-600 hover:bg-indigo-50 rounded"><ChevronUp size={10} strokeWidth={3} /></button>
+                            <button disabled={!isModifying || index === reportConfigs.length - 1} onClick={(e) => { e.stopPropagation(); moveConfig(index, 'DOWN'); }} className="p-0.5 text-indigo-600 hover:bg-indigo-50 rounded"><ChevronDown size={10} strokeWidth={3} /></button>
                          </div>
-                         <div className="col-span-2 px-2">
-                            <span className="text-[10px] font-black text-indigo-600 truncate block">{config.key}</span>
+                         <div className="col-span-2 px-1">
+                            <span className="text-[8px] font-black text-indigo-600 truncate block">{config.key}</span>
                          </div>
-                         <div className="col-span-3 px-2">
-                            <input type="text" value={config.displayName} disabled={!isModifying} onChange={e => updateConfig(config.key, { displayName: e.target.value.toUpperCase() })} className="w-full bg-transparent border-b-2 border-slate-100 dark:border-slate-700 outline-none text-[11px] font-black py-1 focus:border-indigo-500 uppercase text-slate-800 dark:text-white" />
+                         <div className="col-span-3 px-1">
+                            <input type="text" value={config.displayName} disabled={!isModifying} onChange={e => updateConfig(config.key, { displayName: e.target.value.toUpperCase() })} className="w-full bg-transparent border-b border-slate-100 dark:border-slate-700 outline-none text-[9px] font-black py-0.5 focus:border-indigo-500 uppercase text-slate-800 dark:text-white" />
                          </div>
-                         <div className="col-span-3 flex items-center justify-center gap-2">
-                            <button 
-                              disabled={!isModifying} 
-                              onClick={(e) => { e.stopPropagation(); updateConfig(config.key, { width: Math.max(1, config.width - 1) }) }}
-                              className="w-8 h-8 flex items-center justify-center bg-slate-100 dark:bg-slate-800 rounded-lg hover:bg-indigo-600 hover:text-white transition-all text-slate-400"
-                            >
-                               <Minus size={12} strokeWidth={3} />
-                            </button>
-                            <input type="number" value={config.width} disabled={!isModifying} onChange={e => updateConfig(config.key, { width: parseInt(e.target.value) || 0 })} className="w-12 bg-slate-50 dark:bg-slate-900 border-none rounded-lg py-2 text-center font-black text-xs outline-none shadow-inner no-spinner" />
-                            <button 
-                              disabled={!isModifying} 
-                              onClick={(e) => { e.stopPropagation(); updateConfig(config.key, { width: config.width + 1 }) }}
-                              className="w-8 h-8 flex items-center justify-center bg-slate-100 dark:bg-slate-800 rounded-lg hover:bg-indigo-600 hover:text-white transition-all text-slate-400"
-                            >
-                               <Plus size={12} strokeWidth={3} />
-                            </button>
+                         <div className="col-span-3 flex items-center justify-center gap-1.5">
+                            <button disabled={!isModifying} onClick={(e) => { e.stopPropagation(); updateConfig(config.key, { width: Math.max(1, config.width - 1) }) }} className="w-5 h-5 flex items-center justify-center bg-slate-100 dark:bg-slate-800 rounded hover:bg-indigo-600 hover:text-white transition-all text-slate-400"><Minus size={8} strokeWidth={4} /></button>
+                            <span className="text-[9px] font-black w-4 text-center">{config.width}</span>
+                            <button disabled={!isModifying} onClick={(e) => { e.stopPropagation(); updateConfig(config.key, { width: config.width + 1 }) }} className="w-5 h-5 flex items-center justify-center bg-slate-100 dark:bg-slate-800 rounded hover:bg-indigo-600 hover:text-white transition-all text-slate-400"><Plus size={8} strokeWidth={4} /></button>
                          </div>
-                         <div className="col-span-2 flex items-center justify-center gap-2">
-                            <button 
-                              disabled={!isModifying} 
-                              onClick={(e) => { e.stopPropagation(); updateConfig(config.key, { fontSize: Math.max(1, config.fontSize - 1) }) }}
-                              className="w-7 h-7 flex items-center justify-center bg-slate-100 dark:bg-slate-800 rounded-lg hover:bg-indigo-600 hover:text-white transition-all text-slate-400"
-                            >
-                               <Minus size={10} strokeWidth={3} />
-                            </button>
-                            <input type="number" value={config.fontSize} disabled={!isModifying} onChange={e => updateConfig(config.key, { fontSize: parseInt(e.target.value) || 0 })} className="w-10 bg-slate-50 dark:bg-slate-900 border-none rounded-lg py-2 text-center font-black text-[11px] outline-none shadow-inner no-spinner" />
-                            <button 
-                              disabled={!isModifying} 
-                              onClick={(e) => { e.stopPropagation(); updateConfig(config.key, { fontSize: config.fontSize + 1 }) }}
-                              className="w-7 h-7 flex items-center justify-center bg-slate-100 dark:bg-slate-800 rounded-lg hover:bg-indigo-600 hover:text-white transition-all text-slate-400"
-                            >
-                               <Plus size={10} strokeWidth={3} />
-                            </button>
+                         <div className="col-span-2 flex items-center justify-center gap-1.5">
+                            <button disabled={!isModifying} onClick={(e) => { e.stopPropagation(); updateConfig(config.key, { fontSize: Math.max(1, config.fontSize - 1) }) }} className="w-5 h-5 flex items-center justify-center bg-slate-100 dark:bg-slate-800 rounded hover:bg-indigo-600 hover:text-white transition-all text-slate-400"><Minus size={8} strokeWidth={4} /></button>
+                            <span className="text-[9px] font-black w-4 text-center">{config.fontSize}</span>
+                            <button disabled={!isModifying} onClick={(e) => { e.stopPropagation(); updateConfig(config.key, { fontSize: config.fontSize + 1 }) }} className="w-5 h-5 flex items-center justify-center bg-slate-100 dark:bg-slate-800 rounded hover:bg-indigo-600 hover:text-white transition-all text-slate-400"><Plus size={8} strokeWidth={4} /></button>
                          </div>
                          <div className="col-span-1 flex justify-center">
-                            <button onClick={() => updateConfig(config.key, { isBold: !config.isBold })} className={`p-2 rounded-lg transition-all ${config.isBold ? 'bg-indigo-600 text-white shadow-md' : 'text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800'}`}><Type size={14}/></button>
+                            <button onClick={() => updateConfig(config.key, { isBold: !config.isBold })} className={`p-1.5 rounded transition-all ${config.isBold ? 'bg-indigo-600 text-white shadow-sm' : 'text-slate-200 hover:bg-slate-50'}`}><Type size={10}/></button>
                          </div>
                       </div>
                    ))}
 
                    {reportConfigs.length === 0 && (
-                      <div className="py-32 flex flex-col items-center justify-center opacity-20 text-center grayscale">
-                         <Box size={64} className="mb-6" />
-                         <p className="font-black text-xs uppercase tracking-[0.4em]">Grid Ready</p>
+                      <div className="h-full flex flex-col items-center justify-center opacity-10 text-center">
+                         <Box size={48} className="mb-2" />
+                         <p className="font-black text-[8px] uppercase tracking-[0.4em]">EMPTY ARCHITECTURE</p>
                       </div>
                    )}
                 </div>
 
-                <div className="px-8 pt-4 pb-0 no-print">
-                   <button 
-                    onClick={() => setShowPageConfigModal(true)} 
-                    className="w-full py-4 bg-indigo-50 dark:bg-indigo-900/30 border-2 border-indigo-100 dark:border-indigo-800 rounded-2xl text-[9px] font-black uppercase tracking-widest text-indigo-600 dark:text-indigo-400 hover:bg-indigo-600 hover:text-white transition-all flex items-center justify-center gap-3 shadow-sm group"
-                   >
-                      <FileType size={16} className="group-hover:rotate-12 transition-transform"/> PAGE AND LANGUAGE CONFIGURATION
+                <div className="p-3 bg-slate-50 dark:bg-slate-900 border-t border-slate-100 dark:border-slate-800 grid grid-cols-2 lg:grid-cols-4 gap-2">
+                   <button onClick={() => setIsModifying(!isModifying)} className={`py-2.5 rounded-xl text-[8px] font-black uppercase tracking-widest shadow-md transition-all flex items-center justify-center gap-1.5 border ${isModifying ? 'bg-indigo-600 border-indigo-600 text-white' : 'bg-white dark:bg-slate-900 border-indigo-100 dark:border-indigo-900 text-indigo-600'}`}>
+                      {isModifying ? <Unlock size={10} /> : <Lock size={10} />} {isModifying ? 'LOCK GRID' : 'MODIFY GRID'}
                    </button>
-                </div>
-
-                <div className="p-8 bg-slate-50 dark:bg-slate-900 border-t-2 border-slate-100 dark:border-slate-800 grid grid-cols-2 lg:grid-cols-4 gap-4">
-                   <button onClick={() => setIsModifying(!isModifying)} className={`py-4 rounded-2xl text-[9px] font-black uppercase tracking-widest shadow-lg transition-all flex items-center justify-center gap-2 border-2 ${isModifying ? 'bg-indigo-600 border-indigo-600 text-white' : 'bg-white dark:bg-slate-900 border-indigo-100 dark:border-indigo-900 text-indigo-600'}`}>
-                      {isModifying ? <Unlock size={14} /> : <Lock size={14} />} {isModifying ? 'Lock Grid' : 'Modify Grid'}
+                   <button onClick={handleSaveProfile} disabled={!activeProfileName || isSyncing} className="py-2.5 bg-white dark:bg-slate-800 border border-slate-100 dark:border-slate-700 rounded-xl text-[8px] font-black uppercase text-indigo-600 dark:text-indigo-400 shadow-sm flex items-center justify-center gap-1.5 hover:bg-indigo-50 transition-all">
+                      {isSyncing ? <Loader2 size={10} className="animate-spin"/> : <Save size={10}/>} SYNC
                    </button>
-                   <button onClick={handleSaveProfile} disabled={!activeProfileName || isSyncing} className="py-4 bg-white dark:bg-slate-800 border-2 border-slate-100 dark:border-slate-700 rounded-2xl text-[9px] font-black uppercase text-indigo-600 dark:text-indigo-400 shadow-sm flex items-center justify-center gap-2 hover:bg-indigo-50 transition-all">
-                      {isSyncing ? <Loader2 size={14} className="animate-spin"/> : <Save size={14}/>} Sync Profile
+                   <button onClick={handleGenerateReport} disabled={isGenerating} className="py-2.5 bg-indigo-600 text-white rounded-xl text-[8px] font-black uppercase tracking-widest shadow-lg flex items-center justify-center gap-1.5 hover:bg-indigo-700 transition-all active:scale-95">
+                      {isGenerating ? <Loader2 size={10} className="animate-spin" /> : <Eye size={10} />} PREVIEW
                    </button>
-                   <button onClick={handleGenerateReport} disabled={isGenerating} className="py-4 bg-indigo-600 text-white rounded-2xl text-[9px] font-black uppercase tracking-widest shadow-2xl flex items-center justify-center gap-2 hover:bg-indigo-700 hover:-translate-y-1 transition-all active:scale-95">
-                      {isGenerating ? <RefreshCw size={14} className="animate-spin" /> : <Eye size={14} />} Preview Report
-                   </button>
-                   <button onClick={() => window.history.back()} className="py-4 bg-slate-900 dark:bg-slate-700 text-white rounded-2xl text-[9px] font-black uppercase tracking-widest shadow-lg hover:bg-black transition-all">Exit Module</button>
+                   <button onClick={() => setShowPageConfigModal(true)} className="py-2.5 bg-slate-900 dark:bg-slate-700 text-white rounded-xl text-[8px] font-black uppercase tracking-widest shadow-md flex items-center justify-center gap-1.5"><Settings size={10}/> PAGE</button>
                 </div>
               </div>
             </ModuleWrapper>
@@ -735,180 +603,88 @@ const StudentReports: React.FC<{ user: User; schoolLogo?: string | null; schoolN
         </div>
       </div>
 
-      {/* PAGE CONFIGURATION MODAL - STRICT SQUARE SIZE & OPTIMIZED FOR SCREEN */}
+      {/* PAGE CONFIGURATION MODAL - COMPACT SCALE */}
       {showPageConfigModal && (
         <div className="fixed inset-0 z-[1600] flex items-center justify-center p-4 bg-slate-950/85 backdrop-blur-sm animate-in fade-in duration-300 no-print">
-           <div className="bg-white dark:bg-slate-900 rounded-[3rem] p-1 shadow-2xl w-[500px] h-[500px] max-w-[95vw] max-h-[90vh] overflow-hidden flex flex-col border border-slate-100 dark:border-slate-800 animate-in zoom-in-95">
-              <div className="p-6 border-b border-slate-100 dark:border-slate-800 flex justify-between items-center bg-slate-50/50 dark:bg-slate-800/30">
-                 <div className="flex items-center gap-3">
-                    <div className="w-8 h-8 bg-indigo-600 rounded-xl flex items-center justify-center text-white shadow-md"><FileType size={16}/></div>
-                    <div>
-                       <h3 className="text-[12px] font-black uppercase tracking-tight text-slate-900 dark:text-white leading-none">PAGE ARCHITECTURE</h3>
-                       <p className="text-[7px] font-bold text-slate-400 uppercase tracking-[0.3em] mt-1">Layout Node</p>
-                    </div>
+           <div className="bg-white dark:bg-slate-900 rounded-[2rem] p-1 shadow-2xl w-[360px] overflow-hidden flex flex-col border border-slate-100 dark:border-slate-800 animate-in zoom-in-95">
+              <div className="p-4 border-b border-slate-100 dark:border-slate-800 flex justify-between items-center bg-slate-50/50">
+                 <div className="flex items-center gap-2">
+                    <FileType size={14} className="text-indigo-600"/>
+                    <h3 className="text-[10px] font-black uppercase tracking-tight text-slate-900 dark:text-white">LAYOUT CONFIG</h3>
                  </div>
-                 <button onClick={() => setShowPageConfigModal(false)} className="p-1.5 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg text-slate-400 transition-all"><X size={18} /></button>
+                 <button onClick={() => setShowPageConfigModal(false)} className="p-1.5 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg text-slate-400 transition-all"><X size={16} /></button>
               </div>
               
-              <div className="flex-1 overflow-y-auto p-6 space-y-4 custom-scrollbar">
-                 {/* Report Title */}
-                 <div className="space-y-1 group">
-                    <label className="text-[8px] font-black text-slate-400 group-hover:text-indigo-600 transition-colors uppercase tracking-widest ml-1">Report Title</label>
-                    <input 
-                      type="text" 
-                      value={pageSettings.reportTitle} 
-                      onChange={e => setPageSettings({...pageSettings, reportTitle: e.target.value.toUpperCase()})}
-                      placeholder="HEADING..." 
-                      className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl px-4 py-2 font-black text-[9px] uppercase outline-none focus:ring-2 focus:ring-indigo-500 shadow-inner" 
-                    />
+              <div className="p-5 space-y-4">
+                 <div className="space-y-1">
+                    <label className="text-[7px] font-black text-slate-400 uppercase tracking-widest ml-1">Report Heading</label>
+                    <input type="text" value={pageSettings.reportTitle} onChange={e => setPageSettings({...pageSettings, reportTitle: e.target.value.toUpperCase()})} className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-100 dark:border-slate-700 rounded-lg px-3 py-2 text-[9px] font-black uppercase outline-none focus:ring-1 focus:ring-indigo-500 shadow-inner" />
                  </div>
 
-                 {/* Field Height */}
-                 <div className="space-y-1 group">
-                    <label className="text-[8px] font-black text-slate-400 group-hover:text-indigo-600 transition-colors uppercase tracking-widest ml-1">Field Height (mm)</label>
-                    <input 
-                      type="text" 
-                      value={pageSettings.fieldHeight} 
-                      onChange={e => setPageSettings({...pageSettings, fieldHeight: e.target.value})}
-                      placeholder="E.G. 10" 
-                      className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl px-4 py-2 font-black text-[9px] uppercase outline-none focus:ring-2 focus:ring-indigo-500 shadow-inner" 
-                    />
-                 </div>
-
-                 {/* Page Margins */}
-                 <div className="space-y-2">
-                    <label className="text-[8px] font-black text-indigo-500 uppercase tracking-[0.3em] block ml-1">Page Margins</label>
-                    <div className="grid grid-cols-2 gap-3">
-                       <div className="space-y-1 group">
-                          <label className="text-[7px] font-black text-slate-400 group-hover:text-indigo-600 transition-colors uppercase tracking-widest ml-1">Left (mm)</label>
-                          <input 
-                            type="text" 
-                            value={pageSettings.marginLeft} 
-                            onChange={e => setPageSettings({...pageSettings, marginLeft: e.target.value})}
-                            className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-1.5 font-black text-[9px] uppercase outline-none focus:ring-2 focus:ring-indigo-500 shadow-inner text-center" 
-                          />
-                       </div>
-                       <div className="space-y-1 group">
-                          <label className="text-[7px] font-black text-slate-400 group-hover:text-indigo-600 transition-colors uppercase tracking-widest ml-1">Right (mm)</label>
-                          <input 
-                            type="text" 
-                            value={pageSettings.marginRight} 
-                            onChange={e => setPageSettings({...pageSettings, marginRight: e.target.value})}
-                            className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-1.5 font-black text-[9px] uppercase outline-none focus:ring-2 focus:ring-indigo-500 shadow-inner text-center" 
-                          />
-                       </div>
+                 <div className="grid grid-cols-2 gap-3">
+                    <div className="space-y-1">
+                       <label className="text-[7px] font-black text-slate-400 uppercase tracking-widest ml-1">Row H (mm)</label>
+                       <input type="text" value={pageSettings.fieldHeight} onChange={e => setPageSettings({...pageSettings, fieldHeight: e.target.value})} className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-100 dark:border-slate-700 rounded-lg px-3 py-2 text-[9px] font-black outline-none shadow-inner" />
+                    </div>
+                    <div className="space-y-1">
+                       <label className="text-[7px] font-black text-slate-400 uppercase tracking-widest ml-1">Page Size</label>
+                       <select value={pageSettings.pageSize} onChange={e => setPageSettings({...pageSettings, pageSize: e.target.value as any})} className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-100 dark:border-slate-700 rounded-lg px-2 py-2 text-[9px] font-black outline-none">
+                          <option>A4</option><option>A3</option><option>LEGAL</option>
+                       </select>
                     </div>
                  </div>
 
-                 {/* Page Size & Orientation */}
-                 <div className="pt-3 border-t border-slate-100 dark:border-slate-800 space-y-4">
-                    <div className="space-y-2">
-                       <h4 className="text-[8px] font-black text-slate-900 dark:text-white uppercase tracking-widest ml-1">Page Size</h4>
-                       <div className="grid grid-cols-4 gap-1">
-                          {(['A3', 'A4', 'LEGAL', 'B5'] as const).map(size => (
-                             <button 
-                              key={size} 
-                              onClick={() => setPageSettings({...pageSettings, pageSize: size})}
-                              className={`flex flex-col items-center justify-center py-1.5 rounded-lg border-2 transition-all ${pageSettings.pageSize === size ? 'bg-indigo-50 dark:bg-indigo-900/20 border-indigo-500 text-indigo-600' : 'bg-white dark:bg-slate-800 border-transparent text-slate-300 hover:border-slate-200'}`}
-                             >
-                                <span className="text-[8px] font-black uppercase">{size}</span>
-                             </button>
-                          ))}
-                       </div>
-                    </div>
-                    <div className="space-y-2">
-                       <h4 className="text-[8px] font-black text-slate-900 dark:text-white uppercase tracking-widest ml-1">Orientation</h4>
-                       <div className="grid grid-cols-2 gap-1">
-                          {(['PORTRAIT', 'LANDSCAPE'] as const).map(orient => (
-                             <button 
-                              key={orient} 
-                              onClick={() => setPageSettings({...pageSettings, orientation: orient})}
-                              className={`flex items-center justify-center py-2 rounded-lg border-2 transition-all ${pageSettings.orientation === orient ? 'bg-indigo-50 dark:bg-indigo-900/20 border-indigo-500 text-indigo-600' : 'bg-white dark:bg-slate-800 border-transparent text-slate-300 hover:border-slate-200'}`}
-                             >
-                                <span className="text-[8px] font-black uppercase">{orient}</span>
-                             </button>
-                          ))}
-                       </div>
-                    </div>
-                 </div>
-
-                 {/* Extra Flags */}
                  <div className="pt-3 border-t border-slate-100 dark:border-slate-800">
                     <button 
                       onClick={() => setPageSettings({...pageSettings, includeLeftStudent: !pageSettings.includeLeftStudent})}
-                      className={`flex items-center gap-2 p-2 rounded-lg border-2 transition-all w-full ${pageSettings.includeLeftStudent ? 'bg-emerald-50 dark:bg-emerald-950/20 border-emerald-500 text-emerald-600' : 'bg-slate-50 dark:bg-slate-800 border-transparent text-slate-400'}`}
+                      className={`flex items-center gap-2 p-2.5 rounded-lg border transition-all w-full ${pageSettings.includeLeftStudent ? 'bg-emerald-50 dark:bg-emerald-950/20 border-emerald-500 text-emerald-600' : 'bg-slate-50 dark:bg-slate-800 border-transparent text-slate-400'}`}
                     >
-                       {pageSettings.includeLeftStudent ? <CheckSquare size={14} /> : <Square size={14} />}
-                       <span className="text-[8px] font-black uppercase tracking-widest">Include Left Student</span>
+                       {pageSettings.includeLeftStudent ? <CheckSquare size={12} /> : <Square size={12} />}
+                       <span className="text-[8px] font-black uppercase">Include Left Student</span>
                     </button>
                  </div>
               </div>
 
-              <div className="p-4 bg-slate-50 dark:bg-slate-900 border-t border-slate-100 dark:border-slate-800 flex gap-2">
-                 <button onClick={() => setShowPageConfigModal(false)} className="flex-1 py-3 bg-indigo-600 text-white font-black rounded-xl text-[9px] uppercase tracking-widest shadow-xl hover:bg-indigo-700 active:scale-95 transition-all">APPLY</button>
-                 <button onClick={() => setShowPageConfigModal(false)} className="flex-1 py-3 bg-slate-100 dark:bg-slate-800 text-slate-500 font-black rounded-xl text-[9px] uppercase tracking-widest hover:bg-slate-200 transition-all">CLOSE</button>
+              <div className="p-3 bg-slate-50 dark:bg-slate-900 border-t border-slate-100 dark:border-slate-800 flex gap-2">
+                 <button onClick={() => setShowPageConfigModal(false)} className="flex-1 py-2.5 bg-indigo-600 text-white font-black rounded-xl text-[8px] uppercase tracking-widest shadow-md hover:bg-indigo-700 active:scale-95 transition-all">COMMIT</button>
+                 <button onClick={() => setShowPageConfigModal(false)} className="flex-1 py-2.5 bg-slate-100 dark:bg-slate-800 text-slate-500 font-black rounded-xl text-[8px] uppercase tracking-widest hover:bg-slate-200 transition-all">DISCARD</button>
               </div>
            </div>
         </div>
       )}
 
-      {/* PROFILE MODAL */}
+      {/* PROFILE INITIALIZER MODAL */}
       {showProfileModal && (
         <div className="fixed inset-0 z-[1500] flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-sm animate-in fade-in duration-200 no-print">
-           <div className="bg-white dark:bg-slate-900 rounded-[3rem] p-10 max-sm w-full shadow-2xl animate-in zoom-in-95 border-t-8 border-indigo-600">
-              <div className="flex items-center gap-3 mb-8 justify-center">
-                <div className="p-4 bg-indigo-50 dark:bg-indigo-900/30 rounded-2xl text-indigo-600"><ClipboardList size={28}/></div>
-              </div>
-              <div className="space-y-6">
-                <div>
-                  <label className="block text-[10px] font-black text-slate-400 uppercase text-center tracking-[0.3em] mb-4">New Profile Identifier</label>
+           <div className="bg-white dark:bg-slate-900 rounded-[2rem] p-6 w-[320px] shadow-2xl animate-in zoom-in-95 border-t-4 border-indigo-600">
+              <div className="space-y-4">
+                <div className="text-center">
+                  <label className="block text-[8px] font-black text-slate-400 uppercase tracking-widest mb-2">NEW PROFILE TOKEN</label>
                   <input 
                     type="text" 
                     value={newProfileName} 
                     onChange={e => setNewProfileName(e.target.value)} 
-                    placeholder="E.G. ANNUAL_LEDGER" 
-                    className="w-full bg-slate-50 dark:bg-slate-800 border-2 border-slate-100 dark:border-slate-700 rounded-2xl px-6 py-5 font-black text-center text-xs outline-none focus:ring-2 focus:ring-indigo-500 uppercase shadow-inner" 
+                    placeholder="E.G. CONTACT_SHEET" 
+                    className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-100 dark:border-slate-700 rounded-xl px-4 py-3 font-black text-center text-[10px] outline-none focus:ring-1 focus:ring-indigo-500 uppercase shadow-inner" 
                   />
                 </div>
-                <div className="flex gap-3 pt-2">
-                  <button onClick={handleAddProfile} disabled={isSyncing} className="flex-[2] py-5 bg-indigo-600 text-white font-black rounded-2xl text-[10px] uppercase tracking-widest hover:bg-indigo-700 shadow-xl active:scale-95 transition-all disabled:opacity-50 flex items-center justify-center gap-2">
-                    {isSyncing ? <Loader2 size={16} className="animate-spin"/> : <><Check size={16}/> Initialize</>}
+                <div className="flex gap-2">
+                  <button onClick={handleAddProfile} disabled={isSyncing} className="flex-[2] py-3 bg-indigo-600 text-white font-black rounded-xl text-[8px] uppercase tracking-widest shadow-md active:scale-95 disabled:opacity-50">
+                    {isSyncing ? <Loader2 size={12} className="animate-spin mx-auto"/> : 'INITIALIZE'}
                   </button>
-                  <button onClick={() => { setShowProfileModal(false); setNewProfileName(''); }} className="flex-1 py-5 bg-slate-100 dark:bg-slate-800 text-slate-500 font-black rounded-2xl text-[10px] uppercase tracking-widest hover:bg-slate-200 transition-all">Close</button>
+                  <button onClick={() => { setShowProfileModal(false); setNewProfileName(''); }} className="flex-1 py-3 bg-slate-100 dark:bg-slate-800 text-slate-500 font-black rounded-xl text-[8px] uppercase tracking-widest hover:bg-slate-200 transition-all">CLOSE</button>
                 </div>
               </div>
            </div>
         </div>
       )}
 
-      {showDeleteProfileConfirm && (
-        <div className="fixed inset-0 z-[1600] flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-md animate-in fade-in no-print">
-           <div className="bg-white dark:bg-slate-900 rounded-[3rem] p-10 max-w-sm w-full shadow-2xl text-center border border-rose-100/20 animate-in zoom-in-95">
-              <div className="w-16 h-16 bg-rose-50 dark:bg-rose-900/20 text-rose-600 rounded-[1.8rem] flex items-center justify-center mb-6 mx-auto shadow-inner border border-rose-100">
-                 <AlertTriangle size={32} strokeWidth={2.5} />
-              </div>
-              <h3 className="text-xl font-black text-slate-900 dark:text-white mb-2 uppercase tracking-tighter leading-tight">Purge Profile?</h3>
-              <p className="text-slate-500 dark:text-slate-400 mb-8 font-medium text-[10px] leading-relaxed uppercase tracking-widest">Delete <b>{activeProfileName}</b> permanently from cloud storage?</p>
-              <div className="grid grid-cols-2 gap-3">
-                 <button onClick={() => setShowDeleteProfileConfirm(false)} className="py-4 bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 font-black rounded-2xl uppercase text-[10px]">Cancel</button>
-                 <button onClick={async () => {
-                    if (!activeProfileName) return;
-                    setIsSyncing(true);
-                    try {
-                      await db.reports.deleteProfile(activeProfileName);
-                      await createAuditLog(user, 'DELETE', 'Reports', `Deleted report profile: ${activeProfileName}`);
-                      setActiveProfileName('');
-                      setShowDeleteProfileConfirm(false);
-                      await fetchCloudData();
-                    } catch (e: any) {
-                      alert("Delete failed: " + getErrorMessage(e));
-                    } finally {
-                      setIsSyncing(false);
-                    }
-                 }} disabled={isSyncing} className="py-4 bg-rose-600 text-white font-black rounded-2xl shadow-xl hover:bg-rose-700 transition-all uppercase text-[10px] disabled:opacity-50">
-                   {isSyncing ? <Loader2 size={16} className="animate-spin mx-auto"/> : 'Confirm Purge'}
-                 </button>
-              </div>
+      {/* SUCCESS POPUP */}
+      {showSuccess && (
+        <div className="fixed bottom-6 right-6 z-[2500] animate-in slide-in-from-bottom-4 duration-500 no-print">
+           <div className="bg-emerald-600 text-white px-4 py-3 rounded-xl shadow-2xl flex items-center gap-3 border border-emerald-500 backdrop-blur-xl">
+              <CheckCircle2 size={16} strokeWidth={3} />
+              <span className="font-black text-[9px] uppercase tracking-widest">Protocol Synced</span>
            </div>
         </div>
       )}
