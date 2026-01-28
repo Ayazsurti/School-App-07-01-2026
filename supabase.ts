@@ -200,7 +200,7 @@ export const db = {
         name: t.fullName,
         staff_id: t.staffId,
         mobile: t.mobile,
-        alternate_mobile: t.alternate_mobile,
+        alternate_mobile: t.alternateMobile,
         email: t.email,
         qualification: t.qualification,
         residence_address: t.residenceAddress,
@@ -218,10 +218,10 @@ export const db = {
         assigned_section: t.assignedSection,
         aadhar_no: t.aadharNo,
         pan_no: t.panNo,
-        account_no: t.account_no,
-        account_type: t.account_type,
-        bank_name: t.bank_name,
-        ifsc_code: t.ifsc_code,
+        account_no: t.accountNo,
+        account_type: t.accountType,
+        bank_name: t.bankName,
+        ifsc_code: t.ifscCode,
         username: (t.username || '').toLowerCase().trim(),
         password: t.password
       };
