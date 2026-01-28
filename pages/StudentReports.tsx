@@ -101,15 +101,31 @@ const StudentReports: React.FC<{ user: User; schoolLogo?: string | null; schoolN
   const [isGenerating, setIsGenerating] = useState(false);
   const [showPreviewModal, setShowPreviewModal] = useState(false);
 
-  const [pageSettings, setPageSettings] = useState<PageSettings>({
-    reportTitle: '',
-    fieldHeight: '10',
-    marginLeft: '10',
-    marginRight: '10',
-    pageSize: 'A4',
-    orientation: 'LANDSCAPE',
-    includeLeftStudent: false
+  // Load Page Settings from LocalStorage
+  const [pageSettings, setPageSettings] = useState<PageSettings>(() => {
+    const saved = localStorage.getItem('student_report_page_settings');
+    if (saved) {
+      try {
+        return JSON.parse(saved);
+      } catch (e) {
+        console.error("Failed to parse saved page settings", e);
+      }
+    }
+    return {
+      reportTitle: '',
+      fieldHeight: '10',
+      marginLeft: '10',
+      marginRight: '10',
+      pageSize: 'A4',
+      orientation: 'LANDSCAPE',
+      includeLeftStudent: false
+    };
   });
+
+  // Persist Page Settings to LocalStorage whenever they change
+  useEffect(() => {
+    localStorage.setItem('student_report_page_settings', JSON.stringify(pageSettings));
+  }, [pageSettings]);
 
   const matrixScrollRef = useRef<HTMLDivElement>(null);
   const fieldScrollRef = useRef<HTMLDivElement>(null);
@@ -127,7 +143,7 @@ const StudentReports: React.FC<{ user: User; schoolLogo?: string | null; schoolN
 
   useEffect(() => {
     fetchCloudData();
-    const channel = supabase.channel('realtime-report-profiles-sync-v4')
+    const channel = supabase.channel('realtime-report-profiles-sync-v7')
       .on('postgres_changes', { event: '*', schema: 'public', table: 'report_profiles' }, () => {
         setIsSyncing(true);
         fetchCloudData().then(() => setTimeout(() => setIsSyncing(false), 800));
@@ -253,14 +269,12 @@ const StudentReports: React.FC<{ user: User; schoolLogo?: string | null; schoolN
       const { data: students, error } = await supabase.from('students').select('*');
       if (error) throw error;
 
-      // Filter by selection matrix
       const filtered = (students || []).filter(s => {
         const key = `${s.class}`; 
         const targetSecs = selectedClasses[key] || [];
         return targetSecs.includes(s.section);
       }).map(s => ({
         ...s,
-        // Map all potential configuration keys
         fullName: s.full_name,
         grNumber: s.gr_number,
         fatherName: s.father_name,
@@ -298,6 +312,29 @@ const StudentReports: React.FC<{ user: User; schoolLogo?: string | null; schoolN
     window.print();
   };
 
+  const handleExportCSV = () => {
+    if (reportData.length === 0) return;
+    
+    const headers = reportConfigs.map(c => c.displayName).join(',');
+    const rows = reportData.map(student => {
+      return reportConfigs.map(config => {
+        const val = (student as any)[config.key] || '-';
+        return `"${String(val).replace(/"/g, '""')}"`;
+      }).join(',');
+    });
+    
+    const csvContent = [headers, ...rows].join('\n');
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.setAttribute("href", url);
+    link.setAttribute("download", `${pageSettings.reportTitle || 'STUDENT_REPORT'}_${new Date().toISOString().split('T')[0]}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    createAuditLog(user, 'EXPORT', 'Reports', `Exported CSV archive with ${reportData.length} identities.`);
+  };
+
   const filteredAvailableFields = useMemo(() => {
     return availableFields
       .filter(f => !selectedFields.includes(f.key))
@@ -312,6 +349,13 @@ const StudentReports: React.FC<{ user: User; schoolLogo?: string | null; schoolN
     });
     return active;
   }, [selectedClasses]);
+
+  const totalConfigWidth = useMemo(() => {
+    return reportConfigs.reduce((acc, c) => acc + c.width, 0);
+  }, [reportConfigs]);
+
+  const pageLimit = pageSettings.pageSize === 'A4' ? (pageSettings.orientation === 'LANDSCAPE' ? 297 : 210) : (pageSettings.orientation === 'LANDSCAPE' ? 420 : 297);
+  const usableWidth = pageLimit - (parseInt(pageSettings.marginLeft) || 10) - (parseInt(pageSettings.marginRight) || 10);
 
   return (
     <div className="min-h-full bg-slate-50 dark:bg-slate-950 p-4 lg:p-6 animate-in fade-in duration-500">
@@ -344,10 +388,10 @@ const StudentReports: React.FC<{ user: User; schoolLogo?: string | null; schoolN
           }
           
           .print-table { 
-            width: 100%; 
+            width: 100% !important; 
             border-collapse: collapse !important; 
             border: 1.5pt solid #000 !important;
-            table-layout: fixed;
+            table-layout: fixed !important;
           }
           
           .print-table th { 
@@ -359,6 +403,7 @@ const StudentReports: React.FC<{ user: User; schoolLogo?: string | null; schoolN
             font-weight: 900;
             text-transform: uppercase;
             height: ${pageSettings.fieldHeight}mm;
+            overflow: hidden;
           }
           
           .print-table td { 
@@ -367,21 +412,25 @@ const StudentReports: React.FC<{ user: User; schoolLogo?: string | null; schoolN
             text-align: left; 
             word-break: break-word;
             height: ${pageSettings.fieldHeight}mm;
+            overflow: hidden;
           }
         }
       `}</style>
 
       {/* OFF-SCREEN PRINT BUFFER */}
       <div className="report-print-buffer hidden">
-         <div className="flex items-center justify-between border-b-4 border-slate-900 pb-6 mb-8">
+         <div className="flex items-end justify-between border-b-4 border-slate-900 pb-6 mb-8">
             <div className="flex items-center gap-6">
                <div className="w-20 h-20 overflow-hidden rounded-2xl border-2 border-slate-200">
                   {schoolLogo ? <img src={schoolLogo} className="w-full h-full object-cover" /> : <div className="w-full h-full bg-slate-900 flex items-center justify-center text-white font-black text-xs">LOGO</div>}
                </div>
                <div>
                   <h1 className="text-2xl font-black uppercase text-slate-900 leading-tight">{schoolName || 'DEEN-E-ISLAM SCHOOL'}</h1>
-                  <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-slate-500 mt-2">Extracted: {new Date().toLocaleDateString('en-GB')}</p>
+                  <p className="text-[10px] font-bold text-slate-500 mt-2 uppercase tracking-widest">Institutional Data Extract</p>
                </div>
+            </div>
+            <div className="text-right">
+               <p className="text-[10px] font-black text-slate-900 uppercase tracking-widest mb-1">Date: {new Date().toLocaleDateString('en-GB')}</p>
             </div>
          </div>
          
@@ -397,10 +446,13 @@ const StudentReports: React.FC<{ user: User; schoolLogo?: string | null; schoolN
          </div>
          
          <table className="print-table">
+            <colgroup>
+               {reportConfigs.map(c => <col key={c.key} style={{ width: `${c.width}mm` }} />)}
+            </colgroup>
             <thead>
                <tr>
                   {reportConfigs.map(config => (
-                     <th key={config.key} style={{ fontSize: `${config.fontSize}px`, width: `${config.width}mm` }}>
+                     <th key={config.key} style={{ fontSize: `${config.fontSize}px` }}>
                         {config.displayName}
                      </th>
                   ))}
@@ -507,7 +559,7 @@ const StudentReports: React.FC<{ user: User; schoolLogo?: string | null; schoolN
                     <div 
                       key={field.key} 
                       onClick={() => setPendingFieldFromInfo(field.key)} 
-                      className={`p-4 border transition-all cursor-pointer select-none text-center rounded-xl flex flex-col justify-center gap-2 shadow-sm ${pendingFieldFromInfo === field.key ? 'bg-indigo-600 border-indigo-600 text-white transform scale-[0.98]' : 'bg-white dark:bg-slate-900 border-transparent text-slate-600 dark:text-slate-400 hover:border-slate-100'}`}
+                      className={`p-4 border transition-all cursor-pointer select-none text-center rounded-xl flex flex-col justify-center gap-2 shadow-sm ${pendingFieldFromInfo === field.key ? 'bg-indigo-600 border-indigo-600 text-white transform scale-[0.98]' : 'bg-white dark:bg-slate-800 border-transparent text-slate-600 dark:text-slate-400 hover:border-slate-100'}`}
                     >
                        <span className="text-[9px] font-black uppercase tracking-widest leading-none">{field.label}</span>
                     </div>
@@ -564,7 +616,7 @@ const StudentReports: React.FC<{ user: User; schoolLogo?: string | null; schoolN
             </div>
 
             <ModuleWrapper title="DATA ARCHITECTURE GRID" id="MOD-04">
-              <div className="flex flex-col min-h-[450px] bg-slate-50 dark:bg-slate-950/40 rounded-[2.5rem] border border-slate-100 dark:border-slate-800 overflow-hidden shadow-inner">
+              <div className="flex flex-col min-h-[450px] bg-white dark:bg-slate-950/40 rounded-[2.5rem] border border-slate-100 dark:border-slate-800 overflow-hidden shadow-inner">
                 <div className="grid grid-cols-12 gap-2 p-4 bg-slate-900 text-white text-[9px] font-black uppercase tracking-[0.2em] border-b border-white/5">
                    <div className="col-span-1 text-center">ORDER</div>
                    <div className="col-span-2 px-2">ID</div>
@@ -589,7 +641,7 @@ const StudentReports: React.FC<{ user: User; schoolLogo?: string | null; schoolN
                          </div>
                          <div className="col-span-3 flex items-center justify-center gap-3">
                             <button disabled={!isModifying} onClick={(e) => { e.stopPropagation(); updateConfig(config.key, { width: Math.max(1, config.width - 2) }) }} className="w-7 h-7 flex items-center justify-center bg-slate-100 dark:bg-slate-800 rounded-xl hover:bg-indigo-600 hover:text-white transition-all text-slate-400"><Minus size={12} strokeWidth={4} /></button>
-                            <span className="text-[11px] font-black w-6 text-center">{config.width}</span>
+                            <span className="text-[11px] font-black w-10 text-center">{config.width}mm</span>
                             <button disabled={!isModifying} onClick={(e) => { e.stopPropagation(); updateConfig(config.key, { width: config.width + 2 }) }} className="w-7 h-7 flex items-center justify-center bg-slate-100 dark:bg-slate-800 rounded-xl hover:bg-indigo-600 hover:text-white transition-all text-slate-400"><Plus size={12} strokeWidth={4} /></button>
                          </div>
                          <div className="col-span-2 flex items-center justify-center gap-3">
@@ -611,16 +663,33 @@ const StudentReports: React.FC<{ user: User; schoolLogo?: string | null; schoolN
                    )}
                 </div>
 
-                <div className="p-6 bg-slate-50 dark:bg-slate-900 border-t border-slate-100 dark:border-slate-800 grid grid-cols-1 md:grid-cols-3 gap-4">
-                   <button onClick={() => setIsModifying(!isModifying)} className={`py-4 rounded-2xl text-[10px] font-black uppercase tracking-widest shadow-xl transition-all flex items-center justify-center gap-3 border ${isModifying ? 'bg-indigo-600 border-indigo-600 text-white animate-pulse' : 'bg-white dark:bg-slate-900 border-indigo-100 dark:border-indigo-900 text-indigo-600 hover:bg-indigo-50'}`}>
-                      {isModifying ? <Unlock size={16} /> : <Lock size={16} />} {isModifying ? 'LOCK CONFIG' : 'MODIFY GRID'}
-                   </button>
-                   <button onClick={handleSaveProfile} disabled={!activeProfileName || isSyncing} className="py-4 bg-white dark:bg-slate-800 border-2 border-slate-100 dark:border-slate-700 rounded-2xl text-[10px] font-black uppercase text-indigo-600 dark:text-indigo-400 shadow-md flex items-center justify-center gap-3 hover:bg-indigo-50 transition-all disabled:opacity-50">
-                      {isSyncing ? <Loader2 size={16} className="animate-spin"/> : <Save size={16}/>} SYNC PROFILE
-                   </button>
-                   <button onClick={handleGenerateReport} disabled={isGenerating} className="py-4 bg-indigo-600 text-white rounded-2xl text-[10px] font-black uppercase tracking-widest shadow-2xl flex items-center justify-center gap-3 hover:bg-indigo-700 transition-all active:scale-95 disabled:opacity-50">
-                      {isGenerating ? <Loader2 size={16} className="animate-spin" /> : <Eye size={16} />} GENERATE PREVIEW
-                   </button>
+                <div className="p-6 bg-slate-50 dark:bg-slate-900 border-t border-slate-100 dark:border-slate-800">
+                   <div className="flex justify-between items-center mb-6 px-2">
+                      <div className="flex items-center gap-3">
+                         <Ruler size={18} className="text-indigo-600" />
+                         <p className="text-[10px] font-black text-slate-600 dark:text-slate-400 uppercase tracking-widest">
+                           Total Grid Width: <span className={totalConfigWidth > usableWidth ? 'text-rose-500 underline decoration-double' : 'text-indigo-600'}>{totalConfigWidth}mm</span> / {usableWidth}mm available
+                         </p>
+                      </div>
+                      {totalConfigWidth > usableWidth && (
+                         <div className="flex items-center gap-2 text-rose-500 animate-pulse">
+                            <AlertTriangle size={14}/>
+                            <span className="text-[8px] font-black uppercase">Content Overflow Detected</span>
+                         </div>
+                      )}
+                   </div>
+                   
+                   <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                      <button onClick={() => setIsModifying(!isModifying)} className={`py-4 rounded-2xl text-[10px] font-black uppercase tracking-widest shadow-xl transition-all flex items-center justify-center gap-3 border ${isModifying ? 'bg-indigo-600 border-indigo-600 text-white animate-pulse' : 'bg-white dark:bg-slate-900 border-indigo-100 dark:border-indigo-900 text-indigo-600 hover:bg-indigo-50'}`}>
+                         {isModifying ? <Unlock size={16} /> : <Lock size={16} />} {isModifying ? 'LOCK CONFIG' : 'MODIFY GRID'}
+                      </button>
+                      <button onClick={handleSaveProfile} disabled={!activeProfileName || isSyncing} className="py-4 bg-white dark:bg-slate-800 border-2 border-slate-100 dark:border-slate-700 rounded-2xl text-[10px] font-black uppercase text-indigo-600 dark:text-indigo-400 shadow-md flex items-center justify-center gap-3 hover:bg-indigo-50 transition-all disabled:opacity-50">
+                         {isSyncing ? <Loader2 size={16} className="animate-spin"/> : <Save size={16}/>} SYNC PROFILE
+                      </button>
+                      <button onClick={handleGenerateReport} disabled={isGenerating} className="py-4 bg-indigo-600 text-white rounded-2xl text-[10px] font-black uppercase tracking-widest shadow-2xl flex items-center justify-center gap-3 hover:bg-indigo-700 transition-all active:scale-95 disabled:opacity-50">
+                         {isGenerating ? <Loader2 size={16} className="animate-spin" /> : <Eye size={16} />} GENERATE PREVIEW
+                      </button>
+                   </div>
                 </div>
               </div>
             </ModuleWrapper>
@@ -676,7 +745,9 @@ const StudentReports: React.FC<{ user: User; schoolLogo?: string | null; schoolN
 
               <div className="p-8 bg-slate-50 dark:bg-slate-900 border-t border-slate-100 dark:border-slate-800 flex gap-4">
                  <button onClick={() => setShowPageConfigModal(false)} className="flex-1 py-4 bg-indigo-600 text-white font-black rounded-2xl text-[11px] uppercase tracking-[0.2em] shadow-2xl hover:bg-indigo-700 active:scale-95 transition-all">COMMIT CHANGES</button>
-                 <button onClick={() => setShowPageConfigModal(false)} className="flex-1 py-4 bg-slate-100 dark:bg-slate-800 text-slate-500 font-black rounded-2xl text-[11px] uppercase tracking-[0.2em] hover:bg-slate-200 transition-all">DISCARD</button>
+                 <button onClick={() => { 
+                   setShowPageConfigModal(false); 
+                 }} className="flex-1 py-4 bg-slate-100 dark:bg-slate-800 text-slate-500 font-black rounded-2xl text-[11px] uppercase tracking-[0.2em] hover:bg-slate-200 transition-all">CLOSE</button>
               </div>
            </div>
         </div>
@@ -695,14 +766,15 @@ const StudentReports: React.FC<{ user: User; schoolLogo?: string | null; schoolN
                     </div>
                  </div>
                  <div className="flex items-center gap-4">
-                    <button onClick={handlePrint} className="px-8 py-4 bg-emerald-600 text-white font-black text-[11px] uppercase tracking-widest rounded-2xl shadow-2xl hover:bg-emerald-700 transition-all flex items-center gap-3 active:scale-95"><Printer size={20}/> PRINT ARCHIVE (PDF)</button>
+                    <button onClick={handleExportCSV} className="px-6 py-4 bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-300 font-black text-[11px] uppercase tracking-widest rounded-2xl shadow-sm border border-slate-200 dark:border-slate-700 hover:bg-slate-50 transition-all flex items-center gap-3 active:scale-95"><Download size={20}/> Download Data (CSV)</button>
+                    <button onClick={handlePrint} className="px-8 py-4 bg-indigo-600 text-white font-black text-[11px] uppercase tracking-widest rounded-2xl shadow-2xl hover:bg-indigo-700 transition-all flex items-center gap-3 active:scale-95"><Printer size={20}/> Print Report (PDF)</button>
                     <button onClick={() => setShowPreviewModal(false)} className="p-4 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-2xl text-slate-400 transition-all"><X size={28} /></button>
                  </div>
               </div>
               
               <div className="flex-1 overflow-auto p-12 bg-slate-200 dark:bg-slate-950 flex justify-center">
                  <div 
-                    className="bg-white shadow-[0_50px_100px_-20px_rgba(0,0,0,0.4)] p-12 transform scale-90 origin-top transition-transform" 
+                    className="bg-white shadow-[0_50px_100px_-20px_rgba(0,0,0,0.4)] p-0 transform scale-90 origin-top transition-transform" 
                     style={{ 
                        width: pageSettings.orientation === 'LANDSCAPE' ? (pageSettings.pageSize === 'A3' ? '420mm' : '297mm') : (pageSettings.pageSize === 'A3' ? '297mm' : '210mm'),
                        minHeight: pageSettings.orientation === 'LANDSCAPE' ? (pageSettings.pageSize === 'A3' ? '297mm' : '210mm') : (pageSettings.pageSize === 'A3' ? '420mm' : '297mm'),
@@ -710,15 +782,18 @@ const StudentReports: React.FC<{ user: User; schoolLogo?: string | null; schoolN
                     }}
                  >
                     {/* SIMULATED HEADER */}
-                    <div className="flex items-center justify-between border-b-4 border-slate-900 pb-8 mb-10">
+                    <div className="flex items-end justify-between border-b-4 border-slate-900 pb-8 mb-10 mt-10">
                        <div className="flex items-center gap-8">
                           <div className="w-24 h-24 bg-slate-100 rounded-3xl border-2 border-slate-200 flex items-center justify-center overflow-hidden shadow-inner">
                              {schoolLogo ? <img src={schoolLogo} className="w-full h-full object-cover" /> : <Box size={32} className="text-slate-300"/>}
                           </div>
                           <div>
                              <h1 className="text-3xl font-black text-slate-900 uppercase leading-none">{schoolName}</h1>
-                             <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mt-1">Date: {new Date().toLocaleDateString()}</p>
+                             <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mt-3">Institutional Resource Distribution</p>
                           </div>
+                       </div>
+                       <div className="text-right">
+                          <p className="text-[10px] font-black text-slate-900 uppercase tracking-widest mb-1">Date: {new Date().toLocaleDateString('en-GB')}</p>
                        </div>
                     </div>
 
@@ -729,30 +804,35 @@ const StudentReports: React.FC<{ user: User; schoolLogo?: string | null; schoolN
                        </div>
                     )}
 
-                    <table className="w-full border-collapse border-[1.5pt] border-slate-900">
-                       <thead>
-                          <tr className="bg-slate-100 border-b border-slate-900">
-                             {reportConfigs.map(config => (
-                                <th key={config.key} className="border-r border-slate-900 p-3 text-left uppercase" style={{ fontSize: `${config.fontSize}px`, width: `${config.width}mm` }}>
-                                   {config.displayName}
-                                </th>
-                             ))}
-                          </tr>
-                       </thead>
-                       <tbody className="divide-y divide-slate-300">
-                          {reportData.map((student, idx) => (
-                             <tr key={student.id + idx} className="border-b border-slate-900">
-                                {reportConfigs.map(config => (
-                                   <td key={config.key} className="border-r border-slate-900 p-3 text-left" style={{ fontSize: `${config.fontSize * 0.9}px`, fontWeight: config.isBold ? 'bold' : 'normal', height: `${pageSettings.fieldHeight}mm` }}>
-                                      {(student as any)[config.key] || '-'}
-                                   </td>
-                                ))}
-                             </tr>
-                          ))}
-                       </tbody>
-                    </table>
+                    <div className="overflow-x-visible">
+                      <table className="border-collapse border-[1.5pt] border-slate-900 w-full" style={{ tableLayout: 'fixed' }}>
+                         <colgroup>
+                            {reportConfigs.map(c => <col key={c.key} style={{ width: `${c.width}mm` }} />)}
+                         </colgroup>
+                         <thead>
+                            <tr className="bg-slate-100 border-b border-slate-900">
+                               {reportConfigs.map(config => (
+                                  <th key={config.key} className="border-r border-slate-900 p-3 text-left uppercase overflow-hidden" style={{ fontSize: `${config.fontSize}px` }}>
+                                     {config.displayName}
+                                  </th>
+                               ))}
+                            </tr>
+                         </thead>
+                         <tbody className="divide-y divide-slate-300">
+                            {reportData.map((student, idx) => (
+                               <tr key={student.id + idx} className="border-b border-slate-900">
+                                  {reportConfigs.map(config => (
+                                     <td key={config.key} className="border-r border-slate-900 p-3 text-left overflow-hidden" style={{ fontSize: `${config.fontSize * 0.9}px`, fontWeight: config.isBold ? 'bold' : 'normal', height: `${pageSettings.fieldHeight}mm` }}>
+                                        {(student as any)[config.key] || '-'}
+                                     </td>
+                                  ))}
+                               </tr>
+                            ))}
+                         </tbody>
+                      </table>
+                    </div>
                     
-                    <div className="mt-20 flex justify-between px-10 no-print">
+                    <div className="mt-20 flex justify-between px-10 pb-20">
                        <div className="text-center opacity-30">
                           <div className="w-40 h-px bg-slate-900 mb-2"></div>
                           <p className="text-[9px] font-black uppercase tracking-widest">Office Signature</p>
