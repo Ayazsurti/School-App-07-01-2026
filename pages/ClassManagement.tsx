@@ -6,10 +6,10 @@ import { createAuditLog } from '../utils/auditLogger';
 import { 
   Plus, Search, Trash2, Edit2, X, UserPlus, User as UserIcon, Camera, Upload, 
   CheckCircle2, ShieldCheck, Smartphone, Loader2, RefreshCw,
-  GraduationCap, ChevronDown, Heart, Shield,
+  GraduationCap, ChevronDown, ChevronUp, Heart, Shield,
   Filter, Grid3X3, RotateCcw, Database, MousePointer2, UserSearch,
   Hash, ArrowUpCircle, Layers, CheckSquare, Square, Save, AlertTriangle, ArrowRightCircle,
-  Info, Users, ArrowRightLeft, MoveRight
+  Info, Users, ArrowRightLeft, MoveRight, ChevronRight
 } from 'lucide-react';
 
 interface ClassManagementProps { user: User; }
@@ -41,6 +41,7 @@ const ClassManagement: React.FC<ClassManagementProps> = ({ user }) => {
   const [rollNumbers, setRollNumbers] = useState<Record<string, string>>({});
   const [rollClass, setRollClass] = useState(ALL_CLASSES[0]);
   const [rollSection, setRollSection] = useState('A');
+  const [localSortedStudents, setLocalSortedStudents] = useState<Student[]>([]);
 
   const fetchStudents = async () => {
     try {
@@ -69,6 +70,13 @@ const ClassManagement: React.FC<ClassManagementProps> = ({ user }) => {
     return () => { supabase.removeChannel(channel); };
   }, []);
 
+  // Update local sorted list when class/section filters or master list change
+  useEffect(() => {
+    const list = students.filter(s => s.class === rollClass && s.section === rollSection)
+      .sort((a, b) => (parseInt(a.rollNo) || 0) - (parseInt(b.rollNo) || 0));
+    setLocalSortedStudents(list);
+  }, [students, rollClass, rollSection]);
+
   const sourceStudents = useMemo(() => {
     return students.filter(s => s.class === sourceClass && s.section === sourceSection)
       .sort((a, b) => (parseInt(a.rollNo) || 0) - (parseInt(b.rollNo) || 0));
@@ -81,11 +89,6 @@ const ClassManagement: React.FC<ClassManagementProps> = ({ user }) => {
       (s.grNumber || '').includes(searchQuery)
     );
   }, [sourceStudents, searchQuery]);
-
-  const rollStudents = useMemo(() => {
-    return students.filter(s => s.class === rollClass && s.section === rollSection)
-      .sort((a, b) => (parseInt(a.rollNo) || 0) - (parseInt(b.rollNo) || 0));
-  }, [students, rollClass, rollSection]);
 
   const toggleStudentSelection = (id: string) => {
     setSelectedStudentIds(prev => prev.includes(id) ? prev.filter(i => i !== id) : [...prev, id]);
@@ -122,7 +125,7 @@ const ClassManagement: React.FC<ClassManagementProps> = ({ user }) => {
   const handleUpdateRollNumbers = async () => {
     setIsSyncing(true);
     try {
-      for (const student of rollStudents) {
+      for (const student of localSortedStudents) {
          if (rollNumbers[student.id] !== student.rollNo) {
             await supabase.from('students').update({ roll_no: rollNumbers[student.id] }).eq('id', student.id);
          }
@@ -136,12 +139,24 @@ const ClassManagement: React.FC<ClassManagementProps> = ({ user }) => {
   };
 
   const autoGenerateRollNumbers = () => {
-    const sortedByName = [...rollStudents].sort((a, b) => (a.fullName || '').localeCompare(b.fullName || ''));
     const nextRollMap = { ...rollNumbers };
-    sortedByName.forEach((s, idx) => {
+    localSortedStudents.forEach((s, idx) => {
       nextRollMap[s.id] = (idx + 1).toString();
     });
     setRollNumbers(nextRollMap);
+  };
+
+  const moveStudent = (index: number, direction: 'UP' | 'DOWN') => {
+    const newList = [...localSortedStudents];
+    const targetIndex = direction === 'UP' ? index - 1 : index + 1;
+    if (targetIndex < 0 || targetIndex >= newList.length) return;
+    
+    // Swap positions
+    const temp = newList[index];
+    newList[index] = newList[targetIndex];
+    newList[targetIndex] = temp;
+    
+    setLocalSortedStudents(newList);
   };
 
   return (
@@ -404,10 +419,13 @@ const ClassManagement: React.FC<ClassManagementProps> = ({ user }) => {
                     </div>
                 </div>
                 <div className="pt-6 border-t border-slate-50 dark:border-slate-800 space-y-3">
-                   <button onClick={autoGenerateRollNumbers} className="w-full px-6 py-4 bg-white dark:bg-slate-800 border-2 border-indigo-100 dark:border-indigo-900 text-indigo-600 dark:text-indigo-400 font-black text-[10px] uppercase rounded-2xl hover:bg-indigo-50 transition-all flex items-center justify-center gap-2"><Hash size={14}/> Auto-Sort List</button>
+                   <button onClick={autoGenerateRollNumbers} className="w-full px-6 py-4 bg-white dark:bg-slate-800 border-2 border-indigo-100 dark:border-indigo-900 text-indigo-600 dark:text-indigo-400 font-black text-[10px] uppercase rounded-2xl hover:bg-indigo-50 transition-all flex items-center justify-center gap-2 shadow-sm"><Hash size={14}/> Auto-Assign (1,2,3...)</button>
                    <button onClick={handleUpdateRollNumbers} disabled={isSyncing} className="w-full px-8 py-4 bg-indigo-600 text-white font-black text-[10px] uppercase rounded-2xl hover:bg-indigo-700 shadow-xl transition-all flex items-center justify-center gap-2">
                       {isSyncing ? <Loader2 size={16} className="animate-spin" /> : <Save size={16}/>} Sync Matrix
                    </button>
+                </div>
+                <div className="p-5 bg-indigo-50 dark:bg-indigo-900/10 rounded-2xl border border-indigo-100 dark:border-indigo-800">
+                   <p className="text-[8px] font-bold text-indigo-600 uppercase leading-relaxed tracking-wider">Use arrows in the table to reorder students manually, then click Auto-Assign.</p>
                 </div>
              </div>
           </div>
@@ -419,15 +437,34 @@ const ClassManagement: React.FC<ClassManagementProps> = ({ user }) => {
                    <table className="w-full">
                       <thead>
                          <tr className="bg-slate-50 dark:bg-slate-800/50 text-slate-400 text-[9px] font-black uppercase tracking-widest border-b border-slate-100 dark:border-slate-800">
+                            <th className="px-6 py-6 text-center w-24">Seq</th>
                             <th className="px-10 py-6 text-center w-32">Roll ID</th>
-                            <th className="px-8 py-6 text-left">Full Identity</th>
+                            <th className="px-8 py-6 text-left">Full Identity Protocol</th>
                             <th className="px-8 py-6 text-left">GR Node Key</th>
                             <th className="px-8 py-6 text-right">Academic Node</th>
                          </tr>
                       </thead>
                       <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
-                         {rollStudents.map(student => (
+                         {localSortedStudents.map((student, index) => (
                            <tr key={student.id} className="hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-all group">
+                              <td className="px-6 py-6">
+                                 <div className="flex flex-col items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                                    <button 
+                                      onClick={() => moveStudent(index, 'UP')} 
+                                      disabled={index === 0}
+                                      className="p-1 hover:bg-indigo-600 hover:text-white text-indigo-600 rounded-md transition-all disabled:opacity-10"
+                                    >
+                                       <ChevronUp size={16} strokeWidth={3}/>
+                                    </button>
+                                    <button 
+                                      onClick={() => moveStudent(index, 'DOWN')} 
+                                      disabled={index === localSortedStudents.length - 1}
+                                      className="p-1 hover:bg-indigo-600 hover:text-white text-indigo-600 rounded-md transition-all disabled:opacity-10"
+                                    >
+                                       <ChevronDown size={16} strokeWidth={3}/>
+                                    </button>
+                                 </div>
+                              </td>
                               <td className="px-10 py-6 text-center">
                                  <input 
                                    type="text" 
@@ -439,7 +476,10 @@ const ClassManagement: React.FC<ClassManagementProps> = ({ user }) => {
                               <td className="px-8 py-6">
                                  <div className="flex items-center gap-4">
                                     <div className="w-10 h-10 bg-slate-100 dark:bg-slate-800 rounded-xl flex items-center justify-center text-slate-400 font-black shadow-inner uppercase overflow-hidden border border-slate-200">{student.fullName?.charAt(0)}</div>
-                                    <p className="font-black text-slate-800 dark:text-white text-sm uppercase leading-tight">{student.fullName}</p>
+                                    <div>
+                                       <p className="font-black text-slate-800 dark:text-white text-sm uppercase leading-tight">{student.fullName}</p>
+                                       <p className="text-[8px] font-bold text-slate-400 uppercase tracking-widest mt-0.5">Pos: {index + 1}</p>
+                                    </div>
                                  </div>
                               </td>
                               <td className="px-8 py-6">
@@ -450,9 +490,9 @@ const ClassManagement: React.FC<ClassManagementProps> = ({ user }) => {
                               </td>
                            </tr>
                          ))}
-                         {rollStudents.length === 0 && (
+                         {localSortedStudents.length === 0 && (
                             <tr>
-                               <td colSpan={4} className="py-40 text-center opacity-30 flex flex-col items-center justify-center">
+                               <td colSpan={5} className="py-40 text-center opacity-30 flex flex-col items-center justify-center">
                                   <UserSearch size={48} className="mb-4" />
                                   <p className="font-black text-xs uppercase tracking-[0.3em]">Identity Archive Empty</p>
                                </td>
