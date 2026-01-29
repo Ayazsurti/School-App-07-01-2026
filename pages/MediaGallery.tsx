@@ -221,7 +221,7 @@ const MediaGallery: React.FC<MediaGalleryProps> = ({ user }) => {
                       {formData.type === 'video' ? 'Video Distribution' : 'Photo Archive'} Node
                     </p>
                  </div>
-                 <button onClick={() => setShowFormModal(false)} className="p-3 hover:bg-slate-100 rounded-full text-slate-400 transition-all"><X size={32} /></button>
+                 <button onClick={() => setShowFormModal(false)} className="p-3 bg-white dark:bg-slate-900 hover:bg-slate-100 dark:hover:bg-slate-700 rounded-full text-slate-400 transition-all shadow-sm"><X size={32} /></button>
               </div>
               <form onSubmit={handleSave} className="flex-1 overflow-y-auto p-10 space-y-10 custom-scrollbar flex flex-col lg:flex-row gap-10">
                  <div className="flex-1 space-y-6">
@@ -232,8 +232,21 @@ const MediaGallery: React.FC<MediaGalleryProps> = ({ user }) => {
                          <img src={formData.url} className="w-full h-full object-cover" alt="Preview" />
                        )}
                     </div>
-                    <div className="space-y-4">
-                       <input type="text" required value={formData.name} onChange={e => setFormData({...formData, name: e.target.value.toUpperCase()})} placeholder="ENTER ASSET CAPTION" className="w-full bg-slate-50 dark:bg-slate-800 border-none rounded-2xl px-6 py-4 font-black uppercase text-indigo-600 outline-none focus:ring-2 focus:ring-indigo-500 shadow-inner" />
+                    <div className="space-y-6">
+                       <div className="space-y-2">
+                          <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Asset Title</label>
+                          <input type="text" required value={formData.name} onChange={e => setFormData({...formData, name: e.target.value.toUpperCase()})} placeholder="ENTER ASSET CAPTION" className="w-full bg-slate-50 dark:bg-slate-800 border-none rounded-2xl px-6 py-4 font-black uppercase text-indigo-600 outline-none focus:ring-2 focus:ring-indigo-500 shadow-inner" />
+                       </div>
+                       <div className="space-y-2">
+                          <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Asset Description</label>
+                          <textarea 
+                            value={formData.description} 
+                            onChange={e => setFormData({...formData, description: e.target.value})} 
+                            placeholder="PROVIDE ADDITIONAL CONTEXT OR DETAILS ABOUT THIS ASSET..." 
+                            rows={4}
+                            className="w-full bg-slate-50 dark:bg-slate-800 border-none rounded-2xl px-6 py-4 font-bold uppercase text-slate-600 dark:text-slate-300 outline-none focus:ring-2 focus:ring-indigo-500 shadow-inner resize-none text-xs" 
+                          />
+                       </div>
                     </div>
                  </div>
 
