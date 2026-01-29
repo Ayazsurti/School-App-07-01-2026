@@ -67,7 +67,8 @@ import {
   UserMinus,
   Palette,
   Terminal,
-  Cpu
+  Cpu,
+  Layers
 } from 'lucide-react';
 import { User, UserRole, DisplaySettings, Student } from './types';
 import Login from './pages/Login';
@@ -88,6 +89,7 @@ import VideoGallery from './pages/VideoGallery';
 import StudentsManager from './pages/StudentsManager';
 import AdmissionCancellation from './pages/AdmissionCancellation';
 import TeachersManager from './pages/TeachersManager';
+import ClassManagement from './pages/ClassManagement';
 import ExamSetup from './pages/ExamSetup';
 import GradingSystem from './pages/GradingSystem';
 import FeeSetup from './pages/FeeSetup';
@@ -365,7 +367,7 @@ const Layout: React.FC<LayoutProps> = ({ user, cloudSettings, branding, onUpdate
   const getNavColor = (name: string) => {
     const n = name.toUpperCase();
     if (n.includes('DASHBOARD')) return '#6366f1'; // Indigo
-    if (n.includes('STUDENT') || n.includes('TEACHER')) return '#10b981'; // Emerald
+    if (n.includes('STUDENT') || n.includes('TEACHER') || n.includes('CLASS')) return '#10b981'; // Emerald
     if (n.includes('FEE') || n.includes('RECEIPT') || n.includes('LEDGER')) return '#f59e0b'; // Amber
     if (n.includes('HOMEWORK') || n.includes('CURRICULUM') || n.includes('TIMETABLE')) return '#06b6d4'; // Cyan
     if (n.includes('NOTICE') || n.includes('GALLERY') || n.includes('SMS')) return '#a855f7'; // Purple
@@ -512,6 +514,7 @@ const Layout: React.FC<LayoutProps> = ({ user, cloudSettings, branding, onUpdate
             <Route path="/admin/branding" element={<SchoolSettings user={user} />} />
             <Route path="/admin/display-config" element={<DisplayConfigure user={user} settings={displaySettings} onUpdateSettings={onUpdateDisplay} />} />
             <Route path="/admin/students" element={<StudentsManager user={user} />} />
+            <Route path="/admin/class-management" element={<ClassManagement user={user} />} />
             <Route path="/admin/reports" element={<StudentReports user={user} schoolLogo={schoolLogo} schoolName={schoolName} />} />
             <Route path="/admin/cancel-admission" element={<AdmissionCancellation user={user} />} />
             <Route path="/admin/id-designer" element={<IdCardDesigner user={user} />} />

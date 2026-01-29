@@ -32,7 +32,8 @@ import {
   BarChart3,
   Globe,
   UserMinus,
-  FileDown
+  FileDown,
+  Layers
 } from 'lucide-react';
 import { TimetableEntry, Student } from './types';
 
@@ -44,6 +45,7 @@ export const NAVIGATION = {
     { name: 'School Branding', icon: <Stamp size={20} />, path: '/admin/branding' },
     { name: 'Display Configure', icon: <Palette size={20} />, path: '/admin/display-config' },
     { name: 'Student Management', icon: <Users size={20} />, path: '/admin/students' },
+    { name: 'Class Management', icon: <Layers size={20} />, path: '/admin/class-management' },
     { name: 'Student Reports', icon: <FileDown size={20} />, path: '/admin/reports' },
     { name: 'Cancel Admission', icon: <UserMinus size={20} />, path: '/admin/cancel-admission' },
     { name: 'ID Card Designer', icon: <Palette size={20} />, path: '/admin/id-designer' },
