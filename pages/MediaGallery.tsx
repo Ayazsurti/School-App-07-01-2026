@@ -47,7 +47,7 @@ const MediaGallery: React.FC<MediaGalleryProps> = ({ user }) => {
     try {
       const data = await db.gallery.getAll();
       setAssets(data.map((a: any) => ({
-        id: a.id, url: a.url, type: a.type, name: a.name, description: a.description,
+        id: a.id, url: a.url, type: a.type, name: a.name || 'UNTITLED_ASSET', description: a.description,
         date: a.date, uploadedBy: a.uploaded_by
       })));
     } catch (err) { console.error(err); }
@@ -86,7 +86,7 @@ const MediaGallery: React.FC<MediaGalleryProps> = ({ user }) => {
     const reader = new FileReader();
     reader.onload = (ev) => {
       setFormData({ 
-        name: file.name.split('.')[0].toUpperCase(), 
+        name: (file.name || '').split('.')[0].toUpperCase() || 'NEW_ASSET', 
         description: '', 
         url: ev.target?.result as string,
         type: file.type.startsWith('video') ? 'video' : 'image'
@@ -110,7 +110,7 @@ const MediaGallery: React.FC<MediaGalleryProps> = ({ user }) => {
       const metadataStr = `[TARGETS: ${targetClasses.join(', ')} | SEC: ${targetSections.join(', ')}]`;
       const payload = { 
         ...formData, 
-        description: `${metadataStr} ${formData.description.toUpperCase()}`,
+        description: `${metadataStr} ${(formData.description || '').toUpperCase()}`,
         uploadedBy: user.name,
         date: new Date().toLocaleString()
       };
@@ -141,13 +141,14 @@ const MediaGallery: React.FC<MediaGalleryProps> = ({ user }) => {
   };
 
   const filteredAssets = useMemo(() => {
+    const query = (searchQuery || '').toLowerCase();
     return assets.filter(asset => {
-      const matchesSearch = asset.name.toLowerCase().includes(searchQuery.toLowerCase());
+      const nameMatch = (asset.name || '').toLowerCase().includes(query);
       if (user.role === 'STUDENT') {
-        const desc = asset.description || '';
-        return matchesSearch && desc.includes(user.class || '') && desc.includes(`SEC: ${user.section || ''}`);
+        const desc = (asset.description || '').toLowerCase();
+        return nameMatch && desc.includes((user.class || '').toLowerCase()) && desc.includes(`sec: ${(user.section || '').toLowerCase()}`);
       }
-      return matchesSearch;
+      return nameMatch;
     });
   }, [assets, searchQuery, user]);
 
@@ -269,7 +270,7 @@ const MediaGallery: React.FC<MediaGalleryProps> = ({ user }) => {
                        <h4 className="text-[10px] font-black text-indigo-600 uppercase tracking-widest flex items-center gap-2 px-1"><Layers size={14}/> Sections</h4>
                        <div className="grid grid-cols-2 gap-2">
                           {SECTIONS.map(sec => (
-                             <button key={sec} type="button" onClick={() => toggleSection(sec)} className={`py-3 rounded-xl border font-black text-[10px] transition-all ${targetSections.includes(sec) ? 'bg-indigo-600 border-indigo-600 text-white shadow-lg' : 'bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-700 text-slate-400 hover:border-indigo-100'}`}>
+                             <button key={sec} type="button" onClick={() => toggleSection(sec)} className={`py-3 rounded-xl border font-black text-[10px] transition-all ${targetSections.includes(sec) ? 'bg-indigo-600 border-indigo-600 text-white shadow-lg' : 'bg-white dark:bg-slate-900 border-slate-100 dark:border-slate-700 text-slate-400 hover:border-indigo-100'}`}>
                                 SEC {sec}
                              </button>
                           ))}

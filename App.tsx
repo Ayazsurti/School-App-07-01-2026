@@ -68,7 +68,8 @@ import {
   Palette,
   Terminal,
   Cpu,
-  Layers
+  Layers,
+  MonitorPlay
 } from 'lucide-react';
 import { User, UserRole, DisplaySettings, Student } from './types';
 import Login from './pages/Login';
@@ -90,7 +91,6 @@ import StudentsManager from './pages/StudentsManager';
 import AdmissionCancellation from './pages/AdmissionCancellation';
 import TeachersManager from './pages/TeachersManager';
 import ClassManagement from './pages/ClassManagement';
-import ExamSetup from './pages/ExamSetup';
 import GradingSystem from './pages/GradingSystem';
 import FeeSetup from './pages/FeeSetup';
 import StudentwiseFee from './pages/StudentwiseFee';
@@ -104,6 +104,7 @@ import Curriculum from './pages/Curriculum';
 import SchoolSettings from './pages/SchoolSettings';
 import DisplayConfigure from './pages/DisplayConfigure';
 import StudentReports from './pages/StudentReports';
+import SlideshowManager from './pages/SlideshowManager';
 import { APP_NAME as DEFAULT_APP_NAME, NAVIGATION } from './constants';
 import { db, supabase } from './supabase';
 import { createAuditLog } from './utils/auditLogger';
@@ -367,6 +368,7 @@ const Layout: React.FC<LayoutProps> = ({ user, cloudSettings, branding, onUpdate
   const getNavColor = (name: string) => {
     const n = name.toUpperCase();
     if (n.includes('DASHBOARD')) return '#6366f1'; // Indigo
+    if (n.includes('SLIDESHOW')) return '#8b5cf6'; // Violet
     if (n.includes('STUDENT') || n.includes('TEACHER') || n.includes('CLASS')) return '#10b981'; // Emerald
     if (n.includes('FEE') || n.includes('RECEIPT') || n.includes('LEDGER')) return '#f59e0b'; // Amber
     if (n.includes('HOMEWORK') || n.includes('CURRICULUM') || n.includes('TIMETABLE')) return '#06b6d4'; // Cyan
@@ -509,8 +511,9 @@ const Layout: React.FC<LayoutProps> = ({ user, cloudSettings, branding, onUpdate
 
         <main className="flex-1 p-4 lg:p-8 overflow-y-auto relative">
           <Routes>
-            <Route path="/" element={<Navigate to={`/${user.role.toLowerCase()}/dashboard`} />} />
+            <Route path="/" element={<Navigate to={user?.role ? `/${user.role.toLowerCase()}/dashboard` : '/login'} />} />
             <Route path="/admin/dashboard" element={<Dashboard user={user} branding={branding} onUpdateLogo={() => navigate('/admin/branding')} />} />
+            <Route path="/admin/slideshow-manager" element={<SlideshowManager user={user} />} />
             <Route path="/admin/branding" element={<SchoolSettings user={user} />} />
             <Route path="/admin/display-config" element={<DisplayConfigure user={user} settings={displaySettings} onUpdateSettings={onUpdateDisplay} />} />
             <Route path="/admin/students" element={<StudentsManager user={user} />} />
@@ -529,7 +532,6 @@ const Layout: React.FC<LayoutProps> = ({ user, cloudSettings, branding, onUpdate
             <Route path="/admin/marks-setup" element={<MarksSetup user={user} />} />
             <Route path="/admin/marks-entry" element={<MarksEntry user={user} />} />
             <Route path="/admin/marksheet" element={<MarksheetGenerator user={user} schoolLogo={schoolLogo} />} />
-            <Route path="/admin/exams" element={<ExamSetup user={user} />} />
             <Route path="/admin/grading" element={<GradingSystem user={user} />} />
             <Route path="/admin/fees/management" element={<FeesManagement user={user} />} />
             <Route path="/admin/fees/setup" element={<FeeSetup user={user} />} />

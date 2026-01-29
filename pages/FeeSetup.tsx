@@ -16,23 +16,25 @@ type CategoryKey =
   | 'PRIMARY_BOYS' | 'SECONDARY_BOYS' | 'HIGHER_SECONDARY_BOYS';
 
 const GRADE_RANGES = {
-  PRIMARY: ['1st', '2nd', '3rd', '4th', '5th', '6th', '7th', '8th'],
-  SECONDARY: ['9th', '10th'],
-  HIGHER: ['11th', '12th']
+  PRIMARY_GIRLS: ['1 - GIRLS', '2 - GIRLS', '3 - GIRLS', '4 - GIRLS', '5 - GIRLS', '6 - GIRLS', '7 - GIRLS', '8 - GIRLS'],
+  SECONDARY_GIRLS: ['9 - GIRLS', '10 - GIRLS'],
+  HIGHER_GIRLS: ['11 - GIRLS', '12 - GIRLS'],
+  PRIMARY_BOYS: ['1 - BOYS', '2 - BOYS', '3 - BOYS', '4 - BOYS', '5 - BOYS', '6 - BOYS', '7 - BOYS', '8 - BOYS'],
+  SECONDARY_BOYS: ['9 - BOYS', '10 - BOYS'],
+  HIGHER_BOYS: ['11 - BOYS', '12 - BOYS']
 };
 
 const CATEGORY_MAP: Record<CategoryKey, { label: string, grades: string[], color: string }> = {
-  PRIMARY_GIRLS: { label: 'Primary Girls (1-8)', grades: GRADE_RANGES.PRIMARY, color: 'text-pink-500' },
-  SECONDARY_GIRLS: { label: 'Secondary Girls (9-10)', grades: GRADE_RANGES.SECONDARY, color: 'text-pink-600' },
-  HIGHER_SECONDARY_GIRLS: { label: 'Higher Sec Girls (11-12)', grades: GRADE_RANGES.HIGHER, color: 'text-pink-700' },
-  PRIMARY_BOYS: { label: 'Primary Boys (1-8)', grades: GRADE_RANGES.PRIMARY, color: 'text-blue-500' },
-  SECONDARY_BOYS: { label: 'Secondary Boys (9-10)', grades: GRADE_RANGES.SECONDARY, color: 'text-blue-600' },
-  HIGHER_SECONDARY_BOYS: { label: 'Higher Sec Boys (11-12)', grades: GRADE_RANGES.HIGHER, color: 'text-blue-700' }
+  PRIMARY_GIRLS: { label: 'Primary Girls (1-8)', grades: GRADE_RANGES.PRIMARY_GIRLS, color: 'text-pink-500' },
+  SECONDARY_GIRLS: { label: 'Secondary Girls (9-10)', grades: GRADE_RANGES.SECONDARY_GIRLS, color: 'text-pink-600' },
+  HIGHER_SECONDARY_GIRLS: { label: 'Higher Sec Girls (11-12)', grades: GRADE_RANGES.HIGHER_GIRLS, color: 'text-pink-700' },
+  PRIMARY_BOYS: { label: 'Primary Boys (1-8)', grades: GRADE_RANGES.PRIMARY_BOYS, color: 'text-blue-500' },
+  SECONDARY_BOYS: { label: 'Secondary Boys (9-10)', grades: GRADE_RANGES.SECONDARY_BOYS, color: 'text-blue-600' },
+  HIGHER_SECONDARY_BOYS: { label: 'Higher Sec Boys (11-12)', grades: GRADE_RANGES.HIGHER_BOYS, color: 'text-blue-700' }
 };
 
 const QUARTERS = ['Q1', 'Q2', 'Q3', 'Q4'] as const;
 
-// Labels with months as requested
 const QUARTER_DISPLAY: Record<string, string> = {
   Q1: 'Quarter 1 (June-August)',
   Q2: 'Quarter 2 (Sept-Nov)',
@@ -59,7 +61,13 @@ const FeeSetup: React.FC<FeeSetupProps> = ({ user }) => {
       setStructures(structs);
       
       const initialDraft: Record<string, Record<string, string>> = {};
-      const allPossibleGrades = ['1st', '2nd', '3rd', '4th', '5th', '6th', '7th', '8th', '9th', '10th', '11th', '12th'];
+      
+      // Collect all possible institutional classes to build the full draft object
+      const allPossibleGrades = [
+        ...GRADE_RANGES.PRIMARY_GIRLS, ...GRADE_RANGES.SECONDARY_GIRLS, ...GRADE_RANGES.HIGHER_GIRLS,
+        ...GRADE_RANGES.PRIMARY_BOYS, ...GRADE_RANGES.SECONDARY_BOYS, ...GRADE_RANGES.HIGHER_BOYS
+      ];
+
       allPossibleGrades.forEach(cls => {
         initialDraft[cls] = {};
         const struct = structs.find(s => s.className === cls);
@@ -79,7 +87,7 @@ const FeeSetup: React.FC<FeeSetupProps> = ({ user }) => {
 
   useEffect(() => {
     fetchCloudData();
-    const channel = supabase.channel('fee-setup-realtime-v8')
+    const channel = supabase.channel('fee-setup-realtime-v10')
       .on('postgres_changes', { event: '*', schema: 'public', table: 'fee_structures' }, () => {
         if (!savingClass) fetchCloudData();
       })
@@ -226,7 +234,6 @@ const FeeSetup: React.FC<FeeSetupProps> = ({ user }) => {
         </button>
       </div>
 
-      {/* Category Selector */}
       <div className="bg-white dark:bg-slate-900 p-8 rounded-[3rem] shadow-sm border border-slate-100 dark:border-slate-800 flex flex-col md:flex-row items-center gap-8">
          <div className="flex-1 w-full">
             <label className="text-[10px] font-black text-slate-400 uppercase ml-1 tracking-[0.2em] mb-2 block">Institution Wing (English Medium)</label>

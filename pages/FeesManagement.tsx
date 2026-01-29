@@ -1,11 +1,14 @@
 
 import React, { useState, useMemo, useEffect } from 'react';
 import { User, Student, PaymentMode, FeeStructure } from '../types';
-import { db, supabase } from '../supabase';
+import { db, supabase, getErrorMessage } from '../supabase';
 import { createAuditLog } from '../utils/auditLogger';
 import { 
   Banknote, Globe, Search, Smartphone, CreditCard, CheckCircle2, Calendar, Wallet, Loader2, ShieldCheck, RefreshCw, History, 
-  Building2, QrCode, CreditCard as CardIcon, Zap, ArrowRight, Info, ExternalLink, ShieldAlert
+  Building2, QrCode, CreditCard as CardIcon, Zap, ArrowRight, Info, ExternalLink, ShieldAlert,
+  AlertTriangle, 
+  Database,
+  Link2
 } from 'lucide-react';
 
 interface FeesManagementProps { user: User; }
@@ -62,9 +65,15 @@ const FeesManagement: React.FC<FeesManagementProps> = ({ user }) => {
 
   useEffect(() => {
     fetchData();
-    const channel = supabase.channel('realtime-fees-management-v8')
+    
+    const channel = supabase.channel('realtime-fees-terminal-v12')
       .on('postgres_changes', { event: '*', schema: 'public', table: 'fee_ledger' }, () => fetchData())
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'fee_structures' }, () => {
+        setIsSyncing(true);
+        fetchData().then(() => setTimeout(() => setIsSyncing(false), 800));
+      })
       .subscribe();
+      
     return () => { supabase.removeChannel(channel); };
   }, []);
 
@@ -81,13 +90,7 @@ const FeesManagement: React.FC<FeesManagementProps> = ({ user }) => {
     if (!selectedStudent) return [];
     const paidQuarters = ledger
       .filter(l => l.student_id === selectedStudent.id && l.status === 'PAID')
-      .map(l => {
-        if (l.type.includes('Q1')) return 'Q1';
-        if (l.type.includes('Q2')) return 'Q2';
-        if (l.type.includes('Q3')) return 'Q3';
-        if (l.type.includes('Q4')) return 'Q4';
-        return null;
-      })
+      .map(l => l.quarter)
       .filter(Boolean);
     
     return ALL_QUARTERS.filter(q => !paidQuarters.includes(q));
@@ -96,18 +99,31 @@ const FeesManagement: React.FC<FeesManagementProps> = ({ user }) => {
   useEffect(() => {
     if (selectedStudent && pendingQuarters.length > 0) {
       setSelectedQuarter(pendingQuarters[0]);
-    } else {
+    } else if (selectedStudent && pendingQuarters.length === 0) {
       setSelectedQuarter(null);
     }
   }, [selectedStudent, pendingQuarters]);
 
+  // AUTOMATED SYNC ENGINE: Pulls amount from Fee Setup based on Class & Quarter
   useEffect(() => {
     if (selectedStudent && selectedQuarter) {
-      const classStruct = feeStructures.find(fs => fs.class_name === selectedStudent.class);
+      // 1. Normalize both keys for perfect match
+      const studentClassNode = (selectedStudent.class || '').trim().toUpperCase();
+      
+      const classStruct = feeStructures.find(fs => 
+        (fs.className || '').trim().toUpperCase() === studentClassNode
+      );
+      
       if (classStruct && Array.isArray(classStruct.fees)) {
+        // 2. Extract specific quarter amount from the assigned structure
         const quarterFee = classStruct.fees.find((f: any) => f.quarter === selectedQuarter);
         setAmountToPay(quarterFee ? quarterFee.amount : 0);
+      } else {
+        // No configuration found in Fee Setup for this standard
+        setAmountToPay(0);
       }
+    } else {
+      setAmountToPay(0);
     }
   }, [selectedStudent, selectedQuarter, feeStructures]);
 
@@ -115,12 +131,10 @@ const FeesManagement: React.FC<FeesManagementProps> = ({ user }) => {
     e.preventDefault();
     if (!selectedStudent || !selectedQuarter || amountToPay <= 0) return;
     
-    // REDIRECTION LOGIC
     if (paymentMode === 'GOOGLE_PAY' || paymentMode === 'PHONE_PE') {
       const upiLink = `upi://pay?pa=${schoolSettings?.school_upi_id || 'merchant@upi'}&pn=${encodeURIComponent(schoolSettings?.school_name || 'School')}&am=${amountToPay}&cu=INR`;
       window.location.href = upiLink;
     } else if (paymentMode === 'DEBIT_CARD' || paymentMode === 'CREDIT_CARD') {
-      // Simulate Bank Redirection
       window.open('https://www.sandbox.paypal.com/signin', '_blank');
     }
 
@@ -132,13 +146,13 @@ const FeesManagement: React.FC<FeesManagementProps> = ({ user }) => {
         amount: amountToPay,
         date: new Date().toISOString().split('T')[0],
         status: 'PAID',
-        type: `Quarterly Fee [${selectedQuarter}] via ${paymentMode.replace('_', ' ')}`,
+        type: `Quarterly Fee [${selectedQuarter}] for Standard ${selectedStudent.class}`,
         receiptNo,
         quarter: selectedQuarter,
         mode: paymentMode
       });
       setShowSuccess(true);
-      createAuditLog(user, 'PAYMENT', 'Finance', `[${paymentMode}] Collected ₹${amountToPay} from ${selectedStudent.fullName} for ${selectedQuarter} (Ref: ${payerDetails || 'N/A'})`);
+      createAuditLog(user, 'PAYMENT', 'Finance', `[${paymentMode}] Collected ₹${amountToPay} from ${selectedStudent.fullName} for ${selectedQuarter}`);
       
       setSelectedStudent(null);
       setAmountToPay(0);
@@ -146,8 +160,8 @@ const FeesManagement: React.FC<FeesManagementProps> = ({ user }) => {
       setSearchQuery('');
       setTimeout(() => setShowSuccess(false), 3000);
       fetchData();
-    } catch (err) { 
-      alert("Payment sync failed."); 
+    } catch (err: any) { 
+      alert("Payment failed: " + getErrorMessage(err)); 
     } finally { 
       setIsProcessing(false); 
     }
@@ -156,36 +170,36 @@ const FeesManagement: React.FC<FeesManagementProps> = ({ user }) => {
   return (
     <div className="space-y-8 pb-20 animate-in fade-in duration-500 relative">
       {isSyncing && (
-        <div className="fixed top-24 left-1/2 -translate-x-1/2 z-[1100] animate-bounce">
+        <div className="fixed top-24 left-1/2 -translate-x-1/2 z-[1100] animate-bounce no-print">
            <div className="bg-indigo-600 text-white px-6 py-2 rounded-full shadow-2xl flex items-center gap-3 border border-indigo-400">
               <RefreshCw size={14} className="animate-spin" />
-              <span className="text-[10px] font-black uppercase tracking-widest text-white">Registry Processing...</span>
+              <span className="text-[10px] font-black uppercase tracking-widest text-white">Cloud Sync Active...</span>
            </div>
         </div>
       )}
 
       {showSuccess && (
         <div className="fixed top-24 right-8 z-[1000] animate-in slide-in-from-right-8 duration-500">
-           <div className="bg-emerald-600 text-white px-8 py-5 rounded-[2rem] shadow-2xl flex items-center gap-4 border border-emerald-500/50 backdrop-blur-xl">
+           <div className="bg-emerald-600 text-white px-8 py-5 rounded-3xl shadow-2xl flex items-center gap-4 border border-emerald-500/50 backdrop-blur-xl">
               <CheckCircle2 size={24} strokeWidth={3} />
               <div>
-                 <p className="font-black text-xs uppercase tracking-widest">Payment Cleared</p>
-                 <p className="text-[10px] font-bold text-emerald-100 uppercase mt-0.5">Ledger Updated Successfully</p>
+                 <p className="font-black text-xs uppercase tracking-widest">Entry Synchronized</p>
+                 <p className="text-[10px] font-bold text-emerald-100 uppercase mt-0.5 tracking-widest">Cloud Ledger Finalized</p>
               </div>
            </div>
         </div>
       )}
 
-      <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6">
+      <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6 px-4 sm:px-0">
         <div>
-          <h1 className="text-4xl font-black text-slate-900 dark:text-white tracking-tight uppercase flex items-center gap-3">Collection Terminal <Globe className="text-indigo-600" /></h1>
-          <p className="text-slate-500 dark:text-slate-400 font-medium text-lg uppercase tracking-tight">Cloud-based payment gateway with smart filtering.</p>
+          <h1 className="text-4xl font-black text-slate-900 dark:text-white tracking-tight uppercase flex items-center gap-3 leading-none">Collection Terminal <Globe className="text-indigo-600" /></h1>
+          <p className="text-slate-500 dark:text-slate-400 font-bold mt-2 uppercase text-xs tracking-[0.4em] leading-relaxed">Integrated payment gateway with automated fee setup synchronization.</p>
         </div>
       </div>
 
-      <div className="grid grid-cols-1 xl:grid-cols-3 gap-10">
+      <div className="grid grid-cols-1 xl:grid-cols-3 gap-10 px-4 sm:px-0">
         <div className="xl:col-span-1 space-y-6">
-           <div className="bg-white dark:bg-slate-900 p-8 rounded-[2.5rem] shadow-sm border border-slate-100 dark:border-slate-800">
+           <div className="bg-white dark:bg-slate-900 p-8 rounded-[3rem] shadow-sm border border-slate-100 dark:border-slate-800">
               <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-3 ml-1">Identity Recon</label>
               <div className="relative mb-6">
                  <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-300" size={18} />
@@ -194,7 +208,7 @@ const FeesManagement: React.FC<FeesManagementProps> = ({ user }) => {
                   value={searchQuery} 
                   onChange={e => setSearchQuery(e.target.value)} 
                   placeholder="Enter Name or GR Number..." 
-                  className="w-full bg-slate-50 dark:bg-slate-800 border-2 border-slate-100 dark:border-slate-700 rounded-2xl pl-12 pr-4 py-4 font-bold text-slate-700 dark:text-white outline-none focus:ring-2 focus:ring-indigo-500 transition-all shadow-inner" 
+                  className="w-full bg-slate-50 dark:bg-slate-800 border-2 border-slate-100 dark:border-slate-700 rounded-2xl pl-12 pr-4 py-4 font-black text-slate-700 dark:text-white outline-none focus:ring-2 focus:ring-indigo-500 transition-all shadow-inner uppercase text-sm" 
                  />
               </div>
 
@@ -203,13 +217,13 @@ const FeesManagement: React.FC<FeesManagementProps> = ({ user }) => {
               ) : filteredStudents.length > 0 ? (
                 <div className="space-y-2">
                   {filteredStudents.map(s => (
-                    <button key={s.id} onClick={() => { setSelectedStudent(s); setSearchQuery(''); }} className="w-full flex items-center gap-4 p-4 hover:bg-indigo-50 dark:hover:bg-indigo-900/30 rounded-2xl border border-slate-50 dark:border-slate-800 transition-all text-left group">
-                       <div className="w-12 h-12 bg-indigo-600 text-white rounded-xl flex items-center justify-center font-black group-hover:scale-110 transition-transform overflow-hidden">{s.fullName?.charAt(0)}</div>
+                    <button key={s.id} onClick={() => { setSelectedStudent(s); setSearchQuery(''); }} className={`w-full flex items-center gap-4 p-4 rounded-2xl border transition-all text-left group ${selectedStudent?.id === s.id ? 'bg-indigo-600 border-indigo-600 text-white shadow-lg' : 'bg-slate-50 dark:bg-slate-800 border-slate-50 dark:border-slate-800'}`}>
+                       <div className={`w-12 h-12 rounded-xl flex items-center justify-center font-black group-hover:scale-110 transition-transform overflow-hidden ${selectedStudent?.id === s.id ? 'bg-white text-indigo-600' : 'bg-indigo-600 text-white'}`}>{s.fullName?.charAt(0)}</div>
                        <div className="flex-1 min-w-0">
-                          <p className="font-black text-slate-800 dark:text-white text-sm uppercase truncate">{s.fullName}</p>
-                          <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">GR: {s.grNumber} • Std {s.class}</p>
+                          <p className={`font-black text-sm uppercase truncate ${selectedStudent?.id === s.id ? 'text-white' : 'text-slate-800 dark:text-white'}`}>{s.fullName}</p>
+                          <p className={`text-[9px] font-bold uppercase tracking-widest ${selectedStudent?.id === s.id ? 'text-indigo-100' : 'text-slate-400'}`}>GR: {s.grNumber} • Std {s.class}</p>
                        </div>
-                       <ArrowRight size={16} className="text-slate-300 group-hover:text-indigo-600 group-hover:translate-x-1 transition-all" />
+                       <ArrowRight size={16} className={selectedStudent?.id === s.id ? 'text-white' : 'text-slate-300'} />
                     </button>
                   ))}
                 </div>
@@ -218,7 +232,7 @@ const FeesManagement: React.FC<FeesManagementProps> = ({ user }) => {
 
            <div className="bg-slate-900 rounded-[2.5rem] p-8 text-white shadow-2xl relative overflow-hidden group">
               <h3 className="font-black text-xl mb-6 uppercase tracking-tight flex items-center gap-3">
-                 <History size={20} className="text-indigo-400" /> Recent Activity
+                 <History size={20} className="text-indigo-400" /> Recent Collection
               </h3>
               <div className="space-y-4 max-h-[300px] overflow-y-auto custom-scrollbar pr-2">
                  {ledger.slice(0, 8).map(l => {
@@ -227,7 +241,7 @@ const FeesManagement: React.FC<FeesManagementProps> = ({ user }) => {
                     <div key={l.id} className="flex items-center justify-between text-[10px] font-bold border-b border-white/5 pb-4 group/item">
                         <div>
                           <span className="text-indigo-400 uppercase block group-hover/item:text-white transition-colors">{l.receipt_no}</span>
-                          <span className="text-slate-500 text-[8px] uppercase">{studentInfo?.fullName || 'Synced'} • {l.date}</span>
+                          <span className="text-slate-500 text-[8px] uppercase">{studentInfo?.fullName || 'Registry Node'} • {l.date}</span>
                         </div>
                         <span className="text-emerald-400 font-black">₹{l.amount.toLocaleString('en-IN')}</span>
                     </div>
@@ -242,28 +256,29 @@ const FeesManagement: React.FC<FeesManagementProps> = ({ user }) => {
              <div className="bg-white dark:bg-slate-900 rounded-[3rem] shadow-sm border border-slate-100 dark:border-slate-800 overflow-hidden h-full flex flex-col animate-in slide-in-from-right-4 duration-500">
                 <div className="p-8 border-b border-slate-100 dark:border-slate-800 bg-slate-50/30 dark:bg-slate-800/20 flex items-center justify-between flex-wrap gap-4">
                    <div className="flex items-center gap-4">
-                      <div className="w-14 h-14 bg-indigo-600 text-white rounded-2xl flex items-center justify-center font-black shadow-lg">
+                      <div className="w-14 h-14 bg-indigo-600 text-white rounded-2xl flex items-center justify-center font-black shadow-lg overflow-hidden border-2 border-white/20">
                         {selectedStudent.profileImage ? <img src={selectedStudent.profileImage} className="w-full h-full object-cover" /> : <Wallet size={28}/>}
                       </div>
                       <div>
-                         <h3 className="text-xl font-black text-slate-900 dark:text-white uppercase truncate max-w-[200px]">{selectedStudent.fullName}</h3>
+                         <h3 className="text-xl font-black text-slate-900 dark:text-white uppercase truncate max-w-[200px] leading-tight">{selectedStudent.fullName}</h3>
                          <div className="flex items-center gap-2 mt-1">
-                            <span className="text-[9px] font-black text-indigo-600 dark:text-indigo-400 uppercase tracking-widest bg-indigo-50 dark:bg-indigo-900/30 px-2 py-0.5 rounded border border-indigo-100 dark:border-indigo-800">Std {selectedStudent.class}-{selectedStudent.section}</span>
+                            <span className="text-[9px] font-black text-indigo-600 dark:text-indigo-400 uppercase tracking-widest bg-indigo-50 dark:bg-indigo-900/30 px-2 py-0.5 rounded border border-indigo-100 dark:border-indigo-800">Standard {selectedStudent.class} Identity</span>
                          </div>
                       </div>
                    </div>
                    
-                   <div className="flex bg-slate-100 dark:bg-slate-800 p-1 rounded-xl">
+                   <div className="flex bg-slate-100 dark:bg-slate-800 p-1.5 rounded-xl">
                       {pendingQuarters.length > 0 ? pendingQuarters.map(q => (
                         <button 
                           key={q} 
+                          type="button"
                           onClick={() => setSelectedQuarter(q)} 
-                          className={`px-5 py-2 rounded-lg text-[10px] font-black uppercase transition-all ${selectedQuarter === q ? 'bg-indigo-600 text-white shadow-md' : 'text-slate-400 hover:text-slate-600'}`}
+                          className={`px-6 py-2.5 rounded-lg text-[10px] font-black uppercase transition-all ${selectedQuarter === q ? 'bg-indigo-600 text-white shadow-md' : 'text-slate-400 hover:text-slate-600'}`}
                         >
                           {q}
                         </button>
                       )) : (
-                        <div className="px-6 py-2 flex items-center gap-2 text-emerald-600 font-black text-[10px] uppercase">
+                        <div className="px-6 py-2.5 flex items-center gap-2 text-emerald-600 font-black text-[10px] uppercase">
                            <CheckCircle2 size={14}/> Academic Year Settled
                         </div>
                       )}
@@ -274,23 +289,47 @@ const FeesManagement: React.FC<FeesManagementProps> = ({ user }) => {
                   <form onSubmit={handleProcessPayment} className="p-10 space-y-10 flex-1 flex flex-col">
                     <div className="space-y-4 text-center">
                         <div className="flex flex-col items-center gap-1">
-                          <label className="block text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-[0.3em] mb-2">Liability for {selectedQuarter} (₹)</label>
-                          <div className="relative max-w-md mx-auto">
-                              <span className="absolute left-6 top-1/2 -translate-y-1/2 text-slate-300 font-black text-3xl">₹</span>
-                              <input type="number" required value={amountToPay || ''} onChange={e => setAmountToPay(parseInt(e.target.value) || 0)} className="w-full bg-slate-50 dark:bg-slate-800 border-2 border-transparent focus:border-indigo-500 rounded-[2.5rem] px-8 py-8 text-6xl font-black text-slate-900 dark:text-white text-center outline-none transition-all shadow-inner" placeholder="0" />
+                          <div className="flex items-center gap-2 mb-4 px-4 py-2 bg-indigo-50 dark:bg-indigo-950/20 border border-indigo-100 dark:border-indigo-800 rounded-full">
+                             <Link2 size={12} className="text-indigo-600" />
+                             <span className="text-[9px] font-black text-indigo-700 dark:text-indigo-300 uppercase tracking-widest">Linked to {selectedStudent.class} Fee Setup node</span>
                           </div>
+
+                          <label className="block text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-[0.3em] mb-2">Automated Amount for {selectedQuarter}</label>
+                          <div className="relative max-w-md mx-auto">
+                              <span className="absolute left-8 top-1/2 -translate-y-1/2 text-slate-300 font-black text-4xl italic">₹</span>
+                              <input 
+                                type="number" 
+                                required 
+                                value={amountToPay || ''} 
+                                onChange={e => setAmountToPay(parseInt(e.target.value) || 0)} 
+                                className="w-full bg-slate-50 dark:bg-slate-800 border-2 border-transparent focus:border-indigo-500 rounded-[2.5rem] px-10 py-10 text-7xl font-black text-slate-900 dark:text-white text-center outline-none transition-all shadow-inner tracking-tighter" 
+                                placeholder="0" 
+                              />
+                          </div>
+                          
+                          {amountToPay === 0 ? (
+                            <div className="flex items-center gap-2 text-rose-500 mt-6 animate-pulse bg-rose-50 px-4 py-2 rounded-xl border border-rose-100">
+                               <AlertTriangle size={14}/>
+                               <span className="text-[9px] font-black uppercase">No amount assigned for {selectedStudent.class} in Fee Setup</span>
+                            </div>
+                          ) : (
+                            <div className="flex items-center gap-2 text-emerald-600 mt-6 bg-emerald-50 px-4 py-2 rounded-xl border border-emerald-100">
+                               <ShieldCheck size={14}/>
+                               <span className="text-[9px] font-black uppercase">Standard {selectedQuarter} Price Policy Active</span>
+                            </div>
+                          )}
                         </div>
                     </div>
 
-                    <div className="space-y-6">
-                        <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest text-center">Verification Channel</label>
+                    <div className="space-y-6 pt-4">
+                        <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest text-center">Transaction Medium</label>
                         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
                           {MODES.map(mode => (
                             <button 
                               key={mode.value}
                               type="button"
                               onClick={() => { setPaymentMode(mode.value); setPayerDetails(''); }}
-                              className={`flex flex-col items-center justify-center gap-3 px-4 py-6 rounded-2xl border-2 transition-all font-black text-[10px] uppercase tracking-widest text-center ${paymentMode === mode.value ? 'bg-indigo-600 border-indigo-600 text-white shadow-xl' : 'bg-white dark:bg-slate-800 border-slate-100 dark:border-slate-700 text-slate-400 hover:border-indigo-100'}`}
+                              className={`flex flex-col items-center justify-center gap-3 px-4 py-6 rounded-3xl border-2 transition-all font-black text-[10px] uppercase tracking-widest text-center ${paymentMode === mode.value ? 'bg-indigo-600 border-indigo-600 text-white shadow-xl scale-105' : 'bg-white dark:bg-slate-900 border-slate-100 dark:border-slate-700 text-slate-400 hover:border-indigo-100'}`}
                             >
                                 {mode.icon}
                                 <span>{mode.label}</span>
@@ -299,48 +338,35 @@ const FeesManagement: React.FC<FeesManagementProps> = ({ user }) => {
                         </div>
                     </div>
 
-                    {/* MODE SPECIFIC INPUTS */}
-                    {(paymentMode === 'UPI' || paymentMode === 'GOOGLE_PAY' || paymentMode === 'PHONE_PE') && (
-                        <div className="space-y-2 animate-in slide-in-from-top-2">
-                          <label className="text-[10px] font-black text-slate-400 uppercase ml-1 tracking-widest">Payer UPI ID (For Ledger tracking)</label>
-                          <div className="relative">
-                              <Zap className="absolute left-4 top-1/2 -translate-y-1/2 text-indigo-400" size={16}/>
-                              <input 
-                                type="text" 
-                                value={payerDetails} 
-                                onChange={e => setPayerDetails(e.target.value)} 
-                                placeholder="e.g., payer@upi" 
-                                className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl pl-12 pr-4 py-4 font-bold text-slate-800 dark:text-white outline-none focus:ring-2 focus:ring-indigo-500" 
-                              />
-                          </div>
-                        </div>
-                    )}
-
                     <div className="mt-auto">
-                      <button type="submit" disabled={isProcessing || amountToPay <= 0} className="w-full py-7 bg-indigo-600 text-white font-black rounded-[2rem] shadow-2xl uppercase tracking-[0.3em] flex items-center justify-center gap-4 hover:-translate-y-1 transition-all disabled:opacity-50">
-                          {isProcessing ? <Loader2 className="animate-spin" size={24} /> : (paymentMode === 'GOOGLE_PAY' || paymentMode === 'PHONE_PE' ? <ExternalLink size={24} /> : <ShieldCheck size={24} />)}
-                          {paymentMode === 'GOOGLE_PAY' ? 'Open Google Pay' : paymentMode === 'PHONE_PE' ? 'Open PhonePe' : `Commit ${selectedQuarter} Entry`}
+                      <button 
+                        type="submit" 
+                        disabled={isProcessing || amountToPay <= 0} 
+                        className="w-full py-8 bg-indigo-600 text-white font-black rounded-[2.5rem] shadow-2xl uppercase tracking-[0.4em] flex items-center justify-center gap-4 hover:-translate-y-1 transition-all disabled:opacity-50 disabled:grayscale active:scale-95"
+                      >
+                          {isProcessing ? <Loader2 className="animate-spin" size={24} /> : (paymentMode === 'GOOGLE_PAY' || paymentMode === 'PHONE_PE' ? <ExternalLink size={24} /> : <Database size={24} />)}
+                          {paymentMode === 'GOOGLE_PAY' ? 'Redirect to Google Pay' : paymentMode === 'PHONE_PE' ? 'Redirect to PhonePe' : `Finalize ${selectedQuarter} Entry`}
                       </button>
                     </div>
                   </form>
                 ) : (
-                  <div className="flex-1 flex flex-col items-center justify-center p-20 text-center space-y-6">
-                     <div className="w-24 h-24 bg-emerald-50 dark:bg-emerald-900/20 text-emerald-600 rounded-[2.5rem] flex items-center justify-center border border-emerald-100 dark:border-emerald-800 shadow-inner">
-                        <CheckCircle2 size={48} />
+                  <div className="flex-1 flex flex-col items-center justify-center p-20 text-center space-y-8">
+                     <div className="w-28 h-28 bg-emerald-50 dark:bg-emerald-950/30 text-emerald-600 rounded-[3rem] flex items-center justify-center border border-emerald-100 dark:border-emerald-800 shadow-inner">
+                        <CheckCircle2 size={56} />
                      </div>
                      <div>
-                        <h4 className="text-3xl font-black text-slate-900 dark:text-white uppercase tracking-tighter">Identity Cleared</h4>
-                        <p className="text-slate-500 dark:text-slate-400 font-medium text-lg uppercase tracking-tight mt-2">All quarterly dues for this student have been settles in cloud.</p>
+                        <h4 className="text-4xl font-black text-slate-900 dark:text-white uppercase tracking-tighter">Account Cleared</h4>
+                        <p className="text-slate-500 dark:text-slate-400 font-bold text-lg uppercase tracking-tight mt-3">All academic obligations for this student have been settled in cloud.</p>
                      </div>
-                     <button onClick={() => setSelectedStudent(null)} className="px-8 py-3 bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 font-black text-[10px] uppercase tracking-widest rounded-xl hover:bg-slate-200 transition-all">Search Another</button>
+                     <button onClick={() => setSelectedStudent(null)} className="px-10 py-4 bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 font-black text-[10px] uppercase tracking-widest rounded-2xl hover:bg-slate-200 transition-all shadow-sm">Search Another Profile</button>
                   </div>
                 )}
              </div>
            ) : (
-             <div className="bg-white/50 dark:bg-slate-900/50 rounded-[3rem] p-40 text-center border-4 border-dashed border-white/30 flex flex-col items-center justify-center h-full">
-                <QrCode size={64} className="text-slate-300 dark:text-slate-700 mb-6" />
-                <h3 className="text-3xl font-black text-slate-800 dark:text-white uppercase tracking-tighter leading-none mb-4">Identity Sync Needed</h3>
-                <p className="text-slate-500 dark:text-slate-400 font-medium max-w-sm mx-auto text-lg leading-relaxed uppercase tracking-tight">Search for a student to check and process pending academic liabilities.</p>
+             <div className="bg-white/50 dark:bg-slate-900/50 rounded-[4rem] p-40 text-center border-4 border-dashed border-white/50 dark:border-slate-800 flex flex-col items-center justify-center h-full">
+                <QrCode size={64} className="text-slate-200 dark:text-slate-800 mb-8" />
+                <h3 className="text-3xl font-black text-slate-800 dark:text-white uppercase tracking-tighter leading-none mb-4">Registry Sync Needed</h3>
+                <p className="text-slate-500 dark:text-slate-400 font-bold max-w-sm mx-auto text-sm leading-relaxed uppercase tracking-widest">Search for a student profile to check pending academic dues based on Standard configuration.</p>
              </div>
            )}
         </div>

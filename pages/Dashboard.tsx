@@ -1,6 +1,6 @@
 
 import React, { useRef, useState, useEffect, useMemo } from 'react';
-import { User, FeeRecord, Notice } from '../types';
+import { User, FeeRecord, Notice, MediaAsset } from '../types';
 import { 
   Users, 
   GraduationCap, 
@@ -32,7 +32,11 @@ import {
   ShieldCheck,
   BookOpen,
   Layers,
-  Activity
+  Activity,
+  ChevronLeft,
+  Camera,
+  Plus,
+  MonitorPlay
 } from 'lucide-react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 import { db, supabase } from '../supabase';
@@ -54,6 +58,8 @@ const Dashboard: React.FC<DashboardProps> = ({ user, branding, onUpdateLogo }) =
   const [dailyFees, setDailyFees] = useState(0);
   const [studentCount, setStudentCount] = useState(0);
   const [recentNotices, setRecentNotices] = useState<Notice[]>([]);
+  const [slides, setSlides] = useState<MediaAsset[]>([]);
+  const [currentSlide, setCurrentSlide] = useState(0);
   const [isMounted, setIsMounted] = useState(false);
   
   const isTeacher = user.role === 'TEACHER';
@@ -64,19 +70,28 @@ const Dashboard: React.FC<DashboardProps> = ({ user, branding, onUpdateLogo }) =
     const timer = setTimeout(() => setIsMounted(true), 500);
     fetchRealtimeStats();
     
-    const channel = supabase.channel('dashboard-sync')
+    const channel = supabase.channel('dashboard-sync-v3')
       .on('postgres_changes', { event: '*', schema: 'public', table: 'students' }, () => fetchRealtimeStats())
       .on('postgres_changes', { event: '*', schema: 'public', table: 'fee_ledger' }, () => fetchRealtimeStats())
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'gallery' }, () => fetchRealtimeStats())
       .subscribe();
 
     return () => { clearTimeout(timer); supabase.removeChannel(channel); };
   }, []);
 
+  // Slideshow Auto-play Logic
+  useEffect(() => {
+    if (slides.length <= 1) return;
+    const interval = setInterval(() => {
+      setCurrentSlide(prev => (prev + 1) % slides.length);
+    }, 6000); // 6 Seconds rotation
+    return () => clearInterval(interval);
+  }, [slides]);
+
   const fetchRealtimeStats = async () => {
     try {
       let query = supabase.from('students').select('*', { count: 'exact', head: true });
       
-      // If teacher, show count for assigned class
       if (isTeacher && user.class) {
         query = query.eq('class', user.class);
         if (user.section) query = query.eq('section', user.section);
@@ -91,6 +106,19 @@ const Dashboard: React.FC<DashboardProps> = ({ user, branding, onUpdateLogo }) =
 
       const { data: notices } = await supabase.from('notices').select('*').order('created_at', { ascending: false }).limit(4);
       if (notices) setRecentNotices(notices as any);
+
+      // Fetch ONLY Slideshow marked items
+      const { data: slideshowData } = await supabase
+        .from('gallery')
+        .select('*')
+        .eq('type', 'slideshow')
+        .order('created_at', { ascending: false });
+      
+      if (slideshowData) {
+        setSlides(slideshowData.map(a => ({
+          id: a.id, url: a.url, type: 'image', name: a.name, date: a.date, uploadedBy: a.uploaded_by
+        })));
+      }
 
     } catch (err) { console.error("Dashboard Sync Error:", err); }
     finally { setIsLoading(false); }
@@ -117,6 +145,9 @@ const Dashboard: React.FC<DashboardProps> = ({ user, branding, onUpdateLogo }) =
     { name: 'Mon', attendance: 85 }, { name: 'Tue', attendance: 92 }, { name: 'Wed', attendance: 88 }, { name: 'Thu', attendance: 95 }, { name: 'Fri', attendance: 90 }
   ];
 
+  const nextSlide = () => setCurrentSlide(prev => (prev + 1) % slides.length);
+  const prevSlide = () => setCurrentSlide(prev => (prev - 1 + slides.length) % slides.length);
+
   return (
     <div className="min-h-full dashboard-rainbow-bg -m-4 lg:-m-8 p-4 lg:p-8 animate-in fade-in duration-700 relative overflow-hidden">
       
@@ -130,18 +161,18 @@ const Dashboard: React.FC<DashboardProps> = ({ user, branding, onUpdateLogo }) =
              <h1 className="text-3xl lg:text-5xl font-black tracking-tighter leading-tight rainbow-text uppercase">
                {isTeacher ? 'Faculty Portal.' : 'Management Hub.'}
              </h1>
-             <p className="text-slate-500 dark:text-slate-400 font-bold text-sm lg:text-lg mt-1">Hello, {user.name}. Centralized records are active.</p>
+             <p className="text-slate-500 dark:text-slate-400 font-bold text-sm lg:text-lg mt-1">Hello, {user.name}. Cloud Uplink established.</p>
            </div>
         </div>
         
         {isAdmin && (
-          <button onClick={onUpdateLogo} className="px-8 py-4 bg-white/90 dark:bg-slate-900/90 backdrop-blur-md p-5 rounded-[2rem] flex items-center gap-4 group border border-white/20 dark:border-slate-800 shadow-xl hover:shadow-2xl transition-all">
+          <button onClick={() => window.location.hash = '/admin/slideshow-manager'} className="px-8 py-4 bg-white/90 dark:bg-slate-900/90 backdrop-blur-md p-5 rounded-[2rem] flex items-center gap-4 group border border-white/20 dark:border-slate-800 shadow-xl hover:shadow-2xl transition-all">
              <div className="w-12 h-12 bg-indigo-600 rounded-2xl flex items-center justify-center text-white shadow-lg overflow-hidden group-hover:scale-110 transition-transform">
-                {branding.logo ? <img src={branding.logo} className="w-full h-full object-cover" alt="Logo" /> : <School size={20}/>}
+                <MonitorPlay size={20}/>
              </div>
              <div className="text-left pr-4">
-                <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1">Identity Control</p>
-                <p className="text-xs font-black text-slate-900 dark:text-white uppercase tracking-tight">Edit Branding</p>
+                <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1">Visual Config</p>
+                <p className="text-xs font-black text-slate-900 dark:text-white uppercase tracking-tight">Edit Slideshow</p>
              </div>
           </button>
         )}
@@ -159,6 +190,63 @@ const Dashboard: React.FC<DashboardProps> = ({ user, branding, onUpdateLogo }) =
         )}
       </div>
 
+      {/* INSTITUTIONAL SLIDESHOW SECTION */}
+      <div className="mb-10 relative z-10 animate-in slide-in-from-top-4 duration-1000">
+        <div className="bg-white/80 dark:bg-slate-900/80 backdrop-blur-2xl rounded-[3.5rem] border border-white/50 dark:border-slate-800 shadow-2xl overflow-hidden aspect-[21/9] md:aspect-[25/8] relative group">
+           {slides.length > 0 ? (
+             <>
+               {slides.map((slide, index) => (
+                 <div 
+                   key={slide.id}
+                   className={`absolute inset-0 transition-all duration-1000 ease-in-out ${index === currentSlide ? 'opacity-100 scale-100' : 'opacity-0 scale-110'}`}
+                 >
+                    <img src={slide.url} className="w-full h-full object-cover" alt={slide.name} />
+                    <div className="absolute inset-0 bg-gradient-to-t from-slate-950/80 via-transparent to-transparent"></div>
+                    
+                    <div className="absolute bottom-8 left-8 right-8 flex items-end justify-between">
+                       <div className="bg-white/10 backdrop-blur-md p-6 rounded-[2rem] border border-white/10 max-w-lg">
+                          <p className="text-[8px] font-black text-indigo-400 uppercase tracking-[0.4em] mb-1">Active Bulletin</p>
+                          <h2 className="text-xl md:text-3xl font-black text-white uppercase tracking-tight truncate">{slide.name}</h2>
+                          <div className="flex items-center gap-3 mt-3">
+                             <span className="text-[9px] font-black text-white/40 uppercase tracking-widest flex items-center gap-1.5"><Calendar size={12}/> {slide.date.split(',')[0]}</span>
+                          </div>
+                       </div>
+                       
+                       <div className="hidden md:flex gap-3 no-print">
+                          <button onClick={prevSlide} className="p-4 bg-white/10 backdrop-blur hover:bg-white/20 text-white rounded-2xl transition-all border border-white/10"><ChevronLeft size={24} /></button>
+                          <button onClick={nextSlide} className="p-4 bg-indigo-600 text-white rounded-2xl transition-all shadow-xl hover:bg-indigo-700 border border-white/10"><ChevronRight size={24} /></button>
+                       </div>
+                    </div>
+                 </div>
+               ))}
+               
+               <div className="absolute bottom-4 left-1/2 -translate-x-1/2 flex gap-2 no-print">
+                  {slides.map((_, i) => (
+                    <button 
+                      key={i} 
+                      onClick={() => setCurrentSlide(i)}
+                      className={`h-1.5 transition-all rounded-full ${i === currentSlide ? 'w-8 bg-indigo-500 shadow-[0_0_10px_rgba(99,102,241,0.8)]' : 'w-2 bg-white/30 hover:bg-white/50'}`}
+                    />
+                  ))}
+               </div>
+             </>
+           ) : (
+             <div className="w-full h-full flex flex-col items-center justify-center bg-slate-50 dark:bg-slate-950/50">
+                <div className="w-20 h-20 bg-indigo-50 dark:bg-indigo-900/30 text-indigo-600 rounded-[2rem] flex items-center justify-center mb-6 shadow-inner animate-pulse">
+                   <MonitorPlay size={40} />
+                </div>
+                <h3 className="text-2xl font-black text-slate-800 dark:text-white uppercase tracking-tighter">Hero Stream Offline</h3>
+                <p className="text-slate-500 dark:text-slate-400 font-bold text-xs uppercase tracking-widest mt-2">Initialize dashboard slides via the Slideshow Manager.</p>
+                {isAdmin && (
+                  <button onClick={() => window.location.hash = '/admin/slideshow-manager'} className="mt-8 px-8 py-3 bg-indigo-600 text-white font-black text-[10px] uppercase tracking-widest rounded-xl shadow-xl hover:bg-indigo-700 transition-all flex items-center gap-2">
+                     <Plus size={16} strokeWidth={3} /> Upload Slides
+                  </button>
+                )}
+             </div>
+           )}
+        </div>
+      </div>
+
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-10 relative z-10">
         {stats.map((stat) => (
           <div key={stat.label} className="bg-white/90 dark:bg-slate-900/95 backdrop-blur-xl p-8 rounded-[2.5rem] flex items-center gap-5 border border-white/40 dark:border-slate-800 shadow-lg group hover:-translate-y-2 transition-all">
@@ -170,27 +258,6 @@ const Dashboard: React.FC<DashboardProps> = ({ user, branding, onUpdateLogo }) =
           </div>
         ))}
       </div>
-
-      {isTeacher && (
-        <div className="mb-10 relative z-10 animate-in slide-in-from-bottom-4">
-          <div className="bg-white/90 dark:bg-slate-900/90 backdrop-blur-xl p-10 rounded-[3.5rem] border border-white/40 dark:border-slate-800 shadow-2xl overflow-hidden">
-             <div className="flex items-center gap-4 mb-8">
-                <BookOpen className="text-indigo-600" size={32} />
-                <h3 className="text-2xl font-black uppercase tracking-tight text-slate-900 dark:text-white">Teaching Portfolio / शिक्षण पोर्टफोलियो</h3>
-             </div>
-             <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-                {(user as any).subjects?.length > 0 ? (user as any).subjects.map((sub: string) => (
-                  <div key={sub} className="p-6 bg-slate-50 dark:bg-slate-800 rounded-3xl border border-slate-100 dark:border-slate-700 flex flex-col items-center text-center gap-3 group hover:border-indigo-300 transition-all">
-                     <div className="w-10 h-10 bg-indigo-100 dark:bg-indigo-900/40 text-indigo-600 rounded-xl flex items-center justify-center font-black group-hover:rotate-12 transition-transform">{sub.charAt(0)}</div>
-                     <span className="text-[10px] font-black uppercase tracking-widest text-slate-800 dark:text-slate-200">{sub}</span>
-                  </div>
-                )) : (
-                  <p className="col-span-full text-center py-10 text-slate-400 font-bold uppercase tracking-widest text-xs italic">No subjects assigned in cloud directory.</p>
-                )}
-             </div>
-          </div>
-        </div>
-      )}
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 relative z-10 mb-12">
         <div className="lg:col-span-2 bg-white/80 dark:bg-slate-900/80 backdrop-blur-xl p-8 rounded-[3rem] shadow-xl border border-white/50 dark:border-slate-800 min-h-[450px] flex flex-col">
@@ -288,7 +355,7 @@ const Dashboard: React.FC<DashboardProps> = ({ user, branding, onUpdateLogo }) =
         </div>
         
         <div className="mt-14 pt-8 border-t border-slate-100 dark:border-slate-800 flex flex-col md:flex-row items-center justify-between gap-6 opacity-40">
-           <p className="text-[8px] font-black text-slate-400 uppercase tracking-[0.5em]">Neural Grid Sync Level 4 Established</p>
+           <p className="text-[8px] font-black text-slate-400 uppercase tracking-[0.5em]">Neural Grid Sync Established</p>
            <div className="flex items-center gap-6">
               <span className="text-[8px] font-black text-slate-400 uppercase tracking-widest">Master Key: DIS-26-SYS</span>
               <span className="text-[8px] font-black text-slate-400 uppercase tracking-widest">© 2026 EduManage Pro</span>
