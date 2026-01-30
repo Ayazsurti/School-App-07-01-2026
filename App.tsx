@@ -2,7 +2,7 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { HashRouter, Routes, Route, Navigate, Link, useLocation, useNavigate } from 'react-router-dom';
 import { 
-  Menu, X, LogOut, Bell, Search, ChevronRight, User as UserIcon, Users, AlertTriangle, Camera, Upload, Trash2, Settings, Power, Image as ImageIcon, ShieldCheck, History, PencilRuler, UtensilsCrossed, MessageSquareQuote, Gem, Sparkles, Trophy, Gift, Star, Sun, Moon, Settings2, Eye, EyeOff, CheckCircle2, ChevronUp, ChevronDown, GripVertical, Plus, Edit2, Cloud, School, Loader2, RefreshCw, Video, FileText, BookOpen, SwitchCamera, StopCircle, Activity, Check, LogOut as OutIcon, GripHorizontal, LayoutTemplate, RotateCcw, ClipboardList, GraduationCap, Smartphone, MapPin, Fingerprint, Info, Phone, UserCircle, Heart, Shield, Hash, UserMinus, Palette, Terminal, Cpu, Layers, MonitorPlay
+  Menu, X, LogOut, Bell, Search, ChevronRight, User as UserIcon, Users, AlertTriangle, Camera, Upload, Trash2, Settings, Power, Image as ImageIcon, ShieldCheck, History, PencilRuler, UtensilsCrossed, MessageSquareQuote, Gem, Sparkles, Trophy, Gift, Star, Sun, Moon, Settings2, Eye, EyeOff, CheckCircle2, ChevronUp, ChevronDown, GripVertical, Plus, Edit2, Cloud, School, Loader2, RefreshCw, Video, FileText, BookOpen, SwitchCamera, StopCircle, Activity, Check, LogOut as OutIcon, GripHorizontal, LayoutTemplate, RotateCcw, ClipboardList, GraduationCap, Smartphone, MapPin, Fingerprint, Info, Phone, UserCircle, Heart, Shield, Hash, UserMinus, Palette, Terminal, Cpu, Layers, MonitorPlay, Zap, Megaphone, ArrowUpRight
 } from 'lucide-react';
 import { User, UserRole, DisplaySettings, Student } from './types';
 import Login from './pages/Login';
@@ -153,12 +153,77 @@ const Layout: React.FC<LayoutProps> = ({ user, cloudSettings, branding, onUpdate
   const [isSavingNav, setIsSavingNav] = useState(false);
   const [fullStudentData, setFullStudentData] = useState<any>(null);
 
+  // Global Notification State
+  const [activeNotification, setActiveNotification] = useState<any | null>(null);
+
   const isStudent = user?.role === 'STUDENT';
   const isAdmin = user?.role === 'ADMIN';
 
   const [orderedNav, setOrderedNav] = useState<any[]>([]);
   const dragItem = useRef<number | null>(null);
   const dragOverItem = useRef<number | null>(null);
+
+  const location = useLocation();
+  const navigate = useNavigate();
+
+  // REAL-TIME NOTIFICATION LISTENER
+  useEffect(() => {
+    if (!user) return;
+
+    const notificationChannel = supabase.channel('institutional-broadcasts')
+      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'notices' }, (payload) => {
+        if (isAdmin) return;
+        setActiveNotification({
+          type: 'NOTICE',
+          title: 'New School Notice',
+          message: payload.new.title,
+          icon: <Megaphone className="text-indigo-500" />,
+          path: isStudent ? '/student/notices' : '/teacher/notices'
+        });
+      })
+      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'homework' }, (payload) => {
+        if (isAdmin) return;
+        setActiveNotification({
+          type: 'HOMEWORK',
+          title: 'New Assignment Post',
+          message: payload.new.title,
+          icon: <PencilRuler className="text-amber-500" />,
+          path: isStudent ? '/student/homework' : '/teacher/homework'
+        });
+      })
+      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'curriculum_files' }, (payload) => {
+        if (isAdmin) return;
+        setActiveNotification({
+          type: 'CURRICULUM',
+          title: 'Learning Resource Added',
+          message: payload.new.title,
+          icon: <BookOpen className="text-emerald-500" />,
+          path: isStudent ? '/student/curriculum' : '/teacher/curriculum'
+        });
+      })
+      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'gallery' }, (payload) => {
+        if (isAdmin) return;
+        if (payload.new.type === 'slideshow') return;
+        setActiveNotification({
+          type: 'GALLERY',
+          title: 'New Media Upload',
+          message: payload.new.name,
+          icon: <ImageIcon className="text-rose-500" />,
+          path: isStudent ? '/student/gallery' : '/teacher/gallery'
+        });
+      })
+      .subscribe();
+
+    return () => { supabase.removeChannel(notificationChannel); };
+  }, [user?.role, isAdmin, isStudent]);
+
+  // Auto-dismiss notification
+  useEffect(() => {
+    if (activeNotification) {
+      const timer = setTimeout(() => setActiveNotification(null), 6000);
+      return () => clearTimeout(timer);
+    }
+  }, [activeNotification]);
 
   useEffect(() => {
     if (!user?.role) return;
@@ -199,9 +264,6 @@ const Layout: React.FC<LayoutProps> = ({ user, cloudSettings, branding, onUpdate
     dragItem.current = null; dragOverItem.current = null;
   };
 
-  const location = useLocation();
-  const navigate = useNavigate();
-
   useEffect(() => {
     if (isStudent && user?.id) {
       const fetchStudentDetails = async () => {
@@ -222,6 +284,29 @@ const Layout: React.FC<LayoutProps> = ({ user, cloudSettings, branding, onUpdate
     <div className="min-h-screen flex transition-colors duration-300 relative bg-slate-50 dark:bg-slate-950 app-container">
       <div className="fixed inset-0 z-0 bg-custom-overlay no-print"></div>
       <div className="fixed inset-0 z-0 bg-dim-layer no-print"></div>
+
+      {/* NEW UPDATES NOTIFICATION POPUP */}
+      {activeNotification && (
+        <div className="fixed top-6 left-1/2 -translate-x-1/2 z-[3000] w-full max-w-sm px-4 animate-in slide-in-from-top-full duration-500">
+           <div className="bg-white/90 dark:bg-slate-900/90 backdrop-blur-2xl border border-indigo-100 dark:border-indigo-900 rounded-[2rem] p-5 shadow-[0_25px_50px_-12px_rgba(79,70,229,0.25)] flex items-center gap-5 relative group overflow-hidden">
+              <div className="absolute top-0 left-0 w-1 h-full bg-indigo-600"></div>
+              <div className="w-14 h-14 bg-indigo-50 dark:bg-indigo-900/30 rounded-2xl flex items-center justify-center shrink-0 shadow-inner group-hover:scale-110 transition-transform">
+                 {activeNotification.icon}
+              </div>
+              <div className="flex-1 min-w-0">
+                 <p className="text-[8px] font-black text-indigo-600 dark:text-indigo-400 uppercase tracking-[0.3em] mb-1">{activeNotification.title}</p>
+                 <h4 className="text-xs font-black text-slate-900 dark:text-white uppercase truncate">{activeNotification.message}</h4>
+              </div>
+              <div className="flex flex-col gap-2">
+                 <button onClick={() => { navigate(activeNotification.path); setActiveNotification(null); }} className="px-4 py-2 bg-indigo-600 text-white font-black text-[8px] uppercase tracking-widest rounded-xl shadow-lg hover:bg-indigo-700 active:scale-95 transition-all flex items-center gap-2">VIEW <ArrowUpRight size={12}/></button>
+                 <button onClick={() => setActiveNotification(null)} className="p-2 text-slate-400 hover:text-rose-500 transition-colors"><X size={14} /></button>
+              </div>
+              <div className="absolute bottom-0 left-0 h-1 bg-indigo-600/30 w-full">
+                 <div className="h-full bg-indigo-600 animate-[progress-grow_6s_linear] w-full origin-left"></div>
+              </div>
+           </div>
+        </div>
+      )}
 
       {showLogoutConfirm && (
         <div className="fixed inset-0 z-[2000] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-in fade-in">
@@ -260,7 +345,7 @@ const Layout: React.FC<LayoutProps> = ({ user, cloudSettings, branding, onUpdate
             <div className="flex items-center justify-between mb-8">
                <div className="flex items-center gap-4">
                   <div className="w-12 h-12 bg-indigo-600 rounded-2xl flex items-center justify-center text-white font-bold overflow-hidden shadow-2xl border-2 border-white/20">{schoolLogo ? <img src={schoolLogo} className="w-full h-full object-cover" alt="Logo" /> : <School size={28} />}</div>
-                  <div className="min-w-0"><span className="text-xs font-black text-slate-900 dark:text-white tracking-tighter uppercase truncate block">{schoolName}</span><span className="text-[7px] font-black text-indigo-500 uppercase tracking-[0.4em]">Control Node</span></div>
+                  <div className="min-w-0"><span className="text-xs font-black text-slate-900 dark:text-white tracking-tighter uppercase truncate block">{schoolName}</span><span className="text-[7px] font-black text-indigo-500 uppercase tracking-export tracking-widest">Control Node</span></div>
                </div>
                <button onClick={() => setDarkMode(!darkMode)} className="p-2.5 bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400 rounded-xl hover:text-indigo-600 transition-all shadow-sm">{darkMode ? <Sun size={18} /> : <Moon size={18} />}</button>
             </div>
