@@ -9,6 +9,7 @@ export const supabase = createClient(supabaseUrl, supabaseAnonKey);
 export const getErrorMessage = (err: any): string => {
   if (typeof err === 'string') return err;
   if (err?.code === '42501') return "Database Permission Denied (42501).";
+  if (err?.code === '23505') return "Record already exists for this date.";
   if (err?.message) return err.message;
   return "Cloud Sync Interrupted. Reconnecting...";
 };
@@ -19,10 +20,12 @@ export const db = {
       const cleanUser = (username || '').trim().toLowerCase();
       const cleanPass = (pass || '').trim();
       
+      // Admin Master Identity
       if (cleanUser === 'ayazsurti' && cleanPass === 'Ayaz78692') {
         return { id: 'admin-master', name: 'Ayaz Surti', role: 'ADMIN', profile_image: null };
       }
       
+      // Teacher Identity Check
       const { data: tea, error: teaErr } = await supabase
         .from('teachers')
         .select('*')
@@ -42,10 +45,11 @@ export const db = {
         };
       }
 
+      // Student Identity Check (Username = GR Number)
       const { data: std, error: stdErr } = await supabase
         .from('students')
         .select('*')
-        .eq('gr_number', cleanUser.toUpperCase())
+        .eq('gr_number', username.trim().toUpperCase())
         .eq('password', cleanPass)
         .single();
 
@@ -55,21 +59,21 @@ export const db = {
           role: 'STUDENT', 
           id: std.id, 
           name: std.full_name, 
-          class: std.class, 
+          class: String(std.class || '').trim(), 
           section: std.section,
           accessRights: std.access_rights || [],
           feeOverrides: std.fee_overrides || {}
         };
       }
 
-      throw new Error("Invalid Node Access Key. Check Username or Master Key.");
+      throw new Error("Invalid Credentials. Please verify Username/GR and Master Key.");
     },
 
     async verifyMobile(mobile: string, role: 'TEACHER' | 'STUDENT') {
       const table = role === 'TEACHER' ? 'teachers' : 'students';
       const col = role === 'TEACHER' ? 'mobile' : 'father_mobile';
       const { data, error } = await supabase.from(table).select('id').eq(col, mobile.trim()).single();
-      if (error || !data) throw new Error("Mobile not registered.");
+      if (error || !data) throw new Error("Mobile not registered in school database.");
       return data;
     },
 
@@ -83,7 +87,7 @@ export const db = {
   },
   sms: {
     async sendOTP(mobile: string, otp: string) {
-      console.log(`[SMS] OTP ${otp} -> ${mobile}`);
+      console.log(`[CLOUD_GATEWAY] Dispatching OTP ${otp} to ${mobile}`);
       return { success: true };
     },
     async getHistory() {
@@ -92,17 +96,16 @@ export const db = {
         .select('*')
         .order('created_at', { ascending: false });
       
-      if (error) {
-        const { data: auditData } = await supabase.from('audit_logs').select('*').eq('module', 'SMS').order('created_at', { ascending: false });
-        return (auditData || []).map(a => ({
-          id: a.id, message: a.details, targets: 'Multiple Classes',recipient_count: 'N/A', sent_by: a.username, created_at: a.created_at, timestamp: a.timestamp
-        }));
-      }
+      if (error) return [];
       return data;
     },
     async insertHistory(payload: { message: string, targets: string, recipient_count: number, sent_by: string }) {
       const { data, error } = await supabase.from('sms_history').insert([{
-        message: payload.message, targets: payload.targets, recipient_count: payload.recipient_count, sent_by: payload.sent_by, timestamp: new Date().toLocaleString('en-GB')
+        message: payload.message, 
+        targets: payload.targets, 
+        recipient_count: payload.recipient_count, 
+        sent_by: payload.sent_by, 
+        timestamp: new Date().toLocaleString('en-GB')
       }]).select();
       if (error) throw error;
       return data;
