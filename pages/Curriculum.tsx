@@ -16,28 +16,28 @@ const ALL_CLASSES = [
 const SECTIONS = ['A', 'B', 'C', 'D'];
 
 const Curriculum: React.FC<CurriculumProps> = ({ user }) => {
-  const isStudent = user.role === 'STUDENT';
-  const isTeacher = user.role === 'TEACHER';
+  const userRole = (user.role || '').toUpperCase();
+  const isStudent = userRole === 'STUDENT';
+  const isTeacher = userRole === 'TEACHER';
+  const isAdmin = userRole === 'ADMIN';
   
-  // Restricted classes for Teacher
+  // Authorized classes for Teacher management (used for target selection)
   const authorizedClasses = useMemo(() => {
-    if (user.role === 'ADMIN') return ALL_CLASSES;
+    if (isAdmin) return ALL_CLASSES;
     const teacherClasses = (user as any).classes || (user.class ? [user.class] : []);
     return ALL_CLASSES.filter(c => teacherClasses.includes(c));
-  }, [user]);
+  }, [user, isAdmin]);
 
   const [folders, setFolders] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isSyncing, setIsSyncing] = useState(false);
   const [activeFolderId, setActiveFolderId] = useState<string | null>(null);
   
-  // Modals
   const [showFolderModal, setShowFolderModal] = useState(false);
   const [showFileModal, setShowFileModal] = useState(false);
   const [deleteFolderTarget, setDeleteFolderTarget] = useState<any | null>(null);
   const [deleteFileTarget, setDeleteFileTarget] = useState<any | null>(null);
   
-  // Multi-Targeting States
   const [targetClasses, setTargetClasses] = useState<string[]>([]);
   const [targetSections, setTargetSections] = useState<string[]>(['A', 'B', 'C', 'D']);
   const [searchQuery, setSearchQuery] = useState('');
@@ -48,8 +48,6 @@ const Curriculum: React.FC<CurriculumProps> = ({ user }) => {
   const [uploading, setUploading] = useState(false);
   const [showSuccess, setShowSuccess] = useState(false);
   const [newFolderName, setNewFolderName] = useState('');
-  
-  // For Folder Registration Modal PDF Upload
   const [folderPdf, setFolderPdf] = useState<File | null>(null);
   
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -65,7 +63,7 @@ const Curriculum: React.FC<CurriculumProps> = ({ user }) => {
 
   useEffect(() => {
     fetchCloudData();
-    const channel = supabase.channel('realtime-curriculum-v21')
+    const channel = supabase.channel('realtime-curriculum-master')
       .on('postgres_changes', { event: '*', schema: 'public', table: 'curriculum_folders' }, () => {
         setIsSyncing(true);
         fetchCloudData().then(() => setTimeout(() => setIsSyncing(false), 800));
@@ -89,49 +87,30 @@ const Curriculum: React.FC<CurriculumProps> = ({ user }) => {
   const handleCreateFolder = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!newFolderName.trim() || targetClasses.length === 0) {
-      if(targetClasses.length === 0) alert("Select target Classes for this subject.");
+      if(targetClasses.length === 0) alert("Select target Classes.");
       return;
     }
     
     setUploading(true);
     try {
-      const metadata = { 
-        target_classes: targetClasses.join(','), 
-        target_sections: targetSections.join(',') 
-      };
-      
+      const metadata = { target_classes: targetClasses.join(','), target_sections: targetSections.join(',') };
       const folderResult = await db.curriculum.insertFolder(newFolderName.toUpperCase(), new Date().toLocaleString(), metadata);
       
-      if (!folderResult || folderResult.length === 0) {
-        throw new Error("Database failed to return subject node reference.");
-      }
-      
-      const newFolderId = folderResult[0].id;
-
-      if (folderPdf) {
-        const fileData = await new Promise<string>((resolve, reject) => {
+      if (folderResult && folderResult[0] && folderPdf) {
+        const fileData = await new Promise<string>((resolve) => {
            const reader = new FileReader();
            reader.onload = (ev) => resolve(ev.target?.result as string);
-           reader.onerror = reject;
            reader.readAsDataURL(folderPdf);
         });
 
-        const payload = {
-          folderId: newFolderId,
+        await db.curriculum.insertFile({
+          folderId: folderResult[0].id,
           title: `${newFolderName.toUpperCase()} SYLLABUS`,
           type: 'PDF',
           mediaUrl: fileData,
-          metadata: { 
-             target_classes: targetClasses.join(','), 
-             target_sections: targetSections.join(','),
-             size: folderPdf.size 
-          },
+          metadata,
           timestamp: new Date().toLocaleString().toUpperCase()
-        };
-        await db.curriculum.insertFile(payload);
-        await createAuditLog(user, 'CREATE', 'Curriculum', `Subject Integrated: ${newFolderName.toUpperCase()} with Document`);
-      } else {
-        await createAuditLog(user, 'CREATE', 'Curriculum', `Subject Registered: ${newFolderName.toUpperCase()}`);
+        });
       }
 
       setNewFolderName('');
@@ -141,103 +120,48 @@ const Curriculum: React.FC<CurriculumProps> = ({ user }) => {
       setShowSuccess(true);
       setTimeout(() => setShowSuccess(false), 3000);
       fetchCloudData();
-    } catch (err: any) { 
-       alert(`Sync Error: ${getErrorMessage(err)}`); 
-    }
+    } catch (err: any) { alert(`Error: ${getErrorMessage(err)}`); }
     finally { setUploading(false); }
   };
 
   const handleUploadMaterial = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!selectedFile || !activeFolderId || !materialTitle.trim() || targetClasses.length === 0) {
-       if(targetClasses.length === 0) alert("Select at least one target class.");
-       return;
-    }
+    if (!selectedFile || !activeFolderId || !materialTitle.trim() || targetClasses.length === 0) return;
     setUploading(true);
     
     const reader = new FileReader();
     reader.onload = async (ev) => {
       try {
-        const payload = {
+        await db.curriculum.insertFile({
           folderId: activeFolderId,
           title: materialTitle.toUpperCase(),
           type: selectedFile.type.includes('pdf') ? 'PDF' : 'IMAGE',
           mediaUrl: ev.target?.result as string,
-          metadata: { 
-             target_classes: targetClasses.join(','), 
-             target_sections: targetSections.join(','),
-             size: selectedFile.size 
-          },
+          metadata: { target_classes: targetClasses.join(','), target_sections: targetSections.join(',') },
           timestamp: new Date().toLocaleString().toUpperCase()
-        };
-        await db.curriculum.insertFile(payload);
-        await createAuditLog(user, 'CREATE', 'Curriculum', `Asset Published: ${payload.title}`);
+        });
         setShowFileModal(false);
         setMaterialTitle('');
         setSelectedFile(null);
         setTargetClasses([]);
         setShowSuccess(true);
         setTimeout(() => setShowSuccess(false), 3000);
-      } catch (err) { alert(`Asset Sync Failed: ${getErrorMessage(err)}`); }
+      } catch (err) { console.error(err); }
       finally { setUploading(false); }
     };
     reader.readAsDataURL(selectedFile);
   };
 
-  const confirmDeleteFolder = async () => {
-    if (!deleteFolderTarget) return;
-    setUploading(true);
-    try {
-      // First delete all files in folder if any (or rely on Cascade if set up in DB)
-      // For safety, we call delete on the folder
-      const { error } = await supabase.from('curriculum_folders').delete().eq('id', deleteFolderTarget.id);
-      if (error) throw error;
-      
-      await createAuditLog(user, 'DELETE', 'Curriculum', `Subject Purged: ${deleteFolderTarget.name}`);
-      setDeleteFolderTarget(null);
-      setShowSuccess(true);
-      setTimeout(() => setShowSuccess(false), 3000);
-      fetchCloudData();
-    } catch (err: any) {
-      alert(`Delete Failed: ${getErrorMessage(err)}`);
-    } finally {
-      setUploading(false);
-    }
-  };
-
-  const confirmDeleteFile = async () => {
-    if (!deleteFileTarget) return;
-    setUploading(true);
-    try {
-      await db.curriculum.deleteFile(deleteFileTarget.id);
-      await createAuditLog(user, 'DELETE', 'Curriculum', `Material Purged: ${deleteFileTarget.title}`);
-      setDeleteFileTarget(null);
-      setShowSuccess(true);
-      setTimeout(() => setShowSuccess(false), 3000);
-      fetchCloudData();
-    } catch (err: any) {
-      alert(`Delete Failed: ${getErrorMessage(err)}`);
-    } finally {
-      setUploading(false);
-    }
-  };
-
   const filteredFolders = useMemo(() => {
     return folders.filter(f => {
-      if (isStudent || isTeacher) {
+      // Teachers and Admins see everything
+      if (isStudent) {
         const targets = f.metadata?.target_classes?.split(',') || [];
-        const sections = f.metadata?.target_sections?.split(',') || [];
-        const userClass = user.class;
-        const userSection = user.section;
-        if (!f.metadata) return true; 
-        
-        // For Teacher/Student, they only see folders that overlap with their authorized classes
-        const teacherClasses = (user as any).classes || (user.class ? [user.class] : []);
-        return targets.some(t => teacherClasses.includes(t));
+        return targets.includes(user.class || '');
       }
       return true;
     });
-  }, [folders, isStudent, isTeacher, user]);
+  }, [folders, isStudent, user.class]);
 
   const activeFolder = useMemo(() => folders.find(f => f.id === activeFolderId), [folders, activeFolderId]);
   
@@ -245,12 +169,11 @@ const Curriculum: React.FC<CurriculumProps> = ({ user }) => {
     if (!activeFolder?.curriculum_files) return [];
     return activeFolder.curriculum_files.filter((f: any) => {
       const matchesSearch = f.title.toLowerCase().includes(searchQuery.toLowerCase());
+      // Teachers and Admins see all files in the folder
       if (isStudent) {
         const targets = f.metadata?.target_classes?.split(',') || [];
         const sections = f.metadata?.target_sections?.split(',') || [];
-        const studentClass = user.class;
-        const studentSection = user.section;
-        return matchesSearch && targets.includes(studentClass) && sections.includes(studentSection);
+        return matchesSearch && targets.includes(user.class || '') && sections.includes(user.section || '');
       }
       return matchesSearch;
     });
@@ -271,10 +194,7 @@ const Curriculum: React.FC<CurriculumProps> = ({ user }) => {
         <div className="fixed top-24 right-8 z-[1000] animate-in slide-in-from-right-8 duration-500">
            <div className="bg-emerald-600 text-white px-8 py-5 rounded-[2rem] shadow-2xl flex items-center gap-4 border border-emerald-500/50 backdrop-blur-xl">
               <CheckCircle2 size={24} strokeWidth={3} />
-              <div>
-                 <p className="font-black text-xs uppercase tracking-widest">Registry Updated</p>
-                 <p className="text-[10px] font-bold text-emerald-100 uppercase mt-0.5">Identity Assets Synced</p>
-              </div>
+              <p className="font-black text-xs uppercase tracking-widest">Registry Updated</p>
            </div>
         </div>
       )}
@@ -306,7 +226,7 @@ const Curriculum: React.FC<CurriculumProps> = ({ user }) => {
                     <h3 className="text-2xl font-black text-slate-900 dark:text-white uppercase truncate tracking-tight">{folder.name}</h3>
                     <div className="space-y-1 mt-2">
                         <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">{folder.curriculum_files?.length || 0} Assets Archived</p>
-                        <p className="text-[8px] font-black text-indigo-400 uppercase tracking-widest truncate">Target: {folder.metadata?.target_classes || 'Standard distribution'}</p>
+                        <p className="text-[8px] font-black text-indigo-400 uppercase tracking-widest truncate">Target: {folder.metadata?.target_classes || 'Global Distribution'}</p>
                     </div>
                  </div>
                  {!isStudent && (
@@ -319,12 +239,6 @@ const Curriculum: React.FC<CurriculumProps> = ({ user }) => {
                  )}
               </div>
            ))}
-           {filteredFolders.length === 0 && (
-              <div className="col-span-full py-40 text-center border-4 border-dashed border-slate-100 dark:border-slate-800 rounded-[4rem] flex flex-col items-center justify-center">
-                 <Folder size={64} className="text-slate-200 dark:text-slate-800 mb-6" />
-                 <h3 className="text-2xl font-black text-slate-300 uppercase tracking-tighter">Archive Node Empty</h3>
-              </div>
-           )}
         </div>
       ) : (
         <div className="bg-white dark:bg-slate-900 rounded-[3.5rem] shadow-sm border border-slate-100 dark:border-slate-800 overflow-hidden mx-4 sm:mx-0">
@@ -362,12 +276,6 @@ const Curriculum: React.FC<CurriculumProps> = ({ user }) => {
                    </div>
                 </div>
               ))}
-              {filteredFiles.length === 0 && (
-                <div className="py-32 text-center opacity-30 flex flex-col items-center">
-                   <FileText size={64} className="mb-6 text-slate-300" />
-                   <p className="font-black text-sm uppercase tracking-[0.3em] text-slate-400">Archive empty for current view</p>
-                </div>
-              )}
            </div>
         </div>
       )}
@@ -375,15 +283,18 @@ const Curriculum: React.FC<CurriculumProps> = ({ user }) => {
       {/* DELETE FOLDER CONFIRMATION */}
       {deleteFolderTarget && (
         <div className="fixed inset-0 z-[1500] flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-md animate-in fade-in">
-           <div className="bg-white dark:bg-slate-900 rounded-[2.5rem] p-8 max-w-sm w-full shadow-2xl text-center border border-slate-100 dark:border-slate-800 animate-in zoom-in-95">
+           <div className="bg-white dark:bg-slate-900 rounded-[2.5rem] p-8 max-sm w-full shadow-2xl text-center border border-slate-100 dark:border-slate-800 animate-in zoom-in-95">
               <div className="w-16 h-16 bg-rose-50 dark:bg-rose-900/20 text-rose-600 rounded-3xl flex items-center justify-center mb-6 mx-auto shadow-inner border border-rose-100">
                  <AlertTriangle size={32} strokeWidth={2.5} />
               </div>
               <h3 className="text-xl font-black text-slate-900 dark:text-white mb-2 uppercase tracking-tighter">Purge Subject?</h3>
-              <p className="text-slate-500 dark:text-slate-400 mb-8 font-medium text-[10px] leading-relaxed uppercase tracking-widest">Deleting <b>{deleteFolderTarget.name}</b> will permanently erase all associated materials. This action is irreversible.</p>
+              <p className="text-slate-500 dark:text-slate-400 mb-8 font-medium text-[10px] leading-relaxed uppercase tracking-widest">Delete <b>{deleteFolderTarget.name}</b> permanently?</p>
               <div className="grid grid-cols-2 gap-3">
                  <button onClick={() => setDeleteFolderTarget(null)} className="py-4 bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 font-black rounded-2xl uppercase text-[10px]">Cancel</button>
-                 <button onClick={confirmDeleteFolder} className="py-4 bg-rose-600 text-white font-black rounded-2xl shadow-xl hover:bg-rose-700 transition-all uppercase text-[10px]">Delete Hub</button>
+                 <button onClick={async () => {
+                    const { error } = await supabase.from('curriculum_folders').delete().eq('id', deleteFolderTarget.id);
+                    if (!error) { fetchCloudData(); setDeleteFolderTarget(null); }
+                 }} className="py-4 bg-rose-600 text-white font-black rounded-2xl shadow-xl hover:bg-rose-700 transition-all uppercase text-[10px]">Delete Hub</button>
               </div>
            </div>
         </div>
@@ -392,15 +303,19 @@ const Curriculum: React.FC<CurriculumProps> = ({ user }) => {
       {/* DELETE FILE CONFIRMATION */}
       {deleteFileTarget && (
         <div className="fixed inset-0 z-[1500] flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-md animate-in fade-in">
-           <div className="bg-white dark:bg-slate-900 rounded-[2.5rem] p-8 max-w-sm w-full shadow-2xl text-center border border-slate-100 dark:border-slate-800 animate-in zoom-in-95">
+           <div className="bg-white dark:bg-slate-900 rounded-[2.5rem] p-8 max-sm w-full shadow-2xl text-center border border-slate-100 dark:border-slate-800 animate-in zoom-in-95">
               <div className="w-16 h-16 bg-rose-50 dark:bg-rose-900/20 text-rose-600 rounded-3xl flex items-center justify-center mb-6 mx-auto shadow-inner border border-rose-100">
                  <Trash2 size={32} strokeWidth={2.5} />
               </div>
               <h3 className="text-xl font-black text-slate-900 dark:text-white mb-2 uppercase tracking-tighter">Remove Asset?</h3>
-              <p className="text-slate-500 dark:text-slate-400 mb-8 font-medium text-[10px] leading-relaxed uppercase tracking-widest">Remove <b>{deleteFileTarget.title}</b> from the educational vault permanently?</p>
+              <p className="text-slate-500 dark:text-slate-400 mb-8 font-medium text-[10px] leading-relaxed uppercase tracking-widest">Remove <b>{deleteFileTarget.title}</b>?</p>
               <div className="grid grid-cols-2 gap-3">
                  <button onClick={() => setDeleteFileTarget(null)} className="py-4 bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 font-black rounded-2xl uppercase text-[10px]">Cancel</button>
-                 <button onClick={confirmDeleteFile} className="py-4 bg-rose-600 text-white font-black rounded-2xl shadow-xl hover:bg-rose-700 transition-all uppercase text-[10px]">Purge File</button>
+                 <button onClick={async () => {
+                    await db.curriculum.deleteFile(deleteFileTarget.id);
+                    fetchCloudData();
+                    setDeleteFileTarget(null);
+                 }} className="py-4 bg-rose-600 text-white font-black rounded-2xl shadow-xl hover:bg-rose-700 transition-all uppercase text-[10px]">Purge File</button>
               </div>
            </div>
         </div>
@@ -410,69 +325,41 @@ const Curriculum: React.FC<CurriculumProps> = ({ user }) => {
         <div className="fixed inset-0 z-[1200] flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-md animate-in fade-in">
            <div className="bg-white dark:bg-slate-900 rounded-[2.5rem] p-1 shadow-2xl max-w-4xl w-full max-h-[90vh] overflow-hidden flex flex-col border border-slate-100 dark:border-slate-800 animate-in zoom-in-95">
               <div className="p-6 border-b border-slate-100 dark:border-slate-800 flex justify-between items-center bg-slate-50/50 dark:bg-slate-800/30">
-                 <div>
-                    <h3 className="text-xl font-black text-slate-900 dark:text-white uppercase tracking-tight">Register Subject</h3>
-                    <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mt-1">Identity & Document Protocol</p>
-                 </div>
+                 <h3 className="text-xl font-black text-slate-900 dark:text-white uppercase tracking-tight">Register Subject</h3>
                  <button onClick={() => setShowFolderModal(false)} className="p-2 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-full text-slate-400 transition-all"><X size={24} /></button>
               </div>
               <form onSubmit={handleCreateFolder} className="flex-1 overflow-y-auto p-8 space-y-8 custom-scrollbar flex flex-col lg:flex-row gap-8 bg-white dark:bg-slate-900">
                  <div className="flex-1 space-y-6">
                     <div className="space-y-2">
-                       <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest ml-1 block">Subject Folder Title</label>
+                       <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest ml-1 block">Subject Title</label>
                        <input type="text" required value={newFolderName} onChange={e => setNewFolderName(e.target.value.toUpperCase())} placeholder="E.G. MATHEMATICS" className="w-full bg-slate-50 dark:bg-slate-800 border-none rounded-2xl px-6 py-4 font-black uppercase text-xl text-indigo-600 outline-none focus:ring-2 focus:ring-indigo-500 shadow-inner" />
                     </div>
-                    
                     <div className="space-y-2">
                        <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest ml-1 block">Attach PDF (Optional)</label>
-                       <div 
-                         onClick={() => folderPdfRef.current?.click()}
-                         className={`w-full h-40 border-4 border-dashed rounded-[2rem] flex flex-col items-center justify-center gap-2 cursor-pointer transition-all ${folderPdf ? 'bg-indigo-50 border-indigo-200 text-indigo-600' : 'bg-slate-50 dark:bg-slate-800 border-slate-100 dark:border-slate-700 text-slate-300 hover:bg-slate-100'}`}
-                       >
-                          {uploading ? <Loader2 size={24} className="animate-spin" /> : <Upload size={32} strokeWidth={1.5} />}
-                          <div className="text-center px-6">
-                             <p className="text-[10px] font-black uppercase tracking-widest truncate max-w-[250px]">{folderPdf ? folderPdf.name : 'Tap to attach syllabus'}</p>
-                          </div>
+                       <div onClick={() => folderPdfRef.current?.click()} className={`w-full h-40 border-4 border-dashed rounded-[2rem] flex flex-col items-center justify-center gap-2 cursor-pointer transition-all ${folderPdf ? 'bg-indigo-50 border-indigo-200 text-indigo-600' : 'bg-slate-50 dark:bg-slate-800 border-slate-100 dark:border-slate-700 text-slate-300 hover:bg-slate-100'}`}>
+                          <Upload size={32} />
+                          <p className="text-[10px] font-black uppercase truncate max-w-[250px]">{folderPdf ? folderPdf.name : 'Tap to attach syllabus'}</p>
                        </div>
                        <input type="file" ref={folderPdfRef} className="hidden" accept=".pdf" onChange={e => setFolderPdf(e.target.files?.[0] || null)} />
                     </div>
-
-                    <div className="p-5 bg-indigo-50/50 dark:bg-indigo-950/20 rounded-[1.5rem] border-2 border-dashed border-indigo-100 dark:border-indigo-800">
-                       <p className="text-[9px] font-bold text-indigo-700 dark:text-indigo-300 leading-relaxed uppercase">Sync protocol: Subject and primary resource created in one cycle.</p>
-                    </div>
                  </div>
-
                  <div className="w-full lg:w-80 bg-slate-50 dark:bg-slate-800/50 rounded-[2.5rem] p-8 space-y-8 border border-slate-100 dark:border-slate-800 shadow-inner">
                     <div className="space-y-4">
-                       <div className="flex justify-between items-center px-1">
-                          <h4 className="text-[9px] font-black text-indigo-600 uppercase tracking-widest flex items-center gap-2"><CheckSquare size={14}/> Standards</h4>
-                          <button type="button" onClick={() => setTargetClasses(targetClasses.length === authorizedClasses.length ? [] : [...authorizedClasses])} className="text-[8px] font-black text-slate-400 uppercase hover:text-indigo-600 transition-colors">Select All</button>
-                       </div>
+                       <h4 className="text-[9px] font-black text-indigo-600 uppercase tracking-widest flex items-center gap-2"><CheckSquare size={14}/> Standards</h4>
                        <div className="grid grid-cols-1 gap-1.5 max-h-[200px] overflow-y-auto custom-scrollbar pr-2">
                           {authorizedClasses.map(cls => (
                              <button key={cls} type="button" onClick={() => toggleClass(cls)} className={`flex items-center gap-3 p-3 rounded-xl border transition-all text-left ${targetClasses.includes(cls) ? 'bg-indigo-600 border-indigo-600 text-white shadow-md' : 'bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-700 text-slate-400 hover:border-indigo-100'}`}>
-                                {targetClasses.includes(cls) ? <CheckSquare size={14} strokeWidth={3} /> : <Square size={14} />}
+                                {targetClasses.includes(cls) ? <CheckSquare size={14} /> : <Square size={14} />}
                                 <span className="text-[10px] font-black uppercase truncate">{cls}</span>
-                             </button>
-                          ))}
-                       </div>
-                    </div>
-                    
-                    <div className="space-y-4 pt-4 border-t border-slate-200 dark:border-slate-700">
-                       <h4 className="text-[9px] font-black text-indigo-600 uppercase tracking-widest flex items-center gap-2 px-1"><Layers size={14}/> Sections</h4>
-                       <div className="grid grid-cols-2 gap-2">
-                          {SECTIONS.map(sec => (
-                             <button key={sec} type="button" onClick={() => toggleSection(sec)} className={`py-3 rounded-xl border font-black text-[10px] transition-all ${targetSections.includes(sec) ? 'bg-indigo-600 border-indigo-600 text-white shadow-md' : 'bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-700 text-slate-400 hover:border-indigo-100'}`}>
-                                SEC {sec}
                              </button>
                           ))}
                        </div>
                     </div>
                  </div>
               </form>
-              <div className="p-8 border-t border-slate-100 bg-slate-50/50 dark:bg-slate-800/30">
-                 <button onClick={handleCreateFolder} disabled={uploading || !newFolderName.trim() || targetClasses.length === 0} className="w-full py-5 bg-indigo-600 text-white font-black rounded-[1.5rem] shadow-xl hover:bg-indigo-700 transition-all uppercase text-xs tracking-widest flex items-center justify-center gap-3 disabled:opacity-40">
-                    {uploading ? <Loader2 className="animate-spin" size={20} /> : <ShieldCheck size={20} />} Initialize Subject
+              <div className="p-8 border-t border-slate-100 bg-slate-50/50">
+                 <button onClick={handleCreateFolder} disabled={uploading || targetClasses.length === 0} className="w-full py-5 bg-indigo-600 text-white font-black rounded-[1.5rem] shadow-xl hover:bg-indigo-700 transition-all uppercase text-xs tracking-widest flex items-center justify-center gap-3">
+                    {uploading ? <Loader2 className="animate-spin" /> : <ShieldCheck size={20} />} Initialize Subject
                  </button>
               </div>
            </div>
@@ -482,63 +369,34 @@ const Curriculum: React.FC<CurriculumProps> = ({ user }) => {
       {showFileModal && (
         <div className="fixed inset-0 z-[1200] flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-md animate-in fade-in">
            <div className="bg-white dark:bg-slate-900 rounded-[3rem] p-1 shadow-2xl max-w-3xl w-full max-h-[90vh] overflow-hidden flex flex-col border border-slate-100 dark:border-slate-800 animate-in zoom-in-95">
-              <div className="p-8 border-b border-slate-100 dark:border-slate-800 flex justify-between items-center bg-slate-50/50 dark:bg-slate-800/30">
-                 <div>
-                    <h3 className="text-xl font-black text-slate-900 dark:text-white uppercase tracking-tight">Sync Asset to Cloud</h3>
-                    <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-1">Multi-Target Protocol</p>
-                 </div>
+              <div className="p-8 border-b border-slate-100 dark:border-slate-800 flex justify-between items-center bg-slate-50/50">
+                 <h3 className="text-xl font-black text-slate-900 dark:text-white uppercase tracking-tight">Sync Asset</h3>
                  <button onClick={() => setShowFileModal(false)} className="p-2 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-full text-slate-400 transition-all"><X size={24} /></button>
               </div>
               <form onSubmit={handleUploadMaterial} className="p-8 space-y-8 overflow-y-auto custom-scrollbar flex-1 flex flex-col gap-8 bg-white dark:bg-slate-900">
                  <div className="space-y-6">
-                    <div className="space-y-2">
-                       <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest ml-1">Document Heading</label>
-                       <input type="text" required value={materialTitle} onChange={e => setMaterialTitle(e.target.value.toUpperCase())} placeholder="E.G. CHAPTER 5 STUDY MATERIAL" className="w-full bg-slate-50 dark:bg-slate-800 border-none rounded-xl px-6 py-4 font-black uppercase text-lg text-indigo-600 outline-none focus:ring-2 focus:ring-indigo-500 shadow-inner" />
-                    </div>
-                    <div 
-                      onClick={() => fileInputRef.current?.click()}
-                      className={`w-full h-40 border-4 border-dashed rounded-[2rem] flex flex-col items-center justify-center gap-3 cursor-pointer transition-all ${selectedFile ? 'bg-indigo-50 border-indigo-200 text-indigo-600' : 'bg-slate-50 dark:bg-slate-800 border-slate-100 dark:border-slate-700 text-slate-300 hover:bg-slate-100'}`}
-                    >
-                       {uploading ? <Loader2 size={32} className="animate-spin" /> : <Upload size={48} strokeWidth={1.5} />}
-                       <div className="text-center px-8">
-                          <p className="text-xs font-black uppercase tracking-widest truncate max-w-[300px]">{selectedFile ? selectedFile.name : 'Tap to Browse Repository'}</p>
-                       </div>
+                    <input type="text" required value={materialTitle} onChange={e => setMaterialTitle(e.target.value.toUpperCase())} placeholder="DOCUMENT HEADING..." className="w-full bg-slate-50 dark:bg-slate-800 border-none rounded-xl px-6 py-4 font-black uppercase text-lg text-indigo-600 outline-none shadow-inner" />
+                    <div onClick={() => fileInputRef.current?.click()} className={`w-full h-40 border-4 border-dashed rounded-[2rem] flex flex-col items-center justify-center gap-3 cursor-pointer transition-all ${selectedFile ? 'bg-indigo-50 border-indigo-200 text-indigo-600' : 'bg-slate-50 dark:bg-slate-800 border-slate-100 text-slate-300 hover:bg-slate-100'}`}>
+                       <Upload size={48} strokeWidth={1.5} />
+                       <p className="text-xs font-black uppercase tracking-widest truncate max-w-[300px]">{selectedFile ? selectedFile.name : 'Tap to Browse repository'}</p>
                     </div>
                     <input type="file" ref={fileInputRef} className="hidden" accept=".pdf,image/*" onChange={e => setSelectedFile(e.target.files?.[0] || null)} />
                  </div>
-
                  <div className="bg-slate-50 dark:bg-slate-800/50 rounded-[2.5rem] p-8 space-y-8 border border-slate-100 dark:border-slate-800 shadow-inner">
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                       <div className="space-y-4">
-                          <div className="flex justify-between items-center px-1">
-                             <h4 className="text-[9px] font-black text-indigo-600 uppercase tracking-widest flex items-center gap-2"><CheckSquare size={14}/> Standards</h4>
-                             <button type="button" onClick={() => setTargetClasses(targetClasses.length === authorizedClasses.length ? [] : [...authorizedClasses])} className="text-[8px] font-black text-slate-400 uppercase">All</button>
-                          </div>
-                          <div className="grid grid-cols-1 gap-1 max-h-[150px] overflow-y-auto custom-scrollbar pr-1">
-                             {authorizedClasses.map(cls => (
-                                <button key={cls} type="button" onClick={() => toggleClass(cls)} className={`flex items-center gap-3 p-3 rounded-xl border transition-all text-left ${targetClasses.includes(cls) ? 'bg-indigo-600 border-indigo-600 text-white shadow-md' : 'bg-white dark:bg-slate-900 border-slate-100'}`}>
-                                   {targetClasses.includes(cls) ? <CheckSquare size={14} /> : <Square size={14} />}
-                                   <span className="text-[9px] font-black uppercase truncate">{cls}</span>
-                                </button>
-                             ))}
-                          </div>
-                       </div>
-                       <div className="space-y-4">
-                          <h4 className="text-[9px] font-black text-indigo-600 uppercase tracking-widest flex items-center gap-2 px-1"><Layers size={14}/> Sections</h4>
-                          <div className="grid grid-cols-2 gap-2">
-                             {SECTIONS.map(sec => (
-                                <button key={sec} type="button" onClick={() => toggleSection(sec)} className={`py-3 rounded-xl border font-black text-[10px] transition-all ${targetSections.includes(sec) ? 'bg-indigo-600 border-indigo-600 text-white' : 'bg-white dark:bg-slate-900 border-slate-100'}`}>
-                                   SEC {sec}
-                                </button>
-                             ))}
-                          </div>
-                       </div>
+                    <h4 className="text-[9px] font-black text-indigo-600 uppercase tracking-widest flex items-center gap-2"><CheckSquare size={14}/> Standards Selection</h4>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 max-h-[150px] overflow-y-auto custom-scrollbar pr-1">
+                       {authorizedClasses.map(cls => (
+                          <button key={cls} type="button" onClick={() => toggleClass(cls)} className={`flex items-center gap-3 p-3 rounded-xl border transition-all text-left ${targetClasses.includes(cls) ? 'bg-indigo-600 border-indigo-600 text-white shadow-md' : 'bg-white dark:bg-slate-900 border-slate-100'}`}>
+                             {targetClasses.includes(cls) ? <CheckSquare size={14} /> : <Square size={14} />}
+                             <span className="text-[9px] font-black uppercase truncate">{cls}</span>
+                          </button>
+                       ))}
                     </div>
                  </div>
               </form>
-              <div className="p-8 bg-slate-50/50 dark:bg-slate-800/30 border-t border-slate-100 dark:border-slate-800">
-                 <button onClick={handleUploadMaterial} disabled={uploading || !selectedFile || targetClasses.length === 0} className="w-full py-6 bg-indigo-600 text-white font-black rounded-3xl shadow-xl hover:bg-indigo-700 transition-all uppercase text-xs tracking-widest flex items-center justify-center gap-4 active:scale-95 disabled:opacity-40">
-                    {uploading ? <Loader2 className="animate-spin" size={20} /> : <ShieldCheck size={20} />} Sync Asset to Cloud
+              <div className="p-8 bg-slate-50/50 border-t border-slate-100">
+                 <button onClick={handleUploadMaterial} disabled={uploading || !selectedFile || targetClasses.length === 0} className="w-full py-6 bg-indigo-600 text-white font-black rounded-3xl shadow-xl hover:bg-indigo-700 transition-all uppercase text-xs tracking-widest flex items-center justify-center gap-4">
+                    {uploading ? <Loader2 className="animate-spin" /> : <ShieldCheck size={20} />} Sync Asset to Cloud
                  </button>
               </div>
            </div>
@@ -549,13 +407,7 @@ const Curriculum: React.FC<CurriculumProps> = ({ user }) => {
         <div className="fixed inset-0 z-[1300] bg-slate-950/60 backdrop-blur-md flex items-center justify-center p-4 lg:p-10 animate-in fade-in duration-300">
            <div className="bg-white dark:bg-slate-900 rounded-[3rem] w-full max-w-4xl h-[85vh] flex flex-col shadow-2xl border border-slate-100 dark:border-slate-800 overflow-hidden animate-in zoom-in-95">
               <div className="p-6 border-b border-slate-100 flex items-center justify-between bg-slate-50/50 dark:bg-slate-800/30">
-                 <div className="flex items-center gap-4">
-                    <div className="w-10 h-10 bg-indigo-600 text-white rounded-xl flex items-center justify-center shadow-lg"><FileText size={20}/></div>
-                    <div>
-                       <h3 className="text-sm font-black uppercase tracking-tight text-slate-800 dark:text-white truncate max-w-[200px] md:max-w-md">{viewingFile.title}</h3>
-                       <p className="text-[8px] font-bold text-slate-400 uppercase tracking-widest">{viewingFile.type} DOCUMENT NODE</p>
-                    </div>
-                 </div>
+                 <h3 className="text-sm font-black uppercase tracking-tight text-slate-800 dark:text-white truncate">{viewingFile.title}</h3>
                  <button onClick={() => setViewingFile(null)} className="p-2 hover:bg-slate-100 rounded-full text-slate-400 transition-all"><X size={24} /></button>
               </div>
               <div className="flex-1 overflow-hidden bg-slate-100 dark:bg-slate-950">
@@ -573,12 +425,5 @@ const Curriculum: React.FC<CurriculumProps> = ({ user }) => {
     </div>
   );
 };
-
-// Local component for FileUp SVG, not imported from lucide-react to avoid conflict
-const FileUp = ({ size, className, strokeWidth }: { size: number, className?: string, strokeWidth?: number }) => (
-  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={strokeWidth || 2} strokeLinecap="round" strokeLinejoin="round" className={className}>
-    <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="12" y1="18" x2="12" y2="12"/><polyline points="9 15 12 12 15 15"/>
-  </svg>
-);
 
 export default Curriculum;
