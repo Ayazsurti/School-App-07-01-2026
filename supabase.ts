@@ -200,14 +200,14 @@ export const db = {
         name: t.fullName,
         staff_id: t.staffId,
         mobile: t.mobile,
-        alternate_mobile: t.alternateMobile,
+        alternate_mobile: t.alternate_mobile,
         email: t.email,
         qualification: t.qualification,
         residence_address: t.residenceAddress,
         gender: t.gender,
         status: t.status,
         profile_image: t.profileImage,
-        signature_image: t.signatureImage,
+        signature_image: t.signature_image,
         joining_date: t.joiningDate,
         dob: t.dob,
         subject: Array.isArray(t.subjects) ? t.subjects.join(', ') : t.subjects,
@@ -244,7 +244,11 @@ export const db = {
       return data;
     },
     async bulkUpsert(records: any[]) {
-      const { data, error } = await supabase.from('attendance').upsert(records).select();
+      // FIX: Explicitly handle conflict on student_id and date for robust past-date updates
+      const { data, error } = await supabase
+        .from('attendance')
+        .upsert(records, { onConflict: 'student_id, date' })
+        .select();
       if (error) throw error;
       return data;
     }

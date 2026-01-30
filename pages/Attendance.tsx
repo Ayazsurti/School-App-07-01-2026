@@ -7,8 +7,9 @@ import {
   CheckCircle2, Loader2, ChevronLeft, ChevronRight, 
   ChevronDown,
   ArrowLeft, ArrowRight, LayoutGrid,
-  AlertCircle, Zap, CornerDownLeft, Umbrella, Plus, Trash2, Edit3,
-  Square, CheckSquare, Layers, Users, Info, Search, Target
+  AlertCircle, AlertTriangle, Zap, CornerDownLeft, Umbrella, Plus, Trash2, Edit3,
+  Square, CheckSquare, Layers, Users, Info, Search, Target,
+  CalendarDays, Trash
 } from 'lucide-react';
 
 interface AttendanceProps { user: User; }
@@ -66,8 +67,11 @@ const Attendance: React.FC<AttendanceProps> = ({ user }) => {
   const [selectedSection, setSelectedSection] = useState(isTeacher && user.section ? user.section : 'A');
   const [students, setStudents] = useState<Student[]>([]);
   const [attendance, setAttendance] = useState<Record<string, AttendanceStatus>>({});
-  const [recordIds, setRecordIds] = useState<Record<string, string>>({}); 
-  const [monthlyMarkedDates, setMonthlyMarkedDates] = useState<Set<string>>(new Set());
+  
+  // Track specific marked states per date for calendar colors
+  const [markedDatesWithAbsence, setMarkedDatesWithAbsence] = useState<Set<string>>(new Set());
+  const [markedDatesAllPresent, setMarkedDatesAllPresent] = useState<Set<string>>(new Set());
+  
   const [holidays, setHolidays] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
@@ -75,7 +79,11 @@ const Attendance: React.FC<AttendanceProps> = ({ user }) => {
   const [showSuccess, setShowSuccess] = useState(false);
   const [showConfirmModal, setShowConfirmModal] = useState(false);
   const [showHolidayModal, setShowHolidayModal] = useState(false);
-  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  
+  // Holiday Delete Confirmation States
+  const [showDeleteHolidayConfirm, setShowDeleteHolidayConfirm] = useState(false);
+  const [holidayToDelete, setHolidayToDelete] = useState<any | null>(null);
+
   const [quickAbsentInput, setQuickAbsentInput] = useState('');
 
   const [holidayReason, setHolidayReason] = useState('');
@@ -83,7 +91,6 @@ const Attendance: React.FC<AttendanceProps> = ({ user }) => {
   const [holidayEndDate, setHolidayEndDate] = useState(new Date().toISOString().split('T')[0]);
   const [holidayType, setHolidayType] = useState<HolidayType>('PUBLIC');
   const [holidayTargetClass, setHolidayTargetClass] = useState<string>('ALL');
-  const [selectedHolidaysForDeletion, setSelectedHolidaysForDeletion] = useState<number[]>([]);
   const [editingHolidayId, setEditingHolidayId] = useState<number | null>(null);
 
   const calendarDays = useMemo(() => {
@@ -111,27 +118,61 @@ const Attendance: React.FC<AttendanceProps> = ({ user }) => {
       const month = viewDate.getMonth() + 1;
       const startDate = `${year}-${String(month).padStart(2, '0')}-01`;
       const endDate = `${year}-${String(month).padStart(2, '0')}-31`;
-      const { data, error } = await supabase.from('attendance').select('date').gte('date', startDate).lte('date', endDate);
-      if (!error && data) { setMonthlyMarkedDates(new Set<string>(data.map((item: any) => String(item.date)))); }
+      
+      const { data, error } = await supabase
+        .from('attendance')
+        .select('date, status, student_id, students(class, section)')
+        .gte('date', startDate)
+        .lte('date', endDate);
+
+      if (!error && data) {
+        const classFilteredData = (data as any[]).filter((item: any) => 
+          item.students?.class === selectedClass && item.students?.section === selectedSection
+        );
+
+        const absenceDates = new Set<string>();
+        const presentDates = new Set<string>();
+        const uniqueDates: string[] = Array.from(new Set(classFilteredData.map((i: any) => i.date as string)));
+
+        uniqueDates.forEach((d: string) => {
+          const dayRecords = classFilteredData.filter((i: any) => i.date === d);
+          const hasAbsence = dayRecords.some((i: any) => i.status === 'ABSENT');
+          if (hasAbsence) {
+            absenceDates.add(d);
+          } else {
+            presentDates.add(d);
+          }
+        });
+
+        setMarkedDatesWithAbsence(absenceDates);
+        setMarkedDatesAllPresent(presentDates);
+      }
     } catch (e) {}
   };
 
   const fetchData = async () => {
     setIsLoading(true);
     try {
-      const [studentData, attendanceData] = await Promise.all([db.students.getAll(), db.attendance.getByDate(selectedDate)]);
+      const [studentData, attendanceData] = await Promise.all([
+        db.students.getAll(), 
+        db.attendance.getByDate(selectedDate)
+      ]);
+      
       const mappedStudents = (studentData || []).map((s: any) => ({
         id: s.id, fullName: s.full_name, name: s.full_name, grNumber: s.gr_number, class: s.class, section: s.section, rollNo: s.roll_no, gender: s.gender, medium: s.medium, status: s.status
       }));
       const activeStudents = mappedStudents.filter(s => s.status !== 'CANCELLED');
       setStudents(activeStudents as any);
+      
       const attendanceMap: Record<string, AttendanceStatus> = {};
-      const idMap: Record<string, string> = {};
-      attendanceData.forEach((record: any) => { attendanceMap[record.student_id] = record.status as AttendanceStatus; idMap[record.student_id] = record.id; });
+      attendanceData.forEach((record: any) => { 
+        attendanceMap[record.student_id] = record.status as AttendanceStatus; 
+      });
+      
       const currentSet = activeStudents.filter((s: any) => s.class === selectedClass && s.section === selectedSection && s.medium === selectedMedium);
       currentSet.forEach((s: any) => { if (!attendanceMap[s.id]) attendanceMap[s.id] = 'PRESENT'; });
+      
       setAttendance(attendanceMap);
-      setRecordIds(idMap);
       fetchMonthlyStatus();
       fetchHolidays();
     } catch (err) {} finally { setIsLoading(false); }
@@ -139,7 +180,7 @@ const Attendance: React.FC<AttendanceProps> = ({ user }) => {
 
   useEffect(() => {
     fetchData();
-    const channel = supabase.channel('realtime-attendance-v37')
+    const channel = supabase.channel('realtime-attendance-v41')
       .on('postgres_changes', { event: '*', schema: 'public', table: 'attendance' }, () => {
         setIsSyncing(true);
         fetchData().then(() => setTimeout(() => setIsSyncing(false), 800));
@@ -192,16 +233,24 @@ const Attendance: React.FC<AttendanceProps> = ({ user }) => {
     if (isStudent) return;
     setIsSaving(true);
     try {
-      const records = baseList.map(s => ({ student_id: s.id, date: selectedDate, status: attendance[s.id] || 'PRESENT', marked_by: user.name, ...(recordIds[s.id] ? { id: recordIds[s.id] } : {}) }));
-      const savedData = await db.attendance.bulkUpsert(records);
-      const nextIds = { ...recordIds };
-      savedData?.forEach((r: any) => { nextIds[r.student_id] = r.id; });
-      setRecordIds(nextIds);
-      await createAuditLog(user, 'UPDATE', 'Attendance', `Synced: ${selectedClass} on ${selectedDate}`);
-      setMonthlyMarkedDates(prev => new Set(prev).add(selectedDate));
+      const records = baseList.map(s => ({ 
+        student_id: s.id, 
+        date: selectedDate, 
+        status: attendance[s.id] || 'PRESENT', 
+        marked_by: user.name
+      }));
+      
+      await db.attendance.bulkUpsert(records);
+      await createAuditLog(user, 'UPDATE', 'Attendance', `Synced Registry: Std ${selectedClass} on ${selectedDate}`);
+      await fetchMonthlyStatus();
       setShowSuccess(true);
       setTimeout(() => setShowSuccess(false), 3000);
-    } catch (err) {} finally { setIsSaving(false); }
+    } catch (err) {
+      console.error("Attendance Sync Error:", err);
+      alert("Failed to sync attendance: " + getErrorMessage(err));
+    } finally { 
+      setIsSaving(false); 
+    }
   };
 
   const addOrUpdateHoliday = async () => {
@@ -209,36 +258,54 @@ const Attendance: React.FC<AttendanceProps> = ({ user }) => {
     setIsSyncing(true);
     try {
       let nextHolidays;
-      const payload = { id: editingHolidayId || Date.now(), reason: holidayReason.toUpperCase(), startDate: holidayStartDate, endDate: holidayEndDate, type: holidayType, targetClass: holidayTargetClass, targetSection: 'ALL' };
-      if (editingHolidayId) { nextHolidays = holidays.map(h => h.id === editingHolidayId ? payload : h); } 
-      else { nextHolidays = [...holidays, payload]; }
+      const payload = { 
+        id: editingHolidayId || Date.now(), 
+        reason: holidayReason.toUpperCase(), 
+        startDate: holidayStartDate, 
+        endDate: holidayEndDate, 
+        type: holidayType, 
+        targetClass: holidayTargetClass, 
+        targetSection: 'ALL' 
+      };
+      
+      if (editingHolidayId) { 
+        nextHolidays = holidays.map(h => h.id === editingHolidayId ? payload : h); 
+      } else { 
+        nextHolidays = [...holidays, payload]; 
+      }
+      
       await db.settings.update('institutional_holidays', JSON.stringify(nextHolidays));
       setHolidays(nextHolidays);
       resetHolidayForm();
+      fetchHolidays();
     } catch (e) {} finally { setIsSyncing(false); }
   };
 
-  const executeDeleteHolidays = async () => {
-    if (selectedHolidaysForDeletion.length === 0) return;
+  const initiateDeleteHoliday = (h: any) => {
+    setHolidayToDelete(h);
+    setShowDeleteHolidayConfirm(true);
+  };
+
+  const executeDeleteHoliday = async () => {
+    if (!holidayToDelete) return;
     setIsSyncing(true);
     try {
-      const nextHolidays = holidays.filter(h => !selectedHolidaysForDeletion.includes(h.id));
+      const nextHolidays = holidays.filter(h => h.id !== holidayToDelete.id);
       await db.settings.update('institutional_holidays', JSON.stringify(nextHolidays));
       setHolidays(nextHolidays);
-      setSelectedHolidaysForDeletion([]);
-      setShowDeleteConfirm(false);
+      setShowDeleteHolidayConfirm(false);
+      setHolidayToDelete(null);
+      fetchHolidays();
     } catch (e) {} finally { setIsSyncing(false); }
   };
 
   const resetHolidayForm = () => {
-    setHolidayReason(''); setHolidayStartDate(new Date().toISOString().split('T')[0]);
-    setHolidayEndDate(new Date().toISOString().split('T')[0]); setHolidayType('PUBLIC');
-    setHolidayTargetClass('ALL'); setEditingHolidayId(null); setSelectedHolidaysForDeletion([]);
-  };
-
-  const getRangeDisplay = (start: string, end: string) => {
-    const s = new Date(start).getDate(); const e = new Date(end).getDate();
-    return s === e ? `${s}` : `${s} - ${e}`;
+    setHolidayReason(''); 
+    setHolidayStartDate(new Date().toISOString().split('T')[0]);
+    setHolidayEndDate(new Date().toISOString().split('T')[0]); 
+    setHolidayType('PUBLIC');
+    setHolidayTargetClass('ALL'); 
+    setEditingHolidayId(null);
   };
 
   return (
@@ -248,90 +315,135 @@ const Attendance: React.FC<AttendanceProps> = ({ user }) => {
         <div className="fixed top-24 right-8 z-[1000] animate-in slide-in-from-right-8 duration-500">
            <div className="bg-emerald-600 text-white px-6 py-4 rounded-2xl shadow-2xl flex items-center gap-3 border border-emerald-500/50 backdrop-blur-xl">
               <CheckCircle2 size={20} strokeWidth={3} />
-              <p className="font-black text-[10px] uppercase tracking-widest">Recorded Successfully</p>
+              <p className="font-black text-[10px] uppercase tracking-widest">Action Verified</p>
            </div>
         </div>
       )}
 
-      {/* HOLIDAY MODAL & DELETE CONFIRMATION (Same as previous implementation) */}
+      {/* HOLIDAY DELETE CONFIRMATION MODAL */}
+      {showDeleteHolidayConfirm && (
+        <div className="fixed inset-0 z-[2500] flex items-center justify-center p-4 bg-slate-950/90 backdrop-blur-sm animate-in fade-in">
+           <div className="bg-white dark:bg-slate-900 rounded-[2.5rem] p-8 max-w-sm w-full shadow-2xl text-center border border-rose-100/20 animate-in zoom-in-95">
+              <div className="w-16 h-16 bg-rose-50 dark:bg-rose-900/20 text-rose-600 rounded-[1.8rem] flex items-center justify-center mb-6 mx-auto shadow-inner border border-rose-100">
+                 <AlertTriangle size={32} strokeWidth={2.5} />
+              </div>
+              <h3 className="text-xl font-black text-slate-900 dark:text-white mb-2 uppercase tracking-tighter">Purge Holiday?</h3>
+              <p className="text-slate-500 dark:text-slate-400 mb-8 font-medium text-[10px] leading-relaxed uppercase tracking-widest">Delete <b>{holidayToDelete?.reason}</b>? This will restore attendance functionality for these dates.</p>
+              <div className="grid grid-cols-2 gap-3">
+                 <button onClick={() => setShowDeleteHolidayConfirm(false)} className="py-4 bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 font-black rounded-2xl uppercase text-[10px]">Cancel</button>
+                 <button onClick={executeDeleteHoliday} className="py-4 bg-rose-600 text-white font-black rounded-2xl shadow-xl hover:bg-rose-700 transition-all uppercase text-[10px]">Purge</button>
+              </div>
+           </div>
+        </div>
+      )}
+
+      {/* HOLIDAY MASTER MODAL */}
       {showHolidayModal && (
         <div className="fixed inset-0 z-[2000] flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-md animate-in fade-in no-print">
-           <div className="bg-white dark:bg-slate-900 rounded-[3rem] p-1 shadow-2xl max-w-[440px] w-full border border-slate-100 dark:border-slate-800 animate-in zoom-in-95 overflow-hidden flex flex-col max-h-[95vh]">
+           <div className="bg-white dark:bg-slate-900 rounded-[3rem] p-1 shadow-2xl max-w-4xl w-full border border-slate-100 dark:border-slate-800 animate-in zoom-in-95 overflow-hidden flex flex-col max-h-[95vh]">
               <div className="p-6 border-b border-slate-50 dark:border-slate-800 bg-indigo-50 dark:bg-indigo-900/10 flex justify-between items-center">
                  <div className="flex items-center gap-4">
                     <Umbrella size={24} className="text-indigo-600" />
                     <div>
-                       <h3 className="text-sm font-black text-slate-900 dark:text-white uppercase tracking-tight leading-none">Holiday Profile</h3>
-                       <p className="text-[7px] font-bold text-slate-400 uppercase tracking-widest mt-1">Grouped Academic Range Setup</p>
+                       <h3 className="text-sm font-black text-slate-900 dark:text-white uppercase tracking-tight leading-none">Holiday Configuration Terminal</h3>
+                       <p className="text-[7px] font-bold text-slate-400 uppercase tracking-widest mt-1">Multi-Node Institutional Breaks</p>
                     </div>
                  </div>
                  <button onClick={() => setShowHolidayModal(false)} className="p-1.5 hover:bg-white dark:hover:bg-slate-800 rounded-full transition-all text-slate-400"><X size={20}/></button>
               </div>
-              <div className="p-6 space-y-6 overflow-y-auto custom-scrollbar">
-                 <div className="space-y-4">
-                    <label className="text-[8px] font-black text-slate-950 dark:text-white uppercase tracking-widest ml-1 block">Target Academic Node Range</label>
-                    <div className="flex flex-wrap gap-2">
-                       {HOLIDAY_RANGES.map(cls => (
-                          <button key={cls} onClick={() => setHolidayTargetClass(cls === holidayTargetClass ? 'ALL' : cls)} className={`flex items-center gap-2 px-4 py-3 rounded-xl border-2 transition-all flex-1 min-w-[150px] ${holidayTargetClass === cls ? 'bg-indigo-600 border-indigo-600 text-white' : 'bg-slate-50 dark:bg-slate-800 border-transparent text-slate-500'}`}>
-                             {holidayTargetClass === cls ? <CheckSquare size={14} strokeWidth={3} /> : <Square size={14} />}
-                             <span className="text-[9px] font-black uppercase whitespace-nowrap">{cls}</span>
-                          </button>
-                       ))}
-                       <button onClick={() => setHolidayTargetClass('ALL')} className={`flex items-center gap-2 px-4 py-3 rounded-xl border-2 transition-all flex-1 min-w-[150px] ${holidayTargetClass === 'ALL' ? 'bg-slate-900 border-slate-900 text-white' : 'bg-slate-50 dark:bg-slate-800 border-transparent text-slate-500'}`}>
-                          {holidayTargetClass === 'ALL' ? <CheckSquare size={14} strokeWidth={3} /> : <Square size={14} />}
-                          <span className="text-[9px] font-black uppercase whitespace-nowrap">Global (All)</span>
-                       </button>
-                    </div>
-                 </div>
-                 <div className="grid grid-cols-2 gap-3">
-                    <div className="space-y-1">
-                       <label className="text-[8px] font-black text-slate-950 dark:text-white uppercase tracking-widest ml-1">Start</label>
-                       <input type="date" value={holidayStartDate} onChange={e => setHolidayStartDate(e.target.value)} className="w-full bg-slate-50 dark:bg-slate-800 border-none rounded-xl px-4 py-2 font-black text-xs outline-none" />
-                    </div>
-                    <div className="space-y-1">
-                       <label className="text-[8px] font-black text-slate-950 dark:text-white uppercase tracking-widest ml-1">End</label>
-                       <input type="date" value={holidayEndDate} onChange={e => setHolidayEndDate(e.target.value)} className="w-full bg-slate-50 dark:bg-slate-800 border-none rounded-xl px-4 py-2 font-black text-xs outline-none" />
-                    </div>
-                 </div>
-                 <div className="p-4 bg-slate-50 dark:bg-slate-800/50 rounded-2xl border border-slate-100 dark:border-slate-800 shadow-inner">
-                    <div className="flex items-center justify-between mb-4">
-                       <button onClick={() => setViewDate(new Date(viewDate.setMonth(viewDate.getMonth()-1)))} className="p-1 hover:bg-white rounded text-slate-400"><ChevronLeft size={16}/></button>
-                       <h4 className="text-[9px] font-black uppercase tracking-widest">{viewDate.toLocaleString('default', { month: 'long', year: 'numeric' })}</h4>
-                       <button onClick={() => setViewDate(new Date(viewDate.setMonth(viewDate.getMonth()+1)))} className="p-1 hover:bg-white rounded text-slate-400"><ChevronRight size={16}/></button>
-                    </div>
-                    <div className="grid grid-cols-7 gap-1">
-                       {WEEKDAYS.map(d => <div key={d} className="text-center"><span className="text-[7px] font-black uppercase">{d.charAt(0)}</span></div>)}
-                       {calendarDays.map((day, idx) => {
-                          if (!day) return <div key={idx} />;
-                          const dStr = day.toISOString().split('T')[0];
-                          const isInRange = dStr >= holidayStartDate && dStr <= holidayEndDate;
-                          return <div key={dStr} className={`aspect-square rounded-md flex items-center justify-center text-[8px] font-black transition-all ${isInRange ? 'bg-indigo-600 text-white' : 'opacity-20'}`}>{day.getDate()}</div>;
-                       })}
-                    </div>
-                 </div>
-                 <div className="space-y-1">
-                    <label className="text-[8px] font-black text-slate-950 dark:text-white uppercase tracking-widest ml-1">Reason</label>
-                    <textarea value={holidayReason} onChange={e => setHolidayReason(e.target.value)} placeholder="..." className="w-full bg-slate-50 dark:bg-slate-800 border-none rounded-xl px-4 py-3 font-black uppercase text-[10px] outline-none h-16" />
-                 </div>
-                 <div className="grid grid-cols-4 gap-2 pt-4 border-t border-slate-100">
-                    <button onClick={resetHolidayForm} className="py-3 bg-slate-100 text-slate-950 font-black rounded-xl text-[8px] uppercase tracking-widest transition-all">Add</button>
-                    <button onClick={addOrUpdateHoliday} disabled={!holidayReason.trim()} className="col-span-2 py-3 bg-indigo-600 text-white font-black rounded-xl text-[8px] uppercase tracking-widest shadow-lg">Sync Entry</button>
-                    <button onClick={() => setShowDeleteConfirm(true)} disabled={selectedHolidaysForDeletion.length === 0} className={`py-3 rounded-xl font-black uppercase text-[8px] ${selectedHolidaysForDeletion.length > 0 ? 'bg-rose-600 text-white' : 'bg-slate-100 text-slate-300'}`}><Trash2 size={12}/></button>
-                 </div>
-              </div>
-           </div>
-        </div>
-      )}
+              
+              <div className="flex-1 overflow-y-auto custom-scrollbar p-8 bg-white dark:bg-slate-900">
+                <div className="grid grid-cols-1 lg:grid-cols-12 gap-10">
+                   {/* Form Side */}
+                   <div className="lg:col-span-5 space-y-6">
+                      <div className="space-y-4">
+                         <label className="text-[8px] font-black text-slate-950 dark:text-white uppercase tracking-widest ml-1 block">Target Node Range</label>
+                         <div className="grid grid-cols-1 gap-1.5">
+                            {HOLIDAY_RANGES.map(cls => (
+                               <button key={cls} onClick={() => setHolidayTargetClass(cls === holidayTargetClass ? 'ALL' : cls)} className={`flex items-center gap-3 px-4 py-3 rounded-xl border-2 transition-all ${holidayTargetClass === cls ? 'bg-indigo-600 border-indigo-600 text-white' : 'bg-slate-50 dark:bg-slate-800 border-transparent text-slate-500'}`}>
+                                  {holidayTargetClass === cls ? <CheckSquare size={14} strokeWidth={3} /> : <Square size={14} />}
+                                  <span className="text-[9px] font-black uppercase whitespace-nowrap">{cls}</span>
+                               </button>
+                            ))}
+                            <button onClick={() => setHolidayTargetClass('ALL')} className={`flex items-center gap-3 px-4 py-3 rounded-xl border-2 transition-all ${holidayTargetClass === 'ALL' ? 'bg-slate-900 border-slate-900 text-white' : 'bg-slate-50 dark:bg-slate-800 border-transparent text-slate-500'}`}>
+                               {holidayTargetClass === 'ALL' ? <CheckSquare size={14} strokeWidth={3} /> : <Square size={14} />}
+                               <span className="text-[9px] font-black uppercase whitespace-nowrap">Global Institutional Break</span>
+                            </button>
+                         </div>
+                      </div>
 
-      {showDeleteConfirm && (
-        <div className="fixed inset-0 z-[2500] flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-sm animate-in fade-in no-print">
-           <div className="bg-white dark:bg-slate-900 rounded-[2.5rem] p-8 max-w-xs w-full shadow-2xl text-center border border-slate-100 animate-in zoom-in-95">
-              <div className="w-16 h-16 bg-rose-50 text-rose-600 rounded-[1.8rem] flex items-center justify-center mb-6 mx-auto"><AlertCircle size={32} /></div>
-              <h3 className="text-xl font-black mb-2 uppercase">Purge Data?</h3>
-              <p className="text-slate-500 mb-8 text-[10px] uppercase tracking-widest leading-relaxed">Delete {selectedHolidaysForDeletion.length} selected entries permanently?</p>
-              <div className="grid grid-cols-2 gap-3">
-                 <button onClick={() => setShowDeleteConfirm(false)} className="py-4 bg-slate-100 rounded-2xl uppercase text-[10px]">Cancel</button>
-                 <button onClick={executeDeleteHolidays} className="py-4 bg-rose-600 text-white font-black rounded-2xl uppercase text-[10px]">Purge</button>
+                      <div className="grid grid-cols-2 gap-3">
+                         <div className="space-y-1">
+                            <label className="text-[8px] font-black text-slate-950 dark:text-white uppercase tracking-widest ml-1">Commencement</label>
+                            <input type="date" value={holidayStartDate} onChange={e => setHolidayStartDate(e.target.value)} className="w-full bg-slate-50 dark:bg-slate-800 border-none rounded-xl px-4 py-3 font-black text-xs outline-none shadow-inner" />
+                         </div>
+                         <div className="space-y-1">
+                            <label className="text-[8px] font-black text-slate-950 dark:text-white uppercase tracking-widest ml-1">Termination</label>
+                            <input type="date" value={holidayEndDate} onChange={e => setHolidayEndDate(e.target.value)} className="w-full bg-slate-50 dark:bg-slate-800 border-none rounded-xl px-4 py-3 font-black text-xs outline-none shadow-inner" />
+                         </div>
+                      </div>
+
+                      <div className="space-y-1">
+                         <label className="text-[8px] font-black text-slate-950 dark:text-white uppercase tracking-widest ml-1">Break Purpose / Reason</label>
+                         <textarea value={holidayReason} onChange={e => setHolidayReason(e.target.value)} placeholder="E.G. RAMZAN EID HOLIDAYS..." className="w-full bg-slate-50 dark:bg-slate-800 border-none rounded-xl px-4 py-4 font-black uppercase text-[10px] outline-none h-24 shadow-inner resize-none" />
+                      </div>
+
+                      <div className="pt-4">
+                         <button onClick={addOrUpdateHoliday} disabled={!holidayReason.trim() || isSyncing} className="w-full py-4 bg-indigo-600 text-white font-black rounded-2xl text-[10px] uppercase tracking-widest shadow-xl flex items-center justify-center gap-3 disabled:opacity-50">
+                            {isSyncing ? <Loader2 size={16} className="animate-spin" /> : <Save size={16}/>} 
+                            {editingHolidayId ? 'Update Log' : 'Sync New Break'}
+                         </button>
+                      </div>
+                   </div>
+
+                   {/* Registry List Side */}
+                   <div className="lg:col-span-7 space-y-6">
+                      <div className="bg-slate-900 rounded-[2.5rem] p-8 text-white relative overflow-hidden group shadow-2xl h-full flex flex-col">
+                         <div className="absolute inset-0 neural-grid-white opacity-5 pointer-events-none"></div>
+                         <div className="flex items-center justify-between mb-8 relative z-10">
+                            <div className="flex items-center gap-4">
+                               <div className="w-10 h-10 bg-indigo-600/20 text-indigo-400 rounded-xl flex items-center justify-center border border-indigo-500/30">
+                                  <CalendarDays size={20} />
+                               </div>
+                               <h4 className="text-xl font-black uppercase tracking-tighter">Holiday Vault</h4>
+                            </div>
+                            <span className="text-[8px] font-black text-slate-500 uppercase tracking-widest">{holidays.length} Entries Archived</span>
+                         </div>
+
+                         <div className="flex-1 overflow-y-auto custom-scrollbar pr-2 space-y-3 relative z-10 min-h-[300px]">
+                            {holidays.length > 0 ? [...holidays].reverse().map((h) => (
+                               <div key={h.id} className="p-5 bg-white/5 border border-white/10 rounded-3xl hover:bg-white/10 transition-all flex items-center justify-between group/item">
+                                  <div className="min-w-0">
+                                     <h5 className="font-black text-xs text-white uppercase truncate mb-1">{h.reason}</h5>
+                                     <div className="flex flex-wrap gap-2">
+                                        <span className="text-[8px] font-black text-indigo-400 bg-indigo-400/10 px-2 py-0.5 rounded border border-indigo-400/20 uppercase tracking-widest">{h.targetClass}</span>
+                                        <span className="text-[8px] font-black text-slate-500 uppercase flex items-center gap-1"><Clock size={10}/> {h.startDate} - {h.endDate}</span>
+                                     </div>
+                                  </div>
+                                  <div className="flex gap-2">
+                                     <button 
+                                      onClick={() => initiateDeleteHoliday(h)}
+                                      className="p-3 bg-white/5 text-rose-400 hover:bg-rose-600 hover:text-white rounded-xl transition-all"
+                                     >
+                                        <Trash size={14} />
+                                     </button>
+                                  </div>
+                               </div>
+                            )) : (
+                               <div className="h-full flex flex-col items-center justify-center opacity-20">
+                                  <Umbrella size={48} className="mb-4" />
+                                  <p className="text-[10px] font-black uppercase tracking-widest text-center">No Breaks Registered</p>
+                               </div>
+                            )}
+                         </div>
+
+                         <div className="mt-8 p-4 bg-white/5 border border-white/10 rounded-2xl relative z-10 flex items-start gap-3">
+                            <Info size={16} className="text-indigo-400 shrink-0 mt-0.5" />
+                            <p className="text-[8px] font-bold text-slate-400 leading-relaxed uppercase">Institutional breaks revoke attendance eligibility. Once purged, the dates return to active status.</p>
+                         </div>
+                      </div>
+                   </div>
+                </div>
               </div>
            </div>
         </div>
@@ -375,14 +487,24 @@ const Attendance: React.FC<AttendanceProps> = ({ user }) => {
                       const dateStr = day.toLocaleDateString('en-CA');
                       const isSelected = selectedDate === dateStr;
                       const isToday = new Date().toLocaleDateString('en-CA') === dateStr;
-                      const isMarked = monthlyMarkedDates.has(dateStr);
+                      
+                      const hasAbsence = markedDatesWithAbsence.has(dateStr);
+                      const isAllPresent = markedDatesAllPresent.has(dateStr);
+
                       const isThisHoliday = holidays.some(h => {
                          const match = dateStr >= h.startDate && dateStr <= h.endDate;
                          const classMatch = isClassInHolidayRange(selectedClass, h.targetClass);
                          return match && classMatch;
                       });
+                      
                       return (
-                        <button key={dateStr} onClick={() => setSelectedDate(dateStr)} className={`aspect-square rounded-lg flex flex-col items-center justify-center transition-all border relative ${isSelected ? 'bg-indigo-600 border-indigo-600 text-white shadow-lg z-10 scale-110' : isThisHoliday ? 'bg-rose-500 border-rose-600 text-white shadow-md font-black' : isMarked ? 'bg-emerald-50 text-emerald-700 font-black' : isToday ? 'bg-slate-100 border-indigo-200 text-indigo-600 font-black' : 'bg-slate-50 border-transparent text-slate-500 hover:border-indigo-100'}`}>
+                        <button key={dateStr} onClick={() => setSelectedDate(dateStr)} className={`aspect-square rounded-lg flex flex-col items-center justify-center transition-all border relative 
+                          ${isSelected ? 'bg-indigo-600 border-indigo-600 text-white shadow-lg z-10 scale-110' : 
+                          isThisHoliday ? 'bg-amber-400 border-amber-500 text-white' : 
+                          hasAbsence ? 'bg-blue-600 border-blue-700 text-white font-black' : 
+                          isAllPresent ? 'bg-pink-500 border-pink-600 text-white font-black' : 
+                          isToday ? 'bg-slate-100 border-indigo-200 text-indigo-600 font-black' : 
+                          'bg-slate-50 border-transparent text-slate-500 hover:border-indigo-100'}`}>
                            <span className="text-[10px]">{day.getDate()}</span>
                         </button>
                       );
@@ -406,6 +528,17 @@ const Attendance: React.FC<AttendanceProps> = ({ user }) => {
                     {SECTIONS.map(sec => (
                       <button key={sec} onClick={() => setSelectedSection(sec)} className={`py-2 px-1 rounded-xl text-[9px] font-black transition-all border ${selectedSection === sec ? 'bg-indigo-600 border-indigo-600 text-white shadow-md' : 'bg-slate-50 dark:bg-slate-800 border-transparent text-slate-400 hover:border-indigo-100'}`}>{sec}</button>
                     ))}
+                 </div>
+              </div>
+
+              <div className="pt-6 border-t border-slate-50 dark:border-slate-800 space-y-2">
+                 <div className="flex items-center gap-3">
+                    <div className="w-3 h-3 rounded bg-blue-600"></div>
+                    <span className="text-[8px] font-black uppercase text-slate-400">Contains Absentees (Blue)</span>
+                 </div>
+                 <div className="flex items-center gap-3">
+                    <div className="w-3 h-3 rounded bg-pink-500"></div>
+                    <span className="text-[8px] font-black uppercase text-slate-400">All Present (Pink)</span>
                  </div>
               </div>
            </div>
@@ -434,13 +567,12 @@ const Attendance: React.FC<AttendanceProps> = ({ user }) => {
                    <div className="w-10 h-10 bg-white dark:bg-slate-800 rounded-xl flex items-center justify-center text-indigo-600 shadow-sm"><Users size={20}/></div>
                    <div>
                       <p className="text-[9px] font-black text-indigo-400 uppercase">Class Strength</p>
-                      <p className="text-sm font-black text-slate-900 dark:text-white leading-none mt-1">{baseList.length} Active Nodes</p>
+                      <p className="text-sm font-black text-slate-900 dark:text-white leading-none mt-1">{baseList.length} Nodes</p>
                    </div>
                 </div>
               )}
            </div>
 
-           {/* QUICK ABSENT ENTRY BAR */}
            {!isHoliday && !isStudent && (
              <form onSubmit={handleQuickAbsent} className="bg-white dark:bg-slate-900 p-4 rounded-[2rem] shadow-sm border border-rose-100 dark:border-rose-950/30 flex items-center gap-4 animate-in slide-in-from-top-2">
                 <div className="w-12 h-12 bg-rose-50 dark:bg-rose-900/20 text-rose-600 rounded-2xl flex items-center justify-center shrink-0 shadow-inner">
@@ -452,8 +584,8 @@ const Attendance: React.FC<AttendanceProps> = ({ user }) => {
                     type="text" 
                     value={quickAbsentInput}
                     onChange={e => setQuickAbsentInput(e.target.value)}
-                    placeholder="QUICK ABSENT ENTRY: TYPE ROLL NO OR NAME & PRESS ENTER..." 
-                    className="w-full bg-slate-50 dark:bg-slate-800 border-none rounded-2xl pl-12 pr-4 py-4 font-black uppercase text-xs text-rose-600 dark:text-rose-400 outline-none focus:ring-2 focus:ring-rose-500 shadow-inner placeholder:text-slate-300"
+                    placeholder="QUICK ABSENT ENTRY: ROLL NO OR NAME..." 
+                    className="w-full bg-slate-50 dark:bg-slate-800 border-none rounded-2xl pl-12 pr-4 py-4 font-black uppercase text-xs text-rose-600 outline-none focus:ring-2 focus:ring-rose-500 shadow-inner"
                    />
                 </div>
                 <button type="submit" className="px-8 py-4 bg-rose-600 text-white font-black rounded-2xl shadow-xl hover:bg-rose-700 transition-all uppercase text-[10px] tracking-widest hidden md:block">
@@ -462,7 +594,6 @@ const Attendance: React.FC<AttendanceProps> = ({ user }) => {
              </form>
            )}
 
-           {/* ATTENDANCE LISTS */}
            <div className={`grid grid-cols-1 lg:grid-cols-2 gap-8 h-full min-h-[600px] transition-all duration-700 ${isHoliday ? 'opacity-25 grayscale pointer-events-none' : ''}`}>
               <div className="bg-white dark:bg-slate-900 rounded-[3rem] shadow-sm border border-slate-100 dark:border-slate-800 overflow-hidden flex flex-col">
                  <div className="p-6 border-b border-slate-100 dark:border-slate-800 bg-emerald-50/30 dark:bg-emerald-950/10 flex items-center justify-between">
@@ -478,7 +609,7 @@ const Attendance: React.FC<AttendanceProps> = ({ user }) => {
                          </div>
                          <button onClick={() => handleStatusChange(student.id, 'ABSENT')} className="p-3 bg-slate-50 dark:bg-slate-800 text-slate-300 hover:text-rose-500 hover:bg-rose-50 rounded-xl transition-all"><ArrowRight size={16} /></button>
                       </div>
-                    )) : <div className="h-full flex flex-col items-center justify-center opacity-20 py-20"><CheckCircle2 size={40} className="mb-2" /><p className="text-[10px] font-black uppercase tracking-widest text-center">Identity Pool Neutral</p></div>}
+                    )) : <div className="h-full flex flex-col items-center justify-center opacity-20 py-20"><CheckCircle2 size={40} className="mb-2" /><p className="text-[10px] font-black uppercase tracking-widest text-center">Neutral State</p></div>}
                  </div>
               </div>
               <div className="bg-white dark:bg-slate-900 rounded-[3rem] shadow-sm border border-slate-100 dark:border-slate-800 overflow-hidden flex flex-col">
@@ -495,7 +626,7 @@ const Attendance: React.FC<AttendanceProps> = ({ user }) => {
                          </div>
                          <div className="w-10 h-10 bg-rose-50 dark:bg-rose-900/40 text-rose-600 rounded-xl flex items-center justify-center font-black">X</div>
                       </div>
-                    )) : <div className="h-full flex flex-col items-center justify-center opacity-10 py-20"><AlertCircle size={40} className="mb-2" /><p className="text-[10px] font-black uppercase tracking-widest">Archive Empty</p></div>}
+                    )) : <div className="h-full flex flex-col items-center justify-center opacity-10 py-20"><AlertCircle size={40} className="mb-2" /><p className="text-[10px] font-black uppercase tracking-widest">Vault Empty</p></div>}
                  </div>
               </div>
            </div>
@@ -512,12 +643,12 @@ const Attendance: React.FC<AttendanceProps> = ({ user }) => {
               </div>
               <div className="p-10 space-y-6">
                  <div className="bg-slate-50 p-6 rounded-2xl space-y-4">
-                    <div className="flex justify-between items-center"><span className="text-[10px] font-black text-slate-400 uppercase">Class Node</span><span className="text-xs font-black uppercase">{selectedClass}-{selectedSection}</span></div>
-                    <div className="flex justify-between items-center"><span className="text-[10px] font-black text-slate-400 uppercase">Registry Date</span><span className="text-xs font-black">{selectedDate}</span></div>
+                    <div className="flex justify-between items-center"><span className="text-[10px] font-black text-slate-400 uppercase">Node</span><span className="text-xs font-black uppercase">{selectedClass}-{selectedSection}</span></div>
+                    <div className="flex justify-between items-center"><span className="text-[10px] font-black text-slate-400 uppercase">Date</span><span className="text-xs font-black">{selectedDate}</span></div>
                  </div>
                  <div className="flex gap-4">
                     <button onClick={() => setShowConfirmModal(false)} className="flex-1 py-4 bg-slate-100 text-slate-600 font-black rounded-2xl uppercase text-[10px]">Cancel</button>
-                    <button onClick={handleSave} className="flex-[2] py-4 bg-indigo-600 text-white font-black rounded-2xl shadow-xl uppercase text-[10px]">Sync Terminal</button>
+                    <button onClick={handleSave} className="flex-[2] py-4 bg-indigo-600 text-white font-black rounded-2xl shadow-xl uppercase text-[10px]">Sync Registry</button>
                  </div>
               </div>
            </div>
