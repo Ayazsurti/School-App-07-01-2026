@@ -77,6 +77,8 @@ export interface Student extends User {
   fees?: StudentFees;
   status?: string;
   bloodGroup?: string;
+  feeOverrides?: Record<string, number>;
+  accessRights?: string[];
 }
 
 export interface Teacher extends User {
@@ -120,9 +122,9 @@ export interface IdCardField {
   bold: boolean;
   italic?: boolean;
   alignment: 'left' | 'center' | 'right';
-  x: number; // Position in mm
-  y: number; // Position in mm
-  width: number; // Width in mm
+  x: number;
+  y: number;
+  width: number;
   zIndex?: number;
 }
 
@@ -130,10 +132,8 @@ export interface IdCardTemplate {
   id: string;
   name: string;
   orientation: 'VERTICAL' | 'HORIZONTAL';
-  width: number; // in mm
-  height: number; // in mm
-  
-  // Design Layers
+  width: number;
+  height: number;
   headerBg: string;
   headerHeight: number;
   headerText: string;
@@ -142,15 +142,11 @@ export interface IdCardTemplate {
   headerAlignment: 'left' | 'center' | 'right';
   headerX?: number;
   headerY?: number;
-  
-  // Logo
   logoInHeader: boolean;
   logoX: number;
   logoY: number;
   logoSize: number;
   customLogo?: string;
-  
-  // Body Elements
   cardBgType: 'solid' | 'gradient' | 'image';
   cardBg: string;
   cardBgSecondary?: string;
@@ -158,45 +154,34 @@ export interface IdCardTemplate {
   cardBorderColor: string;
   cardBorderWidth: number;
   cardRounding: number;
-  
-  // Student Data (Positionable)
   photoX: number;
   photoY: number;
   photoSize: number;
   photoShape: 'SQUARE' | 'ROUNDED' | 'CIRCLE';
   photoBorderSize: number;
   photoBorderColor: string;
-  
   fields: IdCardField[];
-  
-  // Back Side (Positionable)
   showBackSide: boolean;
   backsideContent: string;
   backsideX: number;
   backsideY: number;
   backsideWidth: number;
-  
-  // Branding
   showQr: boolean;
   qrSize: number;
   qrX: number;
   qrY: number;
-  
   principalSign?: string;
   signX: number;
   signY: number;
   signWidth: number;
-  
   watermarkText?: string;
-  
-  // Guides
   snapToGrid?: boolean;
 }
 
 export interface FeeCategory {
   id: string;
   name: string;
-  frequency: 'MONTHLY' | 'ANNUAL' | 'ONE_TIME';
+  frequency: 'MONTHLY' | 'ANNUAL' | 'ONE_TIME' | 'QUARTERLY';
 }
 
 export interface FeeStructure {
@@ -290,7 +275,7 @@ export interface Notice {
 export interface MediaAsset {
   id: string;
   url: string;
-  type: 'image' | 'video';
+  type: 'image' | 'video' | 'slideshow';
   name: string;
   description?: string;
   date: string;

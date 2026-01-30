@@ -4,7 +4,7 @@ import { User, MediaAsset } from '../types';
 import { createAuditLog } from '../utils/auditLogger';
 import { 
   Plus, Search, Trash2, Upload, X, Maximize2, Image as ImageIcon, Clock, Loader2, Edit2, CheckCircle2, 
-  AlertTriangle, Save, RefreshCw, ShieldCheck, Database, CheckSquare, Square, Layers, PlayCircle, Video
+  AlertTriangle, Save, RefreshCw, ShieldCheck, Database, CheckSquare, Square, Layers, PlayCircle, Video, Target, Lock
 } from 'lucide-react';
 import { db, supabase, getErrorMessage } from '../supabase';
 
@@ -17,14 +17,15 @@ const ALL_CLASSES = [
 const SECTIONS = ['A', 'B', 'C', 'D'];
 
 const MediaGallery: React.FC<MediaGalleryProps> = ({ user }) => {
+  const isAdmin = user.role === 'ADMIN';
+  const isStudent = user.role === 'STUDENT';
   const isTeacher = user.role === 'TEACHER';
   
-  // Restricted classes for Teacher
   const authorizedClasses = useMemo(() => {
-    if (user.role === 'ADMIN') return ALL_CLASSES;
+    if (isAdmin) return ALL_CLASSES;
     const teacherClasses = (user as any).classes || (user.class ? [user.class] : []);
     return ALL_CLASSES.filter(c => teacherClasses.includes(c));
-  }, [user]);
+  }, [user, isAdmin]);
 
   const [assets, setAssets] = useState<MediaAsset[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -36,7 +37,6 @@ const MediaGallery: React.FC<MediaGalleryProps> = ({ user }) => {
   const [uploading, setUploading] = useState(false);
   const [showSuccess, setShowSuccess] = useState(false);
   
-  // Multi-Targeting
   const [targetClasses, setTargetClasses] = useState<string[]>([]);
   const [targetSections, setTargetSections] = useState<string[]>(['A', 'B', 'C', 'D']);
 
@@ -46,9 +46,7 @@ const MediaGallery: React.FC<MediaGalleryProps> = ({ user }) => {
   const fetchCloudData = async () => {
     try {
       const data = await db.gallery.getAll();
-      // Filter out 'slideshow' type so they don't appear in the regular gallery
       const galleryOnly = (data || []).filter((a: any) => a.type !== 'slideshow');
-      
       setAssets(galleryOnly.map((a: any) => ({
         id: a.id, url: a.url, type: a.type, name: a.name || 'UNTITLED_ASSET', description: a.description,
         date: a.date, uploadedBy: a.uploaded_by
@@ -59,7 +57,7 @@ const MediaGallery: React.FC<MediaGalleryProps> = ({ user }) => {
 
   useEffect(() => {
     fetchCloudData();
-    const channel = supabase.channel('realtime-gallery-sync-v16')
+    const channel = supabase.channel('realtime-gallery-sync-v20')
       .on('postgres_changes', { event: '*', schema: 'public', table: 'gallery' }, () => {
         setIsSyncing(true);
         fetchCloudData().then(() => setTimeout(() => setIsSyncing(false), 800));
@@ -67,35 +65,19 @@ const MediaGallery: React.FC<MediaGalleryProps> = ({ user }) => {
     return () => { supabase.removeChannel(channel); };
   }, []);
 
-  const toggleClass = (cls: string) => {
-    setTargetClasses(prev => prev.includes(cls) ? prev.filter(c => c !== cls) : [...prev, cls]);
-  };
-
-  const toggleSection = (sec: string) => {
-    setTargetSections(prev => prev.includes(sec) ? prev.filter(s => s !== sec) : [...prev, sec]);
-  };
-
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
-    
-    // Check file size (Videos can be large, but base64 has limits)
-    if (file.type.startsWith('video') && file.size > 10 * 1024 * 1024) {
-      alert("Video size too large. Max 10MB allowed for cloud sync.");
-      return;
-    }
-
     setUploading(true);
     const reader = new FileReader();
     reader.onload = (ev) => {
       setFormData({ 
-        name: (file.name || '').split('.')[0].toUpperCase() || 'NEW_ASSET', 
+        name: file.name.split('.')[0].toUpperCase(), 
         description: '', 
         url: ev.target?.result as string,
         type: file.type.startsWith('video') ? 'video' : 'image'
       });
       setUploading(false);
-      setTargetClasses([]);
       setShowFormModal(true);
     };
     reader.readAsDataURL(file);
@@ -103,23 +85,19 @@ const MediaGallery: React.FC<MediaGalleryProps> = ({ user }) => {
 
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!formData.url || !formData.name || targetClasses.length === 0) {
-       if(targetClasses.length === 0) alert("Select target Classes.");
-       return;
-    }
+    if (!formData.url || targetClasses.length === 0) return;
     
     setUploading(true);
     try {
-      const metadataStr = `[TARGETS: ${targetClasses.join(', ')} | SEC: ${targetSections.join(', ')}]`;
+      const metadata = `[IDENTITY_NODE: ${targetClasses.join(',')}|SEC: ${targetSections.join(',')}]`;
       const payload = { 
         ...formData, 
-        description: `${metadataStr} ${(formData.description || '').toUpperCase()}`,
+        description: `${metadata} ${formData.description.toUpperCase()}`,
         uploadedBy: user.name,
         date: new Date().toLocaleString()
       };
-
       await db.gallery.insert(payload);
-      createAuditLog(user, 'CREATE', 'Gallery', `${formData.type === 'video' ? 'Video' : 'Photo'} Synced: ${formData.name}`);
+      await createAuditLog(user, 'CREATE', 'Gallery', `Synced asset to ${targetClasses.length} nodes`);
       setShowFormModal(false);
       setShowSuccess(true);
       setTimeout(() => setShowSuccess(false), 3000);
@@ -136,33 +114,39 @@ const MediaGallery: React.FC<MediaGalleryProps> = ({ user }) => {
       await createAuditLog(user, 'DELETE', 'Gallery', `Purged Asset: ${deleteTarget.name}`);
       setDeleteTarget(null);
       fetchCloudData();
-    } catch (err: any) {
-      alert(`Delete Failed: ${getErrorMessage(err)}`);
-    } finally {
-      setIsSyncing(false);
-    }
+    } catch (err) { alert("Delete failed."); }
+    finally { setIsSyncing(false); }
   };
 
   const filteredAssets = useMemo(() => {
-    const query = (searchQuery || '').toLowerCase();
     return assets.filter(asset => {
-      const nameMatch = (asset.name || '').toLowerCase().includes(query);
-      if (user.role === 'STUDENT') {
-        const desc = (asset.description || '').toLowerCase();
-        return nameMatch && desc.includes((user.class || '').toLowerCase()) && desc.includes(`sec: ${(user.section || '').toLowerCase()}`);
+      const nameMatch = asset.name.toLowerCase().includes(searchQuery.toLowerCase());
+      if (isStudent) {
+        const desc = (asset.description || '').toUpperCase();
+        const studentClass = (user.class || '').toUpperCase();
+        const studentSection = (user.section || '').toUpperCase();
+        const hasIdentityNode = desc.includes('[IDENTITY_NODE:');
+        if (!hasIdentityNode) return false;
+        const nodePart = desc.split('[IDENTITY_NODE:')[1].split(']')[0];
+        const [classesStr, secsStr] = nodePart.split('|');
+        const targets = classesStr.split(',').map(s => s.trim());
+        const sections = secsStr.replace('SEC: ', '').split(',').map(s => s.trim());
+        return nameMatch && targets.includes(studentClass) && sections.includes(studentSection);
       }
       return nameMatch;
     });
-  }, [assets, searchQuery, user]);
+  }, [assets, searchQuery, isStudent, user]);
 
   return (
-    <div className="space-y-6 animate-in fade-in duration-500 pb-20 relative">
+    <div className="space-y-8 animate-in fade-in duration-500 pb-20 relative">
       <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6 px-4 sm:px-0">
         <div>
-          <h1 className="text-4xl font-black text-slate-900 dark:text-white tracking-tight flex items-center gap-3 uppercase">Institutional Gallery <ImageIcon className="text-indigo-600" /></h1>
-          <p className="text-slate-500 dark:text-slate-400 font-medium text-lg uppercase tracking-tight">Institutional memory archive for photos & videos.</p>
+          <h1 className="text-4xl font-black text-slate-900 dark:text-white tracking-tight flex items-center gap-3 uppercase">Campus Gallery <ImageIcon className="text-indigo-600" /></h1>
+          <p className="text-slate-500 dark:text-slate-400 font-bold mt-1 uppercase text-xs tracking-widest">
+             {isStudent ? `Standard ${user.class}-${user.section} Memory Archive` : 'Institutional Resource Management'}
+          </p>
         </div>
-        {user.role !== 'STUDENT' && (
+        {!isStudent && (
           <button onClick={() => fileInputRef.current?.click()} className="px-8 py-4 bg-indigo-600 text-white font-black rounded-2xl shadow-xl flex items-center gap-3 hover:-translate-y-1 transition-all uppercase text-xs tracking-widest disabled:opacity-50">
             <Plus size={20} /> Upload Asset
           </button>
@@ -170,167 +154,91 @@ const MediaGallery: React.FC<MediaGalleryProps> = ({ user }) => {
         <input type="file" ref={fileInputRef} className="hidden" accept="image/*,video/*" onChange={handleFileUpload} />
       </div>
 
-      <div className="bg-white dark:bg-slate-900 p-6 rounded-[2.5rem] shadow-sm border border-slate-100 dark:border-slate-800 flex items-center gap-4 mx-4 sm:mx-0">
-          <Search className="text-slate-300" size={20} />
-          <input type="text" placeholder="Search archive assets..." value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} className="w-full bg-transparent border-none font-bold outline-none dark:text-white uppercase text-xs tracking-widest" />
+      <div className="bg-white dark:bg-slate-900 p-6 rounded-[2.5rem] shadow-sm border border-slate-100 dark:border-slate-800 flex items-center gap-4 mx-4 sm:px-0">
+          <Search className="text-slate-300 ml-4" size={20} />
+          <input type="text" placeholder="Filter archive..." value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} className="w-full bg-transparent border-none font-bold outline-none dark:text-white uppercase text-xs tracking-widest" />
       </div>
 
       {isLoading ? (
         <div className="py-40 flex flex-col items-center justify-center animate-pulse"><Loader2 size={64} className="animate-spin text-indigo-600" /></div>
       ) : (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-8 px-4 sm:px-0">
-          {filteredAssets.map((asset) => {
-             const hasTargetInfo = asset.description?.startsWith('[TARGETS:');
-             const targetInfo = hasTargetInfo ? asset.description?.split(']')[0].replace('[', '') : 'Global Archive';
-             const isVideo = asset.type === 'video';
-
-             return (
-              <div key={asset.id} className="group bg-white dark:bg-slate-900 rounded-[3rem] overflow-hidden shadow-sm border border-slate-100 dark:border-slate-800 hover:shadow-2xl transition-all hover:-translate-y-2 relative flex flex-col">
-                 <div className="aspect-square relative overflow-hidden bg-slate-100 dark:bg-slate-800" onClick={() => setActiveMediaId(asset.id)}>
-                    {isVideo ? (
-                      <div className="w-full h-full bg-slate-900 flex items-center justify-center">
-                        <video src={asset.url} className="w-full h-full object-cover opacity-60" />
-                        <div className="absolute inset-0 flex items-center justify-center">
-                           <PlayCircle size={48} className="text-white opacity-80 group-hover:scale-110 transition-transform" />
-                        </div>
-                      </div>
-                    ) : (
-                      <img src={asset.url} className="w-full h-full object-cover transition-transform duration-1000 group-hover:scale-110 cursor-pointer" alt={asset.name} />
-                    )}
-                    <div className="absolute inset-0 bg-indigo-900/20 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center pointer-events-none">
-                      {isVideo ? <Video className="text-white" size={32} /> : <Maximize2 className="text-white" size={32} />}
+          {filteredAssets.map((asset) => (
+            <div key={asset.id} className="group bg-white dark:bg-slate-900 rounded-[3rem] overflow-hidden shadow-sm border border-slate-100 dark:border-slate-800 hover:shadow-2xl transition-all relative flex flex-col cursor-pointer" onClick={() => setActiveMediaId(asset.id)}>
+               <div className="aspect-square relative overflow-hidden bg-slate-100 dark:bg-slate-800">
+                  {asset.type === 'video' ? (
+                    <div className="w-full h-full bg-slate-900 flex items-center justify-center">
+                       <PlayCircle size={48} className="text-white opacity-60 group-hover:scale-110 transition-transform" />
                     </div>
-                 </div>
-                 <div className="p-6 flex-1 flex flex-col">
-                    <h4 className="font-black text-slate-800 dark:text-white mb-1 uppercase text-sm tracking-tight truncate">{asset.name}</h4>
-                    <p className="text-[8px] font-black text-indigo-400 uppercase tracking-widest mb-3 truncate">Audience: {targetInfo}</p>
-                    <div className="flex items-center justify-between border-t border-slate-50 dark:border-slate-800 pt-4 mt-auto">
-                       <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-1.5"><Clock size={12}/> {asset.date}</p>
-                       {user.role !== 'STUDENT' && <button onClick={() => setDeleteTarget(asset)} className="p-2 text-rose-500 hover:bg-rose-50 rounded-lg"><Trash2 size={16} /></button>}
-                    </div>
-                 </div>
-              </div>
-             );
-          })}
+                  ) : (
+                    <img src={asset.url} className="w-full h-full object-cover transition-transform duration-1000 group-hover:scale-110" alt={asset.name} />
+                  )}
+                  <div className="absolute inset-0 bg-indigo-900/20 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center pointer-events-none">
+                    <Maximize2 className="text-white" size={32} />
+                  </div>
+               </div>
+               <div className="p-6 flex-1 flex flex-col">
+                  <h4 className="font-black text-slate-800 dark:text-white mb-1 uppercase text-sm truncate">{asset.name}</h4>
+                  <div className="flex items-center justify-between mt-auto pt-4 border-t border-slate-50 dark:border-slate-800">
+                     <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-1.5"><Clock size={12}/> {asset.date}</p>
+                     {isAdmin && <button onClick={(e) => { e.stopPropagation(); setDeleteTarget(asset); }} className="p-2 text-rose-500 hover:bg-rose-50 rounded-lg transition-colors"><Trash2 size={16} /></button>}
+                  </div>
+               </div>
+            </div>
+          ))}
         </div>
       )}
 
-      {showFormModal && (
-        <div className="fixed inset-0 z-[1100] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-md animate-in fade-in">
-           <div className="bg-white dark:bg-slate-900 rounded-[3.5rem] p-1 shadow-2xl max-w-5xl w-full max-h-[90vh] overflow-hidden flex flex-col border border-slate-100 dark:border-slate-800">
-              <div className="p-8 border-b border-slate-100 dark:border-slate-800 flex justify-between items-center bg-slate-50/50">
-                 <div>
-                    <h3 className="text-2xl font-black text-slate-900 dark:text-white uppercase tracking-tight">Sync New Asset</h3>
-                    <p className="text-[10px] font-black text-indigo-600 uppercase tracking-widest mt-1">
-                      {formData.type === 'video' ? 'Video Distribution' : 'Photo Archive'} Node
-                    </p>
-                 </div>
-                 <button onClick={() => setShowFormModal(false)} className="p-3 bg-white dark:bg-slate-900 hover:bg-slate-100 dark:hover:bg-slate-700 rounded-full text-slate-400 transition-all shadow-sm"><X size={32} /></button>
+      {/* COMPACT DELETE DIALOG - SMALL SIZE */}
+      {deleteTarget && (
+        <div className="fixed inset-0 z-[1500] flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-md animate-in fade-in">
+           <div className="bg-white dark:bg-slate-900 rounded-[2.5rem] p-8 max-w-[320px] w-full shadow-2xl text-center border border-rose-100/20 animate-in zoom-in-95">
+              <div className="w-12 h-12 bg-rose-50 dark:bg-rose-900/20 text-rose-600 rounded-[1.2rem] flex items-center justify-center mb-5 mx-auto shadow-inner border border-rose-100">
+                 <AlertTriangle size={24} strokeWidth={2.5} />
               </div>
-              <form onSubmit={handleSave} className="flex-1 overflow-y-auto p-10 space-y-10 custom-scrollbar flex flex-col lg:flex-row gap-10">
-                 <div className="flex-1 space-y-6">
-                    <div className="aspect-video w-full rounded-[2.5rem] overflow-hidden bg-slate-900 shadow-inner border-4 border-white dark:border-slate-800 flex items-center justify-center">
-                       {formData.type === 'video' ? (
-                         <video src={formData.url} controls className="w-full h-full object-contain" />
-                       ) : (
-                         <img src={formData.url} className="w-full h-full object-cover" alt="Preview" />
-                       )}
+              <h3 className="text-lg font-black text-slate-900 dark:text-white mb-2 uppercase tracking-tight">Purge Asset?</h3>
+              <p className="text-slate-500 dark:text-slate-400 mb-6 font-medium text-[9px] uppercase tracking-widest leading-relaxed">Permanently remove <b>{deleteTarget.name}</b> from cloud archive?</p>
+              <div className="grid grid-cols-2 gap-2">
+                 <button onClick={() => setDeleteTarget(null)} className="py-3 bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 font-black rounded-xl uppercase text-[9px]">Cancel</button>
+                 <button onClick={handleConfirmDelete} className="py-3 bg-rose-600 text-white font-black rounded-xl shadow-lg hover:bg-rose-700 transition-all uppercase text-[9px]">Purge</button>
+              </div>
+           </div>
+        </div>
+      )}
+
+      {/* UPLOAD MODAL */}
+      {showFormModal && !isStudent && (
+        <div className="fixed inset-0 z-[1300] bg-slate-950/80 backdrop-blur-md flex items-center justify-center p-4 animate-in fade-in">
+           <div className="bg-white dark:bg-slate-900 rounded-[3rem] p-1 shadow-2xl max-w-4xl w-full max-h-[90vh] overflow-hidden flex flex-col border border-slate-100 dark:border-slate-800">
+              <div className="p-8 border-b border-slate-100 dark:border-slate-800 flex justify-between items-center bg-slate-50/50">
+                 <h3 className="text-2xl font-black uppercase tracking-tight">Identity Node Sync</h3>
+                 <button onClick={() => setShowFormModal(false)} className="p-3 hover:bg-slate-100 rounded-full text-slate-400 transition-all"><X size={28} /></button>
+              </div>
+              <form onSubmit={handleSave} className="p-10 space-y-10 overflow-y-auto custom-scrollbar flex-1">
+                 <div className="grid grid-cols-1 md:grid-cols-2 gap-10">
+                    <div className="space-y-6">
+                       <div className="aspect-video rounded-[2rem] overflow-hidden bg-slate-100 dark:bg-slate-800 border-2 border-slate-100 dark:border-slate-700 shadow-inner">
+                          {formData.type === 'video' ? <video src={formData.url} className="w-full h-full object-cover" /> : <img src={formData.url} className="w-full h-full object-cover" />}
+                       </div>
+                       <input type="text" required value={formData.name} onChange={e => setFormData({...formData, name: e.target.value.toUpperCase()})} placeholder="ASSET NAME..." className="w-full bg-slate-50 dark:bg-slate-800 border-none rounded-2xl px-6 py-4 font-black uppercase text-sm outline-none focus:ring-2 focus:ring-indigo-500 shadow-inner" />
                     </div>
                     <div className="space-y-6">
-                       <div className="space-y-2">
-                          <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Asset Title</label>
-                          <input type="text" required value={formData.name} onChange={e => setFormData({...formData, name: e.target.value.toUpperCase()})} placeholder="ENTER ASSET CAPTION" className="w-full bg-slate-50 dark:bg-slate-800 border-none rounded-2xl px-6 py-4 font-black uppercase text-indigo-600 outline-none focus:ring-2 focus:ring-indigo-500 shadow-inner" />
+                       <div className="space-y-3">
+                          <label className="text-[10px] font-black text-indigo-600 uppercase tracking-widest flex items-center gap-2"><Target size={14}/> Target Standards</label>
+                          <div className="grid grid-cols-2 gap-2 max-h-40 overflow-y-auto custom-scrollbar pr-1">
+                             {authorizedClasses.map(cls => (
+                               <button key={cls} type="button" onClick={() => setTargetClasses(prev => prev.includes(cls) ? prev.filter(c => c !== cls) : [...prev, cls])} className={`px-2 py-2 rounded-xl text-[8px] font-black uppercase transition-all border ${targetClasses.includes(cls) ? 'bg-indigo-600 border-indigo-600 text-white shadow-md' : 'bg-slate-50 dark:bg-slate-800 border-transparent text-slate-400'}`}>
+                                  {cls}
+                               </button>
+                             ))}
+                          </div>
                        </div>
-                       <div className="space-y-2">
-                          <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Asset Description</label>
-                          <textarea 
-                            value={formData.description} 
-                            onChange={e => setFormData({...formData, description: e.target.value})} 
-                            placeholder="PROVIDE ADDITIONAL CONTEXT OR DETAILS ABOUT THIS ASSET..." 
-                            rows={4}
-                            className="w-full bg-slate-50 dark:bg-slate-800 border-none rounded-2xl px-6 py-4 font-bold uppercase text-slate-600 dark:text-slate-300 outline-none focus:ring-2 focus:ring-indigo-500 shadow-inner resize-none text-xs" 
-                          />
-                       </div>
-                    </div>
-                 </div>
-
-                 <div className="w-full lg:w-80 space-y-8 bg-slate-50 dark:bg-slate-800/50 p-8 rounded-[3rem] shadow-inner border border-slate-100 dark:border-slate-800">
-                    <div className="space-y-4">
-                       <div className="flex justify-between items-center px-1">
-                          <h4 className="text-[10px] font-black text-indigo-600 uppercase tracking-widest flex items-center gap-2"><CheckSquare size={14}/> Targets</h4>
-                          <button type="button" onClick={() => setTargetClasses(targetClasses.length === authorizedClasses.length ? [] : [...authorizedClasses])} className="text-[8px] font-black text-slate-400 uppercase">Toggle All</button>
-                       </div>
-                       <div className="grid grid-cols-1 gap-2 max-h-[250px] overflow-y-auto custom-scrollbar pr-2">
-                          {authorizedClasses.map(cls => (
-                             <button key={cls} type="button" onClick={() => toggleClass(cls)} className={`flex items-center gap-3 p-3 rounded-xl border transition-all text-left ${targetClasses.includes(cls) ? 'bg-indigo-600 border-indigo-600 text-white shadow-lg' : 'bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-700 text-slate-400 hover:border-indigo-100'}`}>
-                                {targetClasses.includes(cls) ? <CheckSquare size={14} /> : <Square size={14} />}
-                                <span className="text-[9px] font-black uppercase truncate">{cls}</span>
-                             </button>
-                          ))}
-                       </div>
-                    </div>
-                    <div className="space-y-4">
-                       <h4 className="text-[10px] font-black text-indigo-600 uppercase tracking-widest flex items-center gap-2 px-1"><Layers size={14}/> Sections</h4>
-                       <div className="grid grid-cols-2 gap-2">
-                          {SECTIONS.map(sec => (
-                             <button key={sec} type="button" onClick={() => toggleSection(sec)} className={`py-3 rounded-xl border font-black text-[10px] transition-all ${targetSections.includes(sec) ? 'bg-indigo-600 border-indigo-600 text-white shadow-lg' : 'bg-white dark:bg-slate-900 border-slate-100 dark:border-slate-700 text-slate-400 hover:border-indigo-100'}`}>
-                                SEC {sec}
-                             </button>
-                          ))}
-                       </div>
+                       <button type="submit" disabled={uploading} className="w-full py-5 bg-indigo-600 text-white font-black rounded-[1.5rem] shadow-2xl hover:bg-indigo-700 transition-all uppercase text-xs tracking-widest flex items-center justify-center gap-3">
+                          {uploading ? <Loader2 className="animate-spin" /> : <Database size={20} />} Sync to Identity Hub
+                       </button>
                     </div>
                  </div>
               </form>
-              <div className="p-8 bg-slate-50/50 border-t border-slate-100">
-                 <button onClick={handleSave} disabled={uploading || targetClasses.length === 0} className="w-full py-6 bg-indigo-600 text-white font-black rounded-3xl shadow-xl hover:bg-indigo-700 transition-all uppercase text-sm tracking-[0.3em] flex items-center justify-center gap-4">
-                    {uploading ? <Loader2 className="animate-spin" /> : <Database size={24} />} Synchronize to Institutional Vault
-                 </button>
-              </div>
-           </div>
-        </div>
-      )}
-
-      {activeMediaId && (
-        <div className="fixed inset-0 z-[1200] bg-slate-950/98 backdrop-blur-xl flex flex-col items-center justify-center p-6 lg:p-10 animate-in fade-in">
-           <button onClick={() => setActiveMediaId(null)} className="absolute top-10 right-10 p-4 bg-white/10 hover:bg-rose-600 text-white rounded-2xl transition-all shadow-2xl z-50"><X size={32}/></button>
-           
-           <div className="w-full max-w-5xl h-full flex flex-col items-center justify-center gap-8">
-              {assets.find(a => a.id === activeMediaId)?.type === 'video' ? (
-                <video 
-                  src={assets.find(a => a.id === activeMediaId)?.url} 
-                  controls 
-                  autoPlay 
-                  className="max-w-full max-h-[70vh] rounded-[2rem] shadow-[0_0_50px_rgba(79,70,229,0.3)] border border-white/10" 
-                />
-              ) : (
-                <img 
-                  src={assets.find(a => a.id === activeMediaId)?.url} 
-                  className="max-w-full max-h-[70vh] object-contain rounded-[2rem] shadow-2xl" 
-                />
-              )}
-              <div className="text-center">
-                 <h3 className="text-3xl font-black text-white uppercase tracking-widest leading-tight">{assets.find(a => a.id === activeMediaId)?.name}</h3>
-                 <p className="text-slate-400 font-bold uppercase text-[10px] tracking-[0.4em] mt-3">Identity Node Reference: {activeMediaId}</p>
-              </div>
-           </div>
-        </div>
-      )}
-
-      {/* REFINED DELETE CONFIRMATION MODAL */}
-      {deleteTarget && (
-        <div className="fixed inset-0 z-[2000] flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-md no-print animate-in fade-in">
-           <div className="bg-white dark:bg-slate-900 rounded-[3rem] p-10 max-sm w-full shadow-2xl text-center border border-rose-100/20 animate-in zoom-in-95">
-              <div className="w-16 h-16 bg-rose-50 dark:bg-rose-900/20 text-rose-600 rounded-[1.8rem] flex items-center justify-center mb-6 mx-auto shadow-inner border border-rose-100">
-                 <AlertTriangle size={32} strokeWidth={2.5} />
-              </div>
-              <h3 className="text-xl font-black text-slate-900 dark:text-white mb-2 uppercase tracking-tighter leading-tight">Purge Asset?</h3>
-              <p className="text-slate-500 dark:text-slate-400 mb-8 font-medium text-[10px] uppercase tracking-widest leading-relaxed">
-                Delete <b>{deleteTarget.name}</b> from the institutional vault? High-bandwidth assets may take time to remove globally.
-              </p>
-              <div className="grid grid-cols-2 gap-3">
-                 <button onClick={() => setDeleteTarget(null)} className="py-4 bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 font-black rounded-2xl uppercase text-[10px]">Cancel</button>
-                 <button onClick={handleConfirmDelete} className="py-4 bg-rose-600 text-white font-black rounded-2xl shadow-xl hover:bg-rose-700 transition-all uppercase text-[10px]">Purge Asset</button>
-              </div>
            </div>
         </div>
       )}

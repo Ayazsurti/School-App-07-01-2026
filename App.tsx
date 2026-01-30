@@ -1,74 +1,8 @@
+
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { HashRouter, Routes, Route, Navigate, Link, useLocation, useNavigate } from 'react-router-dom';
 import { 
-  Menu, 
-  X, 
-  LogOut, 
-  Bell, 
-  Search, 
-  ChevronRight,
-  User as UserIcon,
-  Users,
-  AlertTriangle,
-  Camera,
-  Upload,
-  Trash2,
-  Settings,
-  Power,
-  Image as ImageIcon,
-  ShieldCheck,
-  History,
-  PencilRuler,
-  UtensilsCrossed,
-  MessageSquareQuote,
-  Gem,
-  Sparkles,
-  Trophy,
-  Gift,
-  Star,
-  Sun,
-  Moon,
-  Settings2,
-  Eye,
-  EyeOff,
-  CheckCircle2,
-  ChevronUp,
-  ChevronDown,
-  GripVertical,
-  Plus,
-  Edit2,
-  Cloud,
-  School,
-  Loader2,
-  RefreshCw,
-  Video,
-  FileText,
-  BookOpen,
-  SwitchCamera,
-  StopCircle,
-  Activity,
-  Check,
-  LogOut as OutIcon,
-  GripHorizontal,
-  LayoutTemplate,
-  RotateCcw,
-  ClipboardList,
-  GraduationCap,
-  Smartphone,
-  MapPin,
-  Fingerprint,
-  Info,
-  Phone,
-  UserCircle,
-  Heart,
-  Shield,
-  Hash,
-  UserMinus,
-  Palette,
-  Terminal,
-  Cpu,
-  Layers,
-  MonitorPlay
+  Menu, X, LogOut, Bell, Search, ChevronRight, User as UserIcon, Users, AlertTriangle, Camera, Upload, Trash2, Settings, Power, Image as ImageIcon, ShieldCheck, History, PencilRuler, UtensilsCrossed, MessageSquareQuote, Gem, Sparkles, Trophy, Gift, Star, Sun, Moon, Settings2, Eye, EyeOff, CheckCircle2, ChevronUp, ChevronDown, GripVertical, Plus, Edit2, Cloud, School, Loader2, RefreshCw, Video, FileText, BookOpen, SwitchCamera, StopCircle, Activity, Check, LogOut as OutIcon, GripHorizontal, LayoutTemplate, RotateCcw, ClipboardList, GraduationCap, Smartphone, MapPin, Fingerprint, Info, Phone, UserCircle, Heart, Shield, Hash, UserMinus, Palette, Terminal, Cpu, Layers, MonitorPlay
 } from 'lucide-react';
 import { User, UserRole, DisplaySettings, Student } from './types';
 import Login from './pages/Login';
@@ -109,13 +43,7 @@ import { db, supabase } from './supabase';
 import { createAuditLog } from './utils/auditLogger';
 
 const DEFAULT_DISPLAY_SETTINGS: DisplaySettings = {
-  fontFamily: "'Inter', sans-serif",
-  fontColor: '#0f172a',
-  accentColor: '#4f46e5',
-  backgroundImage: null,
-  bgOpacity: 10,
-  cardOpacity: 90,
-  glassBlur: 12
+  fontFamily: "'Inter', sans-serif", fontColor: '#0f172a', accentColor: '#4f46e5', backgroundImage: null, bgOpacity: 10, cardOpacity: 90, glassBlur: 12
 };
 
 const App: React.FC = () => {
@@ -124,25 +52,11 @@ const App: React.FC = () => {
       const saved = localStorage.getItem('school_app_user');
       if (!saved || saved === 'undefined' || saved === 'null') return null;
       return JSON.parse(saved);
-    } catch (e) {
-      console.error("Auth state recovery failed:", e);
-      return null;
-    }
+    } catch (e) { return null; }
   });
 
-  const [darkMode, setDarkMode] = useState<boolean>(() => {
-    return localStorage.getItem('theme') === 'dark';
-  });
-
-  const [displaySettings, setDisplaySettings] = useState<DisplaySettings>(() => {
-    try {
-      const saved = localStorage.getItem('display_settings');
-      return saved ? JSON.parse(saved) : DEFAULT_DISPLAY_SETTINGS;
-    } catch {
-      return DEFAULT_DISPLAY_SETTINGS;
-    }
-  });
-
+  const [darkMode, setDarkMode] = useState<boolean>(() => localStorage.getItem('theme') === 'dark');
+  const [displaySettings, setDisplaySettings] = useState<DisplaySettings>(DEFAULT_DISPLAY_SETTINGS);
   const [schoolLogo, setSchoolLogo] = useState<string | null>(null);
   const [schoolName, setSchoolName] = useState<string>(DEFAULT_APP_NAME);
   const [schoolAddress, setSchoolAddress] = useState<string>('');
@@ -150,7 +64,7 @@ const App: React.FC = () => {
   const [schoolContact, setSchoolContact] = useState<string>('');
   const [cloudSettings, setCloudSettings] = useState<any>({});
 
-  const fetchBranding = async () => {
+  const fetchGlobalSettings = async () => {
     try {
       const settings = await db.settings.getAll();
       setCloudSettings(settings);
@@ -159,19 +73,21 @@ const App: React.FC = () => {
       if (settings.school_address) setSchoolAddress(settings.school_address);
       if (settings.school_email) setSchoolEmail(settings.school_email);
       if (settings.school_contact) setSchoolContact(settings.school_contact);
-    } catch (err: any) { 
-      console.warn("Branding sync skipped:", err.message); 
-    }
+      
+      if (settings.global_display_settings) {
+        try {
+          const cloudDisplay = JSON.parse(settings.global_display_settings);
+          setDisplaySettings(cloudDisplay);
+        } catch (e) { console.warn("Invalid cloud display settings"); }
+      }
+    } catch (err: any) { console.warn("Branding sync skipped:", err.message); }
   };
 
   useEffect(() => {
-    fetchBranding();
-    const channel = supabase.channel('settings-global-sync-v4')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'settings' }, () => {
-        fetchBranding();
-      })
+    fetchGlobalSettings();
+    const channel = supabase.channel('settings-global-sync-v10')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'settings' }, () => fetchGlobalSettings())
       .subscribe();
-      
     return () => { supabase.removeChannel(channel); };
   }, []);
 
@@ -185,9 +101,9 @@ const App: React.FC = () => {
     }
   }, [darkMode]);
 
-  const handleUpdateDisplay = (newSettings: DisplaySettings) => {
+  const handleUpdateDisplay = async (newSettings: DisplaySettings) => {
     setDisplaySettings(newSettings);
-    localStorage.setItem('display_settings', JSON.stringify(newSettings));
+    await db.settings.update('global_display_settings', JSON.stringify(newSettings));
   };
 
   const handleLogin = (userData: User) => {
@@ -200,66 +116,19 @@ const App: React.FC = () => {
     localStorage.removeItem('school_app_user');
   };
 
-  const brandingData = {
-    name: schoolName,
-    logo: schoolLogo,
-    address: schoolAddress,
-    email: schoolEmail,
-    contact: schoolContact
-  };
+  const brandingData = { name: schoolName, logo: schoolLogo, address: schoolAddress, email: schoolEmail, contact: schoolContact };
 
   return (
     <HashRouter>
       <div className={darkMode ? 'dark' : ''}>
         <style>
           {`
-            :root {
-              --custom-font: ${displaySettings.fontFamily};
-              --custom-text: ${displaySettings.fontColor};
-              --accent-color: ${displaySettings.accentColor};
-            }
-            body {
-              font-family: var(--custom-font) !important;
-            }
-            .app-container {
-              color: var(--custom-text);
-            }
-            .bg-custom-overlay {
-              background-image: ${displaySettings.backgroundImage ? `url(${displaySettings.backgroundImage})` : 'none'};
-              background-size: cover;
-              background-position: center;
-              background-attachment: fixed;
-            }
-            .bg-dim-layer {
-              background-color: ${darkMode ? '#020617' : '#f8fafc'};
-              opacity: ${displaySettings.bgOpacity / 100};
-            }
-            .glass-card {
-              background-color: ${darkMode ? `rgba(15, 23, 42, ${displaySettings.cardOpacity / 100})` : `rgba(255, 255, 255, ${displaySettings.cardOpacity / 100})`} !important;
-              backdrop-filter: blur(${displaySettings.glassBlur}px) !important;
-              -webkit-backdrop-filter: blur(${displaySettings.glassBlur}px) !important;
-            }
-            .nav-node-row {
-              position: relative;
-              transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
-              border: 1px solid transparent;
-            }
-            .nav-node-row:hover {
-              transform: translateX(8px);
-              border-color: var(--hover-color);
-              box-shadow: -4px 0 0 0 var(--hover-color), 0 10px 20px -5px rgba(0,0,0,0.1);
-            }
-            .nav-node-row::before, .nav-node-row::after {
-              content: '';
-              position: absolute;
-              width: 4px;
-              height: 4px;
-              border: 1px solid var(--hover-color);
-              opacity: 0;
-              transition: opacity 0.3s ease;
-            }
-            .nav-node-row:hover::before { opacity: 1; top: 0; left: 0; border-right: 0; border-bottom: 0; }
-            .nav-node-row:hover::after { opacity: 1; bottom: 0; right: 0; border-left: 0; border-top: 0; }
+            :root { --custom-font: ${displaySettings.fontFamily}; --custom-text: ${displaySettings.fontColor}; --accent-color: ${displaySettings.accentColor}; }
+            body { font-family: var(--custom-font) !important; }
+            .bg-custom-overlay { background-image: ${displaySettings.backgroundImage ? `url(${displaySettings.backgroundImage})` : 'none'}; background-size: cover; background-position: center; background-attachment: fixed; }
+            .bg-dim-layer { background-color: ${darkMode ? '#020617' : '#f8fafc'}; opacity: ${displaySettings.bgOpacity / 100}; }
+            .glass-card { background-color: ${darkMode ? `rgba(15, 23, 42, ${displaySettings.cardOpacity / 100})` : `rgba(255, 255, 255, ${displaySettings.cardOpacity / 100})`} !important; backdrop-filter: blur(${displaySettings.glassBlur}px) !important; -webkit-backdrop-filter: blur(${displaySettings.glassBlur}px) !important; }
+            .nav-node-row:hover { transform: translateX(8px); border-color: var(--hover-color); box-shadow: -4px 0 0 0 var(--hover-color), 0 10px 20px -5px rgba(0,0,0,0.1); }
           `}
         </style>
         <Routes>
@@ -272,16 +141,8 @@ const App: React.FC = () => {
 };
 
 interface LayoutProps {
-  user: User;
-  cloudSettings: any;
-  branding: { name: string; logo: string | null; address: string; email: string; contact: string; };
-  onUpdateDisplay: (settings: DisplaySettings) => void;
-  displaySettings: DisplaySettings;
-  onLogout: () => void;
-  schoolLogo: string | null;
-  schoolName: string;
-  darkMode: boolean;
-  setDarkMode: (val: boolean) => void;
+  user: User; cloudSettings: any; branding: { name: string; logo: string | null; address: string; email: string; contact: string; };
+  onUpdateDisplay: (settings: DisplaySettings) => void; displaySettings: DisplaySettings; onLogout: () => void; schoolLogo: string | null; schoolName: string; darkMode: boolean; setDarkMode: (val: boolean) => void;
 }
 
 const Layout: React.FC<LayoutProps> = ({ user, cloudSettings, branding, onUpdateDisplay, displaySettings, onLogout, schoolLogo, schoolName, darkMode, setDarkMode }) => {
@@ -306,21 +167,12 @@ const Layout: React.FC<LayoutProps> = ({ user, cloudSettings, branding, onUpdate
 
     if (user.role === 'TEACHER') {
       const perms = ((user as any).permissions || []) as string[];
-      const nameKeyMap: Record<string, string> = {
-        'Attendance': 'attendance', 'Curriculum': 'curriculum', 'Homework': 'homework',
-        'Timetable': 'timetable', 'Food Chart': 'food_chart', 'SMS Panel': 'sms',
-        'Gallery': 'gallery', 'Notices': 'notices', 'Marks Entry': 'marks'
-      };
-      permittedNav = defaultNav.filter((item: any) => {
-        if (item.name === 'Dashboard') return true;
-        const requiredKey = nameKeyMap[item.name];
-        return requiredKey && perms.includes(requiredKey);
-      });
+      const nameKeyMap: Record<string, string> = { 'Attendance': 'attendance', 'Curriculum': 'curriculum', 'Homework': 'homework', 'Timetable': 'timetable', 'Food Chart': 'food_chart', 'SMS Panel': 'sms', 'Gallery': 'gallery', 'Notices': 'notices', 'Marks Entry': 'marks' };
+      permittedNav = defaultNav.filter((item: any) => { if (item.name === 'Dashboard') return true; const requiredKey = nameKeyMap[item.name]; return requiredKey && perms.includes(requiredKey); });
     }
 
     const cloudKey = `nav_order_${user.role}`;
-    const savedOrder = cloudSettings[cloudKey] || localStorage.getItem(cloudKey);
-    
+    const savedOrder = cloudSettings[cloudKey];
     if (savedOrder) {
       try {
         const savedNames = typeof savedOrder === 'string' ? JSON.parse(savedOrder) : savedOrder;
@@ -340,13 +192,11 @@ const Layout: React.FC<LayoutProps> = ({ user, cloudSettings, branding, onUpdate
       copyListItems.splice(dragOverItem.current, 0, dragItemContent);
       setOrderedNav(copyListItems);
       const cloudKey = `nav_order_${user.role}`;
-      localStorage.setItem(cloudKey, JSON.stringify(copyListItems.map(i => i.name)));
       setIsSavingNav(true);
       try { await db.settings.update(cloudKey, JSON.stringify(copyListItems.map(i => i.name))); } catch (err) {}
       finally { setTimeout(() => setIsSavingNav(false), 800); }
     }
-    dragItem.current = null;
-    dragOverItem.current = null;
+    dragItem.current = null; dragOverItem.current = null;
   };
 
   const location = useLocation();
@@ -355,10 +205,7 @@ const Layout: React.FC<LayoutProps> = ({ user, cloudSettings, branding, onUpdate
   useEffect(() => {
     if (isStudent && user?.id) {
       const fetchStudentDetails = async () => {
-        try {
-          const { data } = await supabase.from('students').select('*').eq('id', user.id).single();
-          if (data) setFullStudentData(data);
-        } catch (e) {}
+        try { const { data } = await supabase.from('students').select('*').eq('id', user.id).single(); if (data) setFullStudentData(data); } catch (e) {}
       };
       fetchStudentDetails();
     }
@@ -366,14 +213,7 @@ const Layout: React.FC<LayoutProps> = ({ user, cloudSettings, branding, onUpdate
 
   const getNavColor = (name: string) => {
     const n = name.toUpperCase();
-    if (n.includes('DASHBOARD')) return '#6366f1'; // Indigo
-    if (n.includes('SLIDESHOW')) return '#8b5cf6'; // Violet
-    if (n.includes('STUDENT') || n.includes('TEACHER') || n.includes('CLASS')) return '#10b981'; // Emerald
-    if (n.includes('FEE') || n.includes('RECEIPT') || n.includes('LEDGER')) return '#f59e0b'; // Amber
-    if (n.includes('HOMEWORK') || n.includes('CURRICULUM') || n.includes('TIMETABLE')) return '#06b6d4'; // Cyan
-    if (n.includes('NOTICE') || n.includes('GALLERY') || n.includes('SMS')) return '#a855f7'; // Purple
-    if (n.includes('AUDIT') || n.includes('LOGS') || n.includes('CANCEL')) return '#f43f5e'; // Rose
-    return '#6366f1';
+    if (n.includes('DASHBOARD')) return '#6366f1'; if (n.includes('SLIDESHOW')) return '#8b5cf6'; if (n.includes('STUDENT') || n.includes('TEACHER') || n.includes('CLASS')) return '#10b981'; if (n.includes('FEE') || n.includes('RECEIPT') || n.includes('LEDGER')) return '#f59e0b'; if (n.includes('HOMEWORK') || n.includes('CURRICULUM') || n.includes('TIMETABLE')) return '#06b6d4'; if (n.includes('NOTICE') || n.includes('GALLERY') || n.includes('SMS')) return '#a855f7'; if (n.includes('AUDIT') || n.includes('LOGS') || n.includes('CANCEL')) return '#f43f5e'; return '#6366f1';
   };
 
   if (!user) return null;
@@ -404,10 +244,7 @@ const Layout: React.FC<LayoutProps> = ({ user, cloudSettings, branding, onUpdate
            <div className="absolute top-20 right-8 w-64 bg-white dark:bg-slate-900 rounded-[2rem] p-6 shadow-2xl border border-slate-100 dark:border-slate-800 animate-in slide-in-from-top-2 duration-300 glass-card" onClick={e => e.stopPropagation()}>
               <div className="flex items-center gap-4 mb-6">
                  <div className="w-12 h-12 bg-indigo-600 rounded-2xl flex items-center justify-center text-white font-black shadow-lg">{user.name.charAt(0)}</div>
-                 <div>
-                    <p className="text-[8px] font-black text-slate-400 uppercase tracking-[0.3em] mb-0.5">Admin Identity</p>
-                    <p className="text-sm font-black text-slate-900 dark:text-white uppercase">{user.name}</p>
-                 </div>
+                 <div><p className="text-[8px] font-black text-slate-400 uppercase tracking-[0.3em] mb-0.5">Admin Identity</p><p className="text-sm font-black text-slate-900 dark:text-white uppercase">{user.name}</p></div>
               </div>
               <button onClick={() => { setShowProfileModal(false); setShowLogoutConfirm(true); }} className="w-full py-3 bg-rose-50 dark:bg-rose-950/30 text-rose-600 hover:bg-rose-600 hover:text-white rounded-xl transition-all font-black text-[9px] uppercase tracking-widest border border-rose-100 dark:border-rose-900/50 flex items-center justify-center gap-2"><LogOut size={14} /> Log Out</button>
            </div>
@@ -419,59 +256,27 @@ const Layout: React.FC<LayoutProps> = ({ user, cloudSettings, branding, onUpdate
       <aside className={`fixed lg:static inset-y-0 left-0 z-50 w-72 bg-white/90 dark:bg-slate-900/95 border-r border-slate-200 dark:border-slate-800 transform transition-all duration-300 ease-in-out glass-card ${sidebarOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'}`}>
         <div className="h-full flex flex-col relative overflow-hidden">
           <div className="absolute inset-0 neural-grid-white opacity-[0.05] pointer-events-none"></div>
-          
           <div className="p-8 relative z-10">
             <div className="flex items-center justify-between mb-8">
                <div className="flex items-center gap-4">
-                  <div className="w-12 h-12 bg-indigo-600 rounded-2xl flex items-center justify-center text-white font-bold overflow-hidden shadow-2xl border-2 border-white/20">
-                    {schoolLogo ? <img src={schoolLogo} className="w-full h-full object-cover" alt="Logo" /> : <School size={28} />}
-                  </div>
-                  <div className="min-w-0">
-                    <span className="text-xs font-black text-slate-900 dark:text-white tracking-tighter uppercase truncate block">{schoolName}</span>
-                    <span className="text-[7px] font-black text-indigo-500 uppercase tracking-[0.4em]">Control Node</span>
-                  </div>
+                  <div className="w-12 h-12 bg-indigo-600 rounded-2xl flex items-center justify-center text-white font-bold overflow-hidden shadow-2xl border-2 border-white/20">{schoolLogo ? <img src={schoolLogo} className="w-full h-full object-cover" alt="Logo" /> : <School size={28} />}</div>
+                  <div className="min-w-0"><span className="text-xs font-black text-slate-900 dark:text-white tracking-tighter uppercase truncate block">{schoolName}</span><span className="text-[7px] font-black text-indigo-500 uppercase tracking-[0.4em]">Control Node</span></div>
                </div>
-               <button onClick={() => setDarkMode(!darkMode)} className="p-2.5 bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400 rounded-xl hover:text-indigo-600 transition-all shadow-sm">
-                 {darkMode ? <Sun size={18} /> : <Moon size={18} />}
-               </button>
+               <button onClick={() => setDarkMode(!darkMode)} className="p-2.5 bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400 rounded-xl hover:text-indigo-600 transition-all shadow-sm">{darkMode ? <Sun size={18} /> : <Moon size={18} />}</button>
             </div>
             {!isStudent && (
-              <button onClick={() => setIsCustomizing(!isCustomizing)} className={`w-full flex items-center justify-center gap-3 py-3 rounded-2xl text-[9px] font-black uppercase tracking-[0.2em] border-2 transition-all ${isCustomizing ? 'bg-indigo-600 text-white border-indigo-500 shadow-xl' : 'bg-slate-50 dark:bg-slate-800 text-slate-400 border-slate-100 dark:border-slate-700 hover:border-indigo-100 hover:text-indigo-600 shadow-sm'}`}>
-                {isSavingNav ? <Loader2 size={12} className="animate-spin" /> : <LayoutTemplate size={12} />} 
-                {isCustomizing ? 'Lock Configuration' : 'Customize Console'}
-              </button>
+              <button onClick={() => setIsCustomizing(!isCustomizing)} className={`w-full flex items-center justify-center gap-3 py-3 rounded-2xl text-[9px] font-black uppercase tracking-[0.2em] border-2 transition-all ${isCustomizing ? 'bg-indigo-600 text-white border-indigo-500 shadow-xl' : 'bg-slate-50 dark:bg-slate-800 text-slate-400 border-slate-100 dark:border-slate-700 hover:border-indigo-100 hover:text-indigo-600 shadow-sm'}`}>{isSavingNav ? <Loader2 size={12} className="animate-spin" /> : <LayoutTemplate size={12} />} {isCustomizing ? 'Lock Configuration' : 'Customize Console'}</button>
             )}
           </div>
 
           <nav className="flex-1 px-6 space-y-3 overflow-y-auto custom-scrollbar relative z-10">
             {orderedNav.map((item: any, index: number) => {
-              const isActive = location.pathname === item.path;
-              const hoverColor = getNavColor(item.name);
+              const isActive = location.pathname === item.path; const hoverColor = getNavColor(item.name);
               return (
-                <div 
-                  key={item.name} 
-                  draggable={isCustomizing && !isStudent} 
-                  onDragStart={() => { dragItem.current = index; }} 
-                  onDragEnter={() => { dragOverItem.current = index; }} 
-                  onDragEnd={handleDragEnd} 
-                  onDragOver={(e) => e.preventDefault()} 
-                  style={{ '--hover-color': hoverColor } as React.CSSProperties}
-                  className={`nav-node-row group ${isCustomizing && !isStudent ? 'cursor-grab active:cursor-grabbing bg-slate-50/50 dark:bg-slate-800/20 rounded-2xl' : ''}`}
-                >
-                  <Link 
-                    to={isCustomizing && !isStudent ? '#' : item.path} 
-                    onClick={(e) => { if (isCustomizing && !isStudent) e.preventDefault(); else setSidebarOpen(false); }} 
-                    className={`flex items-center justify-between px-5 py-4 rounded-2xl transition-all relative overflow-hidden ${isActive ? 'bg-indigo-600 text-white shadow-xl translate-x-2' : 'bg-white dark:bg-slate-800/40 text-slate-600 dark:text-slate-400 border border-slate-100 dark:border-slate-800 shadow-sm'}`}
-                  >
-                    <div className="flex items-center gap-4 min-w-0">
-                       <span className={`shrink-0 transition-transform duration-500 group-hover:rotate-12 ${isActive ? 'text-white' : 'text-slate-400 group-hover:text-indigo-500'}`}>{item.icon}</span>
-                       <span className="text-[10px] font-black uppercase tracking-widest truncate">{item.name}</span>
-                    </div>
-                    {isCustomizing && !isStudent ? (
-                      <GripVertical size={14} className="text-slate-300" />
-                    ) : (
-                      <ChevronRight size={12} className={`transition-all ${isActive ? 'text-white opacity-100 translate-x-0' : 'opacity-0 -translate-x-2 group-hover:opacity-100 group-hover:translate-x-0'}`} />
-                    )}
+                <div key={item.name} draggable={isCustomizing && !isStudent} onDragStart={() => { dragItem.current = index; }} onDragEnter={() => { dragOverItem.current = index; }} onDragEnd={handleDragEnd} onDragOver={(e) => e.preventDefault()} style={{ '--hover-color': hoverColor } as React.CSSProperties} className={`nav-node-row group ${isCustomizing && !isStudent ? 'cursor-grab active:cursor-grabbing bg-slate-50/50 dark:bg-slate-800/20 rounded-2xl' : ''}`}>
+                  <Link to={isCustomizing && !isStudent ? '#' : item.path} onClick={(e) => { if (isCustomizing && !isStudent) e.preventDefault(); else setSidebarOpen(false); }} className={`flex items-center justify-between px-5 py-4 rounded-2xl transition-all relative overflow-hidden ${isActive ? 'bg-indigo-600 text-white shadow-xl translate-x-2' : 'bg-white dark:bg-slate-800/40 text-slate-600 dark:text-slate-400 border border-slate-100 dark:border-slate-800 shadow-sm'}`}>
+                    <div className="flex items-center gap-4 min-w-0"><span className={`shrink-0 transition-transform duration-500 group-hover:rotate-12 ${isActive ? 'text-white' : 'text-slate-400 group-hover:text-indigo-500'}`}>{item.icon}</span><span className="text-[10px] font-black uppercase tracking-widest truncate">{item.name}</span></div>
+                    {isCustomizing && !isStudent ? <GripVertical size={14} className="text-slate-300" /> : <ChevronRight size={12} className={`transition-all ${isActive ? 'text-white opacity-100 translate-x-0' : 'opacity-0 -translate-x-2 group-hover:opacity-100 group-hover:translate-x-0'}`} />}
                   </Link>
                 </div>
               );
@@ -480,13 +285,7 @@ const Layout: React.FC<LayoutProps> = ({ user, cloudSettings, branding, onUpdate
 
           <div className="p-6 border-t border-slate-100 dark:border-slate-800 space-y-4 relative z-10 bg-white/50 dark:bg-slate-900/50">
             <div className="flex items-center justify-between p-4 bg-emerald-50 dark:bg-emerald-950/20 rounded-2xl border border-emerald-100 dark:border-emerald-900 shadow-inner">
-               <div className="flex items-center gap-3">
-                  <div className="w-8 h-8 bg-white dark:bg-slate-800 rounded-xl flex items-center justify-center text-emerald-600 shadow-sm"><Activity size={14} className="animate-pulse" /></div>
-                  <div>
-                    <p className="text-[8px] font-black text-emerald-800 dark:text-emerald-400 uppercase tracking-widest leading-none mb-1">Status</p>
-                    <p className="text-[9px] font-black text-emerald-600 uppercase">Cloud Uplink Active</p>
-                  </div>
-               </div>
+               <div className="flex items-center gap-3"><div className="w-8 h-8 bg-white dark:bg-slate-800 rounded-xl flex items-center justify-center text-emerald-600 shadow-sm"><Activity size={14} className="animate-pulse" /></div><div><p className="text-[8px] font-black text-emerald-800 dark:text-emerald-400 uppercase tracking-widest leading-none mb-1">Status</p><p className="text-[9px] font-black text-emerald-600 uppercase">Cloud Uplink Active</p></div></div>
                <ShieldCheck size={14} className="text-emerald-500" />
             </div>
             <button onClick={() => setShowLogoutConfirm(true)} className="w-full flex items-center justify-center gap-3 py-4 bg-rose-50 dark:bg-rose-950/30 text-rose-600 hover:bg-rose-600 hover:text-white rounded-2xl transition-all font-black text-[10px] uppercase tracking-[0.2em] shadow-lg border border-rose-100 dark:border-rose-900/50"><OutIcon size={18} /> Exit Console</button>
@@ -499,13 +298,8 @@ const Layout: React.FC<LayoutProps> = ({ user, cloudSettings, branding, onUpdate
           <button className="lg:hidden p-2 text-slate-600 dark:text-slate-400" onClick={() => setSidebarOpen(true)}><Menu size={24} /></button>
           <div className="flex items-center gap-6 ml-auto">
              <div className="flex items-center gap-3 pl-2 cursor-pointer group" onClick={() => setShowProfileModal(true)}>
-                <div className="text-right hidden sm:block">
-                  <p className="text-sm font-black text-slate-800 dark:text-white leading-none group-hover:text-indigo-600 transition-colors uppercase">{fullStudentData?.full_name || user.name}</p>
-                  <p className="text-[8px] text-slate-400 dark:text-slate-500 font-black mt-1 uppercase tracking-[0.2em] flex items-center justify-end gap-1.5"><Fingerprint size={10}/> {user.role} TERMINAL</p>
-                </div>
-                <div className="w-10 h-10 bg-indigo-50 dark:bg-indigo-900/30 text-indigo-600 rounded-xl flex items-center justify-center font-bold overflow-hidden shadow-xl border border-indigo-100 dark:border-indigo-800 group-hover:scale-110 transition-all">
-                  {user.profileImage ? <img src={user.profileImage} className="w-full h-full object-cover" alt="Profile" /> : isAdmin ? <Shield size={20} /> : <UserCircle size={24} />}
-                </div>
+                <div className="text-right hidden sm:block"><p className="text-sm font-black text-slate-800 dark:text-white leading-none group-hover:text-indigo-600 transition-colors uppercase">{fullStudentData?.full_name || user.name}</p><p className="text-[8px] text-slate-400 dark:text-slate-500 font-black mt-1 uppercase tracking-[0.2em] flex items-center justify-end gap-1.5"><Fingerprint size={10}/> {user.role} TERMINAL</p></div>
+                <div className="w-10 h-10 bg-indigo-50 dark:bg-indigo-900/30 text-indigo-600 rounded-xl flex items-center justify-center font-bold overflow-hidden shadow-xl border border-indigo-100 dark:border-indigo-800 group-hover:scale-110 transition-all">{user.profileImage ? <img src={user.profileImage} className="w-full h-full object-cover" alt="Profile" /> : isAdmin ? <Shield size={20} /> : <UserCircle size={24} />}</div>
              </div>
           </div>
         </header>
