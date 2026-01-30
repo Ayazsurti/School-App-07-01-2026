@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { HashRouter, Routes, Route, Navigate, Link, useLocation, useNavigate } from 'react-router-dom';
 import { 
@@ -386,13 +385,15 @@ const Layout: React.FC<LayoutProps> = ({ user, cloudSettings, branding, onUpdate
 
       {showLogoutConfirm && (
         <div className="fixed inset-0 z-[2000] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-in fade-in">
-          <div className="bg-white dark:bg-slate-900 rounded-3xl p-8 max-sm w-full shadow-2xl border border-slate-200 dark:border-slate-800 glass-card">
-            <div className="w-16 h-16 bg-rose-50 dark:bg-rose-900/20 text-rose-600 rounded-2xl flex items-center justify-center mb-6 mx-auto"><OutIcon size={32} /></div>
-            <h3 className="text-xl font-bold text-slate-900 dark:text-white text-center mb-2 uppercase tracking-tighter">Sign Out?</h3>
-            <p className="text-slate-500 dark:text-slate-400 text-center mb-8 font-medium">Log out of your institutional account?</p>
+          <div className="bg-white dark:bg-slate-900 rounded-3xl p-6 max-w-[320px] w-full shadow-2xl border border-slate-200 dark:border-slate-800 glass-card">
+            <div className="w-12 h-12 bg-rose-50 dark:bg-rose-900/20 text-rose-600 rounded-[1.2rem] flex items-center justify-center mb-4 mx-auto border border-rose-100 dark:border-rose-800/50 shadow-inner">
+               <OutIcon size={24} />
+            </div>
+            <h3 className="text-lg font-black text-slate-900 dark:text-white text-center mb-1 uppercase tracking-tighter">Sign Out?</h3>
+            <p className="text-[10px] font-black text-slate-400 dark:text-slate-500 text-center mb-6 uppercase tracking-widest leading-relaxed">Securely terminate the current session?</p>
             <div className="flex gap-3">
-              <button onClick={() => setShowLogoutConfirm(false)} className="flex-1 py-3 bg-slate-100 dark:bg-slate-800 text-slate-600 font-bold rounded-xl uppercase text-[10px]">Stay</button>
-              <button onClick={() => { onLogout(); navigate('/login'); }} className="flex-1 py-3 bg-rose-600 text-white font-bold rounded-xl uppercase text-[10px]">Logout</button>
+              <button onClick={() => setShowLogoutConfirm(false)} className="flex-1 py-3 bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 font-black rounded-xl uppercase text-[10px] tracking-widest transition-all hover:bg-slate-200">Stay</button>
+              <button onClick={() => { onLogout(); navigate('/login'); }} className="flex-1 py-3 bg-rose-600 text-white font-black rounded-xl uppercase text-[10px] tracking-widest shadow-lg shadow-rose-200 dark:shadow-none hover:bg-rose-700 transition-all">Logout</button>
             </div>
           </div>
         </div>

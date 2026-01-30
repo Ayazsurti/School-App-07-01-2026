@@ -46,7 +46,10 @@ const MediaGallery: React.FC<MediaGalleryProps> = ({ user }) => {
   const fetchCloudData = async () => {
     try {
       const data = await db.gallery.getAll();
-      setAssets(data.map((a: any) => ({
+      // Filter out 'slideshow' type so they don't appear in the regular gallery
+      const galleryOnly = (data || []).filter((a: any) => a.type !== 'slideshow');
+      
+      setAssets(galleryOnly.map((a: any) => ({
         id: a.id, url: a.url, type: a.type, name: a.name || 'UNTITLED_ASSET', description: a.description,
         date: a.date, uploadedBy: a.uploaded_by
       })));
@@ -56,7 +59,7 @@ const MediaGallery: React.FC<MediaGalleryProps> = ({ user }) => {
 
   useEffect(() => {
     fetchCloudData();
-    const channel = supabase.channel('realtime-gallery-sync-v15')
+    const channel = supabase.channel('realtime-gallery-sync-v16')
       .on('postgres_changes', { event: '*', schema: 'public', table: 'gallery' }, () => {
         setIsSyncing(true);
         fetchCloudData().then(() => setTimeout(() => setIsSyncing(false), 800));
