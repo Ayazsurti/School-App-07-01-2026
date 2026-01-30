@@ -84,7 +84,6 @@ export const NAVIGATION = {
   ],
   STUDENT: [
     { name: 'Dashboard', icon: <LayoutDashboard size={20} />, path: '/student/dashboard' },
-    { name: 'Attendance', icon: <CalendarCheck size={20} />, path: '/student/attendance' },
     { name: 'Curriculum', icon: <BookOpen size={20} />, path: '/student/curriculum' },
     { name: 'Homework', icon: <PencilRuler size={20} />, path: '/student/homework' },
     { name: 'Food Chart', icon: <UtensilsCrossed size={20} />, path: '/student/food-chart' },
