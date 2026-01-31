@@ -391,7 +391,7 @@ const Layout: React.FC<LayoutProps> = ({ user, cloudSettings, branding, onUpdate
 
         <main className="flex-1 p-4 lg:p-8 overflow-y-auto relative">
           <Routes>
-            <Route path="/" element={<Navigate to={user?.role ? `/${user.role.toLowerCase()}/dashboard` : '/login'} />} />
+            <Route path="/" element={<Navigate to={user?.role ? `/${user.role.toLowerCase()}/dashboard` : '/login'} />} replace />
             <Route path="/admin/dashboard" element={<Dashboard user={user} branding={branding} onUpdateLogo={() => navigate('/admin/branding')} />} />
             <Route path="/admin/slideshow-manager" element={<SlideshowManager user={user} />} />
             <Route path="/admin/branding" element={<SchoolSettings user={user} />} />
