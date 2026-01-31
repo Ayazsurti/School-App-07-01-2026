@@ -9,7 +9,7 @@ export const supabase = createClient(supabaseUrl, supabaseAnonKey);
 export const getErrorMessage = (err: any): string => {
   if (typeof err === 'string') return err;
   if (err?.code === '42501') return "Database Permission Denied (42501).";
-  if (err?.code === '23505') return "Record already exists for this date.";
+  if (err?.code === '23505') return "Record already exists (Unique Conflict).";
   if (err?.message) return err.message;
   return "Cloud Sync Interrupted. Reconnecting...";
 };
@@ -20,12 +20,10 @@ export const db = {
       const cleanUser = (username || '').trim().toLowerCase();
       const cleanPass = (pass || '').trim();
       
-      // Admin Master Identity
       if (cleanUser === 'ayazsurti' && cleanPass === 'Ayaz78692') {
         return { id: 'admin-master', name: 'Ayaz Surti', role: 'ADMIN', profile_image: null };
       }
       
-      // Teacher Identity Check
       const { data: tea, error: teaErr } = await supabase
         .from('teachers')
         .select('*')
@@ -45,7 +43,6 @@ export const db = {
         };
       }
 
-      // Student Identity Check (Username = GR Number)
       const { data: std, error: stdErr } = await supabase
         .from('students')
         .select('*')
@@ -66,14 +63,14 @@ export const db = {
         };
       }
 
-      throw new Error("Invalid Credentials. Please verify Username/GR and Master Key.");
+      throw new Error("Invalid Credentials.");
     },
 
     async verifyMobile(mobile: string, role: 'TEACHER' | 'STUDENT') {
       const table = role === 'TEACHER' ? 'teachers' : 'students';
       const col = role === 'TEACHER' ? 'mobile' : 'father_mobile';
       const { data, error } = await supabase.from(table).select('id').eq(col, mobile.trim()).single();
-      if (error || !data) throw new Error("Mobile not registered in school database.");
+      if (error || !data) throw new Error("Mobile not registered.");
       return data;
     },
 
@@ -95,9 +92,7 @@ export const db = {
         .from('sms_history')
         .select('*')
         .order('created_at', { ascending: false });
-      
-      if (error) return [];
-      return data;
+      return error ? [] : data;
     },
     async insertHistory(payload: { message: string, targets: string, recipient_count: number, sent_by: string }) {
       const { data, error } = await supabase.from('sms_history').insert([{
@@ -120,7 +115,12 @@ export const db = {
       return settings;
     },
     async update(key: string, value: string | null) {
-      const { error } = await supabase.from('settings').upsert([{ key, value, updated_at: new Date().toISOString() }]);
+      const { error } = await supabase
+        .from('settings')
+        .upsert(
+          { key, value, updated_at: new Date().toISOString() }, 
+          { onConflict: 'key' }
+        );
       if (error) throw error;
     }
   },
@@ -132,33 +132,7 @@ export const db = {
     },
     async upsert(s: any) {
       const payload: any = {
-        full_name: s.fullName,
-        gr_number: s.grNumber,
-        roll_no: s.rollNo,
-        class: s.class,
-        section: s.section,
-        gender: s.gender,
-        dob: s.dob,
-        admission_date: s.admissionDate,
-        aadhar_no: s.aadharNo,
-        pan_no: s.panNo,
-        uid_id: s.uidId,
-        student_type: s.studentType,
-        birth_place: s.birthPlace,
-        mother_name: s.motherName,
-        mother_mobile: s.motherMobile,
-        father_name: s.fatherName,
-        father_mobile: s.fatherMobile,
-        residence_address: s.residenceAddress,
-        profile_image: s.profileImage,
-        father_photo: s.fatherPhoto,
-        mother_photo: s.motherPhoto,
-        password: s.password || 'student786',
-        status: s.status || 'ACTIVE',
-        medium: s.medium || 'ENGLISH MEDIUM',
-        wing: s.wing,
-        access_rights: s.accessRights || [],
-        fee_overrides: s.feeOverrides || {}
+        full_name: s.fullName, gr_number: s.grNumber, roll_no: s.rollNo, class: s.class, section: s.section, gender: s.gender, dob: s.dob, admission_date: s.admissionDate, aadhar_no: s.aadharNo, pan_no: s.panNo, uid_id: s.uidId, student_type: s.studentType, birth_place: s.birthPlace, mother_name: s.motherName, mother_mobile: s.motherMobile, father_name: s.fatherName, father_mobile: s.fatherMobile, residence_address: s.residenceAddress, profile_image: s.profileImage, father_photo: s.fatherPhoto, mother_photo: s.motherPhoto, password: s.password || 'student786', status: s.status || 'ACTIVE', medium: s.medium || 'ENGLISH MEDIUM', wing: s.wing, access_rights: s.accessRights || [], fee_overrides: s.feeOverrides || {}
       };
       if (s.id && !s.id.startsWith('temp-')) payload.id = s.id;
       const { data, error } = await supabase.from('students').upsert([payload]).select();
@@ -166,15 +140,11 @@ export const db = {
       return data;
     },
     async cancelAdmission(id: string, reason: string, date: string, cancelledBy: string) {
-      const { error } = await supabase.from('students').update({
-        status: 'CANCELLED', cancel_reason: reason, cancel_date: date, cancelled_by: cancelledBy
-      }).eq('id', id);
+      const { error } = await supabase.from('students').update({ status: 'CANCELLED', cancel_reason: reason, cancel_date: date, cancelled_by: cancelledBy }).eq('id', id);
       if (error) throw error;
     },
     async revertAdmission(id: string) {
-      const { error } = await supabase.from('students').update({
-        status: 'ACTIVE', cancel_reason: null, cancel_date: null, cancelled_by: null
-      }).eq('id', id);
+      const { error } = await supabase.from('students').update({ status: 'ACTIVE', cancel_reason: null, cancel_date: null, cancelled_by: null }).eq('id', id);
       if (error) throw error;
     },
     async delete(id: string) {
@@ -189,9 +159,7 @@ export const db = {
       return data;
     },
     async upsert(t: any) {
-      const payload = {
-        name: t.fullName, staff_id: t.staffId, mobile: t.mobile, alternate_mobile: t.alternate_mobile, email: t.email, qualification: t.qualification, residence_address: t.residenceAddress, gender: t.gender, status: t.status, profile_image: t.profile_image, signature_image: t.signature_image, joining_date: t.joining_date, dob: t.dob, subject: Array.isArray(t.subjects) ? t.subjects.join(', ') : t.subjects, classes_list: Array.isArray(t.classes) ? t.classes.join(', ') : t.classes, permissions: Array.isArray(t.permissions) ? t.permissions.join(', ') : t.permissions, assigned_role: t.assigned_role, assigned_class: t.assigned_class, assigned_section: t.assigned_section, aadhar_no: t.aadhar_no, pan_no: t.pan_no, account_no: t.account_no, account_type: t.account_type, bank_name: t.bank_name, ifsc_code: t.ifsc_code, username: (t.username || '').toLowerCase().trim(), password: t.password
-      };
+      const payload = { name: t.fullName, staff_id: t.staffId, mobile: t.mobile, alternate_mobile: t.alternate_mobile, email: t.email, qualification: t.qualification, residence_address: t.residenceAddress, gender: t.gender, status: t.status, profile_image: t.profile_image, signature_image: t.signature_image, joining_date: t.joining_date, dob: t.dob, subject: Array.isArray(t.subjects) ? t.subjects.join(', ') : t.subjects, classes_list: Array.isArray(t.classes) ? t.classes.join(', ') : t.classes, permissions: Array.isArray(t.permissions) ? t.permissions.join(', ') : t.permissions, assigned_role: t.assigned_role, assigned_class: t.assigned_class, assigned_section: t.assigned_section, aadhar_no: t.aadhar_no, pan_no: t.pan_no, account_no: t.account_no, account_type: t.account_type, bank_name: t.bank_name, ifsc_code: t.ifsc_code, username: (t.username || '').toLowerCase().trim(), password: t.password };
       if (t.id) (payload as any).id = t.id;
       const { data, error } = await supabase.from('teachers').upsert([payload]).select();
       if (error) throw error;
@@ -210,6 +178,18 @@ export const db = {
     },
     async bulkUpsert(records: any[]) {
       const { data, error } = await supabase.from('attendance').upsert(records, { onConflict: 'student_id, date' }).select();
+      if (error) throw error;
+      return data;
+    }
+  },
+  teacherAttendance: {
+    async getByDate(date: string) {
+      const { data, error } = await supabase.from('teacher_attendance').select('*').eq('date', date);
+      if (error) throw error;
+      return data;
+    },
+    async bulkUpsert(records: any[]) {
+      const { data, error } = await supabase.from('teacher_attendance').upsert(records, { onConflict: 'teacher_id, date' }).select();
       if (error) throw error;
       return data;
     }

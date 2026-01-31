@@ -34,7 +34,8 @@ import {
   UserMinus,
   FileDown,
   Layers,
-  MonitorPlay
+  MonitorPlay,
+  Briefcase
 } from 'lucide-react';
 import { TimetableEntry, Student } from './types';
 
@@ -55,7 +56,8 @@ export const NAVIGATION = {
     { name: 'Teacher Management', icon: <UserCheck size={20} />, path: '/admin/teachers' },
     { name: 'Homework', icon: <PencilRuler size={20} />, path: '/admin/homework' },
     { name: 'Curriculum', icon: <BookOpen size={20} />, path: '/admin/curriculum' },
-    { name: 'Attendance', icon: <CalendarCheck size={20} />, path: '/teacher/attendance' },
+    { name: 'Student Attendance', icon: <CalendarCheck size={20} />, path: '/admin/attendance' },
+    { name: 'Teacher Attendance', icon: <Briefcase size={20} />, path: '/admin/teacher-attendance' },
     { name: 'Timetable', icon: <CalendarDays size={20} />, path: '/admin/timetable' },
     { name: 'Food Chart', icon: <UtensilsCrossed size={20} />, path: '/admin/food-chart' },
     { name: 'SMS Panel', icon: <MessageSquareQuote size={20} />, path: '/admin/sms' },
@@ -72,7 +74,7 @@ export const NAVIGATION = {
   ],
   TEACHER: [
     { name: 'Dashboard', icon: <LayoutDashboard size={20} />, path: '/teacher/dashboard' },
-    { name: 'Attendance', icon: <CalendarCheck size={20} />, path: '/teacher/attendance' },
+    { name: 'My Attendance', icon: <CalendarCheck size={20} />, path: '/teacher/attendance' },
     { name: 'Curriculum', icon: <BookOpen size={20} />, path: '/teacher/curriculum' },
     { name: 'Homework', icon: <PencilRuler size={20} />, path: '/teacher/homework' },
     { name: 'Timetable', icon: <CalendarDays size={20} />, path: '/teacher/timetable' },
