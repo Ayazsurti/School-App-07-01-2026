@@ -93,7 +93,6 @@ const App: React.FC = () => {
       setIsCloudHealthy(false);
       setLastSyncError(msg);
       
-      // Auto-retry with backoff
       if (retryCount < 3) {
         setTimeout(() => fetchGlobalSettings(retryCount + 1), 5000);
       }
@@ -102,7 +101,7 @@ const App: React.FC = () => {
 
   useEffect(() => {
     fetchGlobalSettings();
-    const channel = supabase.channel('settings-global-sync-v12')
+    const channel = supabase.channel('settings-global-sync-v13')
       .on('postgres_changes', { event: '*', schema: 'public', table: 'settings' }, () => fetchGlobalSettings())
       .subscribe();
     return () => { supabase.removeChannel(channel); };
@@ -168,12 +167,10 @@ interface LayoutProps {
 const Layout: React.FC<LayoutProps> = ({ user, cloudHealthy, cloudError, cloudSettings, branding, onUpdateDisplay, displaySettings, onLogout, schoolLogo, schoolName, darkMode, setDarkMode }) => {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
-  const [showProfileModal, setShowProfileModal] = useState(false);
   const [isCustomizingMenu, setIsCustomizingMenu] = useState(false);
   const [isSavingNav, setIsSavingNav] = useState(false);
   const [orderedNav, setOrderedNav] = useState<any[]>([]);
 
-  // Recovery Engine State
   const [showBackupModal, setShowBackupModal] = useState(false);
   const [isBackingUp, setIsBackingUp] = useState(false);
   const [backupProgress, setBackupProgress] = useState('');
@@ -182,7 +179,6 @@ const Layout: React.FC<LayoutProps> = ({ user, cloudHealthy, cloudError, cloudSe
   const [lastBackupTime, setLastBackupTime] = useState<string | null>(null);
   const [backupPath, setBackupPath] = useState('C:/Institutional/Archives/');
 
-  // Drag & Drop State
   const [draggedIndex, setDraggedIndex] = useState<number | null>(null);
   const [dragOverIndex, setDragOverIndex] = useState<number | null>(null);
 
@@ -191,7 +187,6 @@ const Layout: React.FC<LayoutProps> = ({ user, cloudHealthy, cloudError, cloudSe
   const navigate = useNavigate();
   const restoreFileRef = useRef<HTMLInputElement>(null);
 
-  // Load and sync ordered navigation
   useEffect(() => {
     if (!user?.role) return;
     const defaultNav = (NAVIGATION as any)[user.role] || [];
@@ -213,7 +208,6 @@ const Layout: React.FC<LayoutProps> = ({ user, cloudHealthy, cloudError, cloudSe
     }
   }, [user?.role, cloudSettings]);
 
-  // Load Recovery Meta
   useEffect(() => {
     if (cloudSettings.backup_protocol) {
       try {
@@ -238,10 +232,7 @@ const Layout: React.FC<LayoutProps> = ({ user, cloudHealthy, cloudError, cloudSe
       for (const table of tables) {
         setBackupProgress(`Exporting ${table.toUpperCase()}...`);
         const { data, error } = await supabase.from(table).select('*');
-        if (error) {
-          console.warn(`Node ${table} fetch error:`, error);
-          continue;
-        }
+        if (error) continue;
         if (data) zip.file(`${table}.json`, JSON.stringify(data, null, 2));
       }
       
@@ -269,7 +260,7 @@ const Layout: React.FC<LayoutProps> = ({ user, cloudHealthy, cloudError, cloudSe
 
   const runFullRestore = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
-    if (!file || !window.confirm("CRITICAL WARNING: This will overwrite your existing database with the data in this archive. Proceed?")) return;
+    if (!file || !window.confirm("CRITICAL WARNING: This will overwrite your existing database. Proceed?")) return;
     
     setIsBackingUp(true);
     setRecoveryError(null);
@@ -284,8 +275,7 @@ const Layout: React.FC<LayoutProps> = ({ user, cloudHealthy, cloudError, cloudSe
         if (content) {
           const rows = JSON.parse(content);
           if (rows.length > 0) {
-            const { error } = await supabase.from(tableName).upsert(rows, { onConflict: 'id' });
-            if (error) console.warn(`Restore conflict in ${tableName}:`, error);
+            await supabase.from(tableName).upsert(rows, { onConflict: 'id' });
           }
         }
       }
@@ -310,11 +300,6 @@ const Layout: React.FC<LayoutProps> = ({ user, cloudHealthy, cloudError, cloudSe
     finally { setIsSavingNav(false); }
   };
 
-  const handleResetMenuOrder = () => {
-    const defaultNav = (NAVIGATION as any)[user.role] || [];
-    setOrderedNav(defaultNav);
-  };
-
   const onDragStart = (e: React.DragEvent, index: number) => {
     if (!isCustomizingMenu) return;
     setDraggedIndex(index);
@@ -329,17 +314,14 @@ const Layout: React.FC<LayoutProps> = ({ user, cloudHealthy, cloudError, cloudSe
 
   const onDragEnd = () => {
     if (!isCustomizingMenu || draggedIndex === null || dragOverIndex === null) {
-      setDraggedIndex(null);
-      setDragOverIndex(null);
-      return;
+      setDraggedIndex(null); setDragOverIndex(null); return;
     }
     const newItems = [...orderedNav];
     const draggedItem = newItems[draggedIndex];
     newItems.splice(draggedIndex, 1);
     newItems.splice(dragOverIndex, 0, draggedItem);
     setOrderedNav(newItems);
-    setDraggedIndex(null);
-    setDragOverIndex(null);
+    setDraggedIndex(null); setDragOverIndex(null);
   };
 
   const getNavColor = (name: string) => {
@@ -357,7 +339,6 @@ const Layout: React.FC<LayoutProps> = ({ user, cloudHealthy, cloudError, cloudSe
       <div className="fixed inset-0 z-0 bg-custom-overlay no-print"></div>
       <div className="fixed inset-0 z-0 bg-dim-layer no-print"></div>
 
-      {/* SYSTEM RECOVERY MODAL */}
       {showBackupModal && (
         <div className="fixed inset-0 z-[3000] flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-md animate-in fade-in">
            <div className="bg-white dark:bg-slate-900 rounded-[3.5rem] p-1 shadow-2xl max-w-3xl w-full border border-slate-100 dark:border-slate-800 animate-in zoom-in-95 overflow-hidden">
@@ -380,7 +361,6 @@ const Layout: React.FC<LayoutProps> = ({ user, cloudHealthy, cloudError, cloudSe
                     </div>
                  ) : (
                     <div className="space-y-8">
-                       {/* Connection Diagnostic Node */}
                        <div className={`p-6 rounded-3xl border-2 flex items-center gap-6 transition-all ${cloudHealthy ? 'bg-emerald-50 dark:bg-emerald-900/10 border-emerald-100 dark:border-emerald-800/50' : 'bg-rose-50 dark:bg-rose-900/10 border-rose-100 dark:border-rose-800/50'}`}>
                           <div className={`w-12 h-12 rounded-2xl flex items-center justify-center shadow-lg ${cloudHealthy ? 'bg-emerald-600' : 'bg-rose-600'} text-white`}>
                              {cloudHealthy ? <Wifi size={24}/> : <WifiOff size={24}/>}
@@ -388,14 +368,9 @@ const Layout: React.FC<LayoutProps> = ({ user, cloudHealthy, cloudError, cloudSe
                           <div>
                              <h4 className={`text-xs font-black uppercase ${cloudHealthy ? 'text-emerald-700 dark:text-emerald-400' : 'text-rose-700 dark:text-rose-400'}`}>Cloud Link: {cloudHealthy ? 'ACTIVE' : 'OFFLINE'}</h4>
                              <p className="text-[9px] font-bold text-slate-400 uppercase mt-1">
-                                {cloudHealthy ? 'Supabase Node Online • Identity Verified' : cloudError || 'Connection timed out. Check network.'}
+                                {cloudHealthy ? 'Supabase Node Online • Identity Verified' : cloudError || 'Connection timed out.'}
                              </p>
                           </div>
-                          {!cloudHealthy && (
-                             <button onClick={() => window.location.reload()} className="ml-auto p-3 bg-white dark:bg-slate-800 rounded-xl shadow-sm text-indigo-600 hover:scale-110 transition-all">
-                                <RefreshCw size={16}/>
-                             </button>
-                          )}
                        </div>
 
                        {recoveryError && (
@@ -411,17 +386,11 @@ const Layout: React.FC<LayoutProps> = ({ user, cloudHealthy, cloudError, cloudSe
                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                           <button onClick={runFullBackup} disabled={!cloudHealthy} className={`group p-6 rounded-[2rem] border-2 transition-all text-left flex items-center gap-6 ${cloudHealthy ? 'bg-indigo-50 dark:bg-indigo-900/20 border-transparent hover:border-indigo-500' : 'bg-slate-100 opacity-50 grayscale'}`}>
                              <div className="w-14 h-14 bg-indigo-600 rounded-2xl flex items-center justify-center text-white shadow-xl group-hover:scale-110 transition-transform"><HardDriveDownload size={28} /></div>
-                             <div>
-                                <h4 className="text-sm font-black text-slate-900 dark:text-white uppercase tracking-tight">Manual Archive</h4>
-                                <p className="text-[8px] font-bold text-slate-400 uppercase mt-1 tracking-widest">Instant Cloud Export</p>
-                             </div>
+                             <div><h4 className="text-sm font-black text-slate-900 dark:text-white uppercase tracking-tight">Manual Archive</h4><p className="text-[8px] font-bold text-slate-400 uppercase mt-1 tracking-widest">Instant Cloud Export</p></div>
                           </button>
                           <button onClick={() => restoreFileRef.current?.click()} disabled={!cloudHealthy} className={`group p-6 rounded-[2rem] border-2 transition-all text-left flex items-center gap-6 ${cloudHealthy ? 'bg-emerald-50 dark:bg-emerald-900/20 border-transparent hover:border-emerald-500' : 'bg-slate-100 opacity-50 grayscale'}`}>
                              <div className="w-14 h-14 bg-emerald-600 rounded-2xl flex items-center justify-center text-white shadow-xl group-hover:scale-110 transition-transform"><CloudUpload size={28} /></div>
-                             <div>
-                                <h4 className="text-sm font-black text-slate-900 dark:text-white uppercase tracking-tight">Restore State</h4>
-                                <p className="text-[8px] font-bold text-slate-400 uppercase mt-1 tracking-widest">Load Institutional Archive</p>
-                             </div>
+                             <div><h4 className="text-sm font-black text-slate-900 dark:text-white uppercase tracking-tight">Restore State</h4><p className="text-[8px] font-bold text-slate-400 uppercase mt-1 tracking-widest">Load Institutional Archive</p></div>
                           </button>
                           <input type="file" ref={restoreFileRef} className="hidden" accept=".zip" onChange={runFullRestore} />
                        </div>
@@ -432,9 +401,7 @@ const Layout: React.FC<LayoutProps> = ({ user, cloudHealthy, cloudError, cloudSe
                                 <Clock size={16} className="text-slate-400" />
                                 <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Last Backup Sequence: {lastBackupTime ? new Date(lastBackupTime).toLocaleString() : 'NEVER'}</span>
                              </div>
-                             <span className={`px-3 py-1 rounded-full text-[8px] font-black uppercase border ${cloudHealthy ? 'bg-indigo-50 dark:bg-indigo-900/40 text-indigo-600 dark:text-indigo-400 border-indigo-100 dark:border-indigo-800' : 'bg-rose-50 text-rose-500 border-rose-100'}`}>
-                                STATUS: {cloudHealthy ? 'CLOUD SYNCED' : 'DISCONNECTED'}
-                             </span>
+                             <span className={`px-3 py-1 rounded-full text-[8px] font-black uppercase border ${cloudHealthy ? 'bg-indigo-50 dark:bg-indigo-900/40 text-indigo-600 dark:text-indigo-400 border-indigo-100 dark:border-indigo-800' : 'bg-rose-50 text-rose-500 border-rose-100'}`}>STATUS: {cloudHealthy ? 'CLOUD SYNCED' : 'DISCONNECTED'}</span>
                           </div>
                           <div className="space-y-2">
                              <label className="text-[8px] font-black text-slate-400 uppercase tracking-widest ml-1 flex items-center gap-2"><FolderOpen size={12}/> Target Archive Directory</label>
@@ -443,10 +410,9 @@ const Layout: React.FC<LayoutProps> = ({ user, cloudHealthy, cloudError, cloudSe
                        </div>
                     </div>
                  )}
-
                  <div className="p-6 bg-slate-50 dark:bg-slate-950/40 rounded-3xl border border-slate-200 dark:border-slate-800 flex items-start gap-4">
                     <ShieldCheck size={20} className="text-indigo-500 shrink-0 mt-1" />
-                    <p className="text-[9px] font-bold text-slate-500 dark:text-slate-400 leading-relaxed uppercase tracking-wide">System Security Note: All recovery operations are logged in the institutional audit trail. Ensure valid .zip archives are used for restoration to prevent database fragmentation.</p>
+                    <p className="text-[9px] font-bold text-slate-500 dark:text-slate-400 leading-relaxed uppercase tracking-wide">Security Node: All recovery operations are logged. Ensure valid .zip archives are used to prevent database fragmentation.</p>
                  </div>
               </div>
            </div>
@@ -463,12 +429,8 @@ const Layout: React.FC<LayoutProps> = ({ user, cloudHealthy, cloudError, cloudSe
                     <span className="text-xs font-black text-slate-900 dark:text-white tracking-tighter uppercase truncate block">{schoolName}</span>
                     <span className="text-[7px] font-black text-indigo-500 uppercase tracking-widest">Control Node</span>
                     {isAdmin && (
-                      <button 
-                        onClick={() => setIsCustomizingMenu(!isCustomizingMenu)} 
-                        className={`mt-2 flex items-center gap-1.5 px-3 py-1 rounded-lg text-[7px] font-black uppercase tracking-widest transition-all sidebar-customize-btn w-fit shadow-sm border ${isCustomizingMenu ? 'bg-indigo-600 text-white border-indigo-500 animate-pulse' : 'bg-indigo-50 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400 border-indigo-100 dark:border-indigo-800'}`}
-                      >
-                        {isCustomizingMenu ? <Check size={10} /> : <Move size={10} />} 
-                        {isCustomizingMenu ? 'Exit Rearrange' : 'Rearrange Menu'}
+                      <button onClick={() => setIsCustomizingMenu(!isCustomizingMenu)} className={`mt-2 flex items-center gap-1.5 px-3 py-1 rounded-lg text-[7px] font-black uppercase tracking-widest transition-all sidebar-customize-btn w-fit shadow-sm border ${isCustomizingMenu ? 'bg-indigo-600 text-white border-indigo-500 animate-pulse' : 'bg-indigo-50 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400 border-indigo-100 dark:border-indigo-800'}`}>
+                        {isCustomizingMenu ? <Check size={10} /> : <Move size={10} />} {isCustomizingMenu ? 'Exit Rearrange' : 'Rearrange Menu'}
                       </button>
                     )}
                   </div>
@@ -477,51 +439,16 @@ const Layout: React.FC<LayoutProps> = ({ user, cloudHealthy, cloudError, cloudSe
             </div>
           </div>
 
-          {isCustomizingMenu && (
-            <div className="px-6 mb-4 flex gap-2 animate-in slide-in-from-top-2">
-               <button onClick={handleSaveMenuOrder} disabled={isSavingNav} className="flex-1 py-2 bg-emerald-600 text-white font-black text-[8px] uppercase tracking-widest rounded-lg shadow-lg flex items-center justify-center gap-1.5">
-                 {isSavingNav ? <Loader2 size={10} className="animate-spin"/> : <Save size={10}/>} Save Layout
-               </button>
-               <button onClick={handleResetMenuOrder} className="px-3 py-2 bg-slate-100 dark:bg-slate-800 text-slate-400 font-black text-[8px] uppercase tracking-widest rounded-lg flex items-center justify-center">
-                 <RotateCcw size={10}/>
-               </button>
-            </div>
-          )}
-
           <nav className="flex-1 px-6 space-y-3 overflow-y-auto custom-scrollbar relative z-10 pb-10">
             {orderedNav.map((item: any, index: number) => {
               const isActive = location.pathname === item.path; 
               const hoverColor = getNavColor(item.name);
-              const isBeingDragged = draggedIndex === index;
-              const isTargeted = dragOverIndex === index;
-
               return (
-                <div 
-                  key={item.name} 
-                  draggable={isCustomizingMenu}
-                  onDragStart={(e) => onDragStart(e, index)}
-                  onDragOver={(e) => onDragOver(e, index)}
-                  onDragEnd={onDragEnd}
-                  style={{ '--hover-color': hoverColor } as React.CSSProperties} 
-                  className={`nav-node-row group relative ${isCustomizingMenu ? 'cursor-move' : ''} ${isBeingDragged ? 'drag-active' : ''} ${isTargeted ? 'drag-over' : ''}`}
-                >
-                  {isCustomizingMenu && (
-                    <div className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-300 opacity-40 group-hover:opacity-100 transition-opacity">
-                      <GripVertical size={14} />
-                    </div>
-                  )}
-                  <Link 
-                    to={isCustomizingMenu ? '#' : item.path} 
-                    onClick={(e) => { 
-                      if(isCustomizingMenu) { e.preventDefault(); return; }
-                      setSidebarOpen(false); 
-                    }} 
-                    className={`flex items-center justify-between px-5 py-4 rounded-2xl transition-all relative overflow-hidden ${isActive ? 'bg-indigo-600 text-white shadow-xl translate-x-2' : 'bg-white dark:bg-slate-800/40 text-slate-600 dark:text-slate-400 border border-slate-100 dark:border-slate-800 shadow-sm'} ${isCustomizingMenu ? 'border-dashed border-indigo-200 pointer-events-none' : ''}`}
-                  >
+                <div key={item.name} draggable={isCustomizingMenu} onDragStart={(e) => onDragStart(e, index)} onDragOver={(e) => onDragOver(e, index)} onDragEnd={onDragEnd} style={{ '--hover-color': hoverColor } as React.CSSProperties} className={`nav-node-row group relative ${isCustomizingMenu ? 'cursor-move' : ''} ${draggedIndex === index ? 'drag-active' : ''} ${dragOverIndex === index ? 'drag-over' : ''}`}>
+                  {isCustomizingMenu && <div className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-300 opacity-40 group-hover:opacity-100 transition-opacity"><GripVertical size={14} /></div>}
+                  <Link to={isCustomizingMenu ? '#' : item.path} onClick={(e) => { if(isCustomizingMenu) { e.preventDefault(); return; } setSidebarOpen(false); }} className={`flex items-center justify-between px-5 py-4 rounded-2xl transition-all relative overflow-hidden ${isActive ? 'bg-indigo-600 text-white shadow-xl translate-x-2' : 'bg-white dark:bg-slate-800/40 text-slate-600 dark:text-slate-400 border border-slate-100 dark:border-slate-800 shadow-sm'} ${isCustomizingMenu ? 'border-dashed border-indigo-200 pointer-events-none' : ''}`}>
                     <div className="flex items-center gap-4 min-w-0">
-                      <span className={`shrink-0 transition-transform duration-500 group-hover:rotate-12 ${isActive ? 'text-white' : 'text-slate-400 group-hover:text-indigo-50'}`}>
-                        {item.icon}
-                      </span>
+                      <span className={`shrink-0 transition-transform duration-500 group-hover:rotate-12 ${isActive ? 'text-white' : 'text-slate-400 group-hover:text-indigo-50'}`}>{item.icon}</span>
                       <span className="text-[10px] font-black uppercase tracking-widest truncate">{item.name}</span>
                     </div>
                     {!isCustomizingMenu && <ChevronRight size={12} className={`transition-all ${isActive ? 'text-white opacity-100 translate-x-0' : 'opacity-0 -translate-x-2 group-hover:opacity-100 group-hover:translate-x-0'}`} />}
@@ -545,18 +472,11 @@ const Layout: React.FC<LayoutProps> = ({ user, cloudHealthy, cloudError, cloudSe
       <div className="flex-1 flex flex-col min-w-0 relative z-10">
         <header className="h-16 bg-white/80 dark:bg-slate-900/80 backdrop-blur-md border-b border-slate-200 dark:border-slate-800 px-4 lg:px-8 flex items-center justify-between sticky top-0 z-30 no-print glass-card">
           <button className="lg:hidden p-2 text-slate-600 dark:text-slate-400" onClick={() => setSidebarOpen(true)}><Menu size={24} /></button>
-          
-          {!cloudHealthy && (
-            <div className="hidden sm:flex items-center gap-2 px-4 py-1.5 bg-rose-50 dark:bg-rose-950/30 border border-rose-100 dark:border-rose-900 text-rose-600 dark:text-rose-400 rounded-full animate-pulse">
-               <WifiOff size={14}/>
-               <span className="text-[8px] font-black uppercase tracking-widest">Local Mode (Cloud Link Broken)</span>
-            </div>
-          )}
-
+          {!cloudHealthy && <div className="hidden sm:flex items-center gap-2 px-4 py-1.5 bg-rose-50 dark:bg-rose-950/30 border border-rose-100 dark:border-rose-900 text-rose-600 dark:text-rose-400 rounded-full animate-pulse"><WifiOff size={14}/><span className="text-[8px] font-black uppercase tracking-widest">Offline Mode</span></div>}
           <div className="flex items-center gap-6 ml-auto">
-             <div className="flex items-center gap-3 pl-2 cursor-pointer group" onClick={() => setShowProfileModal(true)}>
-                <div className="text-right hidden sm:block"><p className="text-sm font-black text-slate-800 dark:text-white leading-none group-hover:text-indigo-600 transition-colors uppercase">{user.name}</p><p className="text-[8px] text-slate-400 dark:text-slate-500 font-black mt-1 uppercase tracking-[0.2em] flex items-center justify-end gap-1.5"><Fingerprint size={10}/> {user.role} TERMINAL</p></div>
-                <div className="w-10 h-10 bg-indigo-50 dark:bg-indigo-900/30 text-indigo-600 rounded-xl flex items-center justify-center font-bold overflow-hidden shadow-xl border border-indigo-100 dark:border-indigo-800 group-hover:scale-110 transition-all">{user.profileImage ? <img src={user.profileImage} className="w-full h-full object-cover" alt="Profile" /> : <UserCircle size={24} />}</div>
+             <div className="flex items-center gap-3 pl-2 cursor-pointer group">
+                <div className="text-right hidden sm:block"><p className="text-sm font-black text-slate-800 dark:text-white leading-none uppercase">{user.name}</p><p className="text-[8px] text-slate-400 font-black mt-1 uppercase tracking-[0.2em] flex items-center justify-end gap-1.5"><Fingerprint size={10}/> {user.role} TERMINAL</p></div>
+                <div className="w-10 h-10 bg-indigo-50 dark:bg-indigo-900/30 text-indigo-600 rounded-xl flex items-center justify-center font-bold overflow-hidden shadow-xl border border-indigo-100 group-hover:scale-110 transition-all">{user.profileImage ? <img src={user.profileImage} className="w-full h-full object-cover" alt="Profile" /> : <UserCircle size={24} />}</div>
              </div>
           </div>
         </header>
@@ -629,7 +549,7 @@ const Layout: React.FC<LayoutProps> = ({ user, cloudHealthy, cloudError, cloudSe
             <div className="w-12 h-12 bg-rose-50 dark:bg-rose-900/20 text-rose-600 rounded-[1.2rem] flex items-center justify-center mb-4 mx-auto border border-rose-100 shadow-inner"><OutIcon size={24} /></div>
             <h3 className="text-lg font-black text-slate-900 dark:text-white text-center mb-1 uppercase tracking-tighter">Sign Out?</h3>
             <div className="flex gap-3 mt-6">
-              <button onClick={() => setShowLogoutConfirm(false)} className="flex-1 py-3 bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 font-black rounded-xl uppercase text-[10px]">Stay</button>
+              <button onClick={() => setShowLogoutConfirm(false)} className="flex-1 py-3 bg-slate-100 dark:bg-slate-800 text-slate-600 font-black rounded-xl uppercase text-[10px]">Stay</button>
               <button onClick={() => { onLogout(); navigate('/login'); }} className="flex-1 py-3 bg-rose-600 text-white font-black rounded-xl uppercase text-[10px] shadow-lg">Logout</button>
             </div>
           </div>

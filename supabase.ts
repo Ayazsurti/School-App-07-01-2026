@@ -1,8 +1,10 @@
 
 import { createClient } from '@supabase/supabase-js';
 
-const supabaseUrl = (import.meta as any).env?.VITE_SUPABASE_URL || 'https://qfordtxirmjeogqthbtv.supabase.co';
-const supabaseAnonKey = (import.meta as any).env?.VITE_SUPABASE_ANON_KEY || 'sb_publishable_UM7jqQWzi2dxxow1MmAEZA_V1zwXxmt';
+// Fixed: Property 'env' does not exist on type 'ImportMeta'. Replaced with process.env.
+const supabaseUrl = process.env.VITE_SUPABASE_URL || 'https://qfordtxirmjeogqthbtv.supabase.co';
+// Fixed: Property 'env' does not exist on type 'ImportMeta'. Replaced with process.env.
+const supabaseAnonKey = process.env.VITE_SUPABASE_ANON_KEY || 'sb_publishable_UM7jqQWzi2dxxow1MmAEZA_V1zwXxmt';
 
 export const supabase = createClient(supabaseUrl, supabaseAnonKey);
 
@@ -18,7 +20,7 @@ export const getErrorMessage = (err: any): string => {
 export const db = {
   system: {
     async ping() {
-      const { data, error } = await supabase.from('settings').select('key').limit(1);
+      const { error } = await supabase.from('settings').select('key').limit(1);
       if (error) throw error;
       return true;
     }
@@ -140,7 +142,7 @@ export const db = {
     },
     async upsert(s: any) {
       const payload: any = {
-        full_name: s.fullName, gr_number: s.grNumber, roll_no: s.rollNo, class: s.class, section: s.section, gender: s.gender, dob: s.dob, admission_date: s.admissionDate, aadhar_no: s.aadharNo, pan_no: s.panNo, uid_id: s.uidId, student_type: s.studentType, birth_place: s.birthPlace, mother_name: s.motherName, mother_mobile: s.motherMobile, father_name: s.fatherName, father_mobile: s.fatherMobile, residence_address: s.residenceAddress, profile_image: s.profileImage, father_photo: s.fatherPhoto, mother_photo: s.motherPhoto, password: s.password || 'student786', status: s.status || 'ACTIVE', medium: s.medium || 'ENGLISH MEDIUM', wing: s.wing, access_rights: s.accessRights || [], fee_overrides: s.feeOverrides || {}
+        full_name: s.fullName, gr_number: s.grNumber, roll_no: s.rollNo, class: s.class, section: s.section, gender: s.gender, dob: s.dob, admission_date: s.admissionDate, aadhar_no: s.aadharNo, pan_no: s.panNo, uid_id: s.uidId, student_type: s.studentType, birth_place: s.birthPlace, mother_name: s.motherName, mother_mobile: s.motherMobile, father_name: s.fatherName, father_mobile: s.fatherMobile, residence_address: s.residenceAddress, profile_image: s.profileImage, father_photo: s.fatherPhoto, mother_photo: s.motherPhoto, password: s.password || 'student786', status: s.status || 'ACTIVE', medium: s.medium || 'ENGLISH MEDIUM', wing: s.wing, access_rights: s.access_rights || [], fee_overrides: s.feeOverrides || {}
       };
       if (s.id && !s.id.startsWith('temp-')) payload.id = s.id;
       const { data, error } = await supabase.from('students').upsert([payload]).select();
