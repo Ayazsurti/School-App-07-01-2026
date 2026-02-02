@@ -18,6 +18,7 @@
     "jsqr": "^1.4.0",
     "jszip": "^3.10.1",
     "@supabase/supabase-js": "^2.46.0",
+    "firebase": "^10.8.0",
     "@google/genai": "latest"
   },
   "devDependencies": {

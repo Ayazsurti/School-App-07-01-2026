@@ -89,6 +89,13 @@
         .custom-scrollbar::-webkit-scrollbar { width: 6px; }
         .custom-scrollbar::-webkit-scrollbar-track { background: transparent; }
         .custom-scrollbar::-webkit-scrollbar-thumb { background: #e2e8f0; border-radius: 10px; }
+        
+        #recaptcha-container {
+          position: fixed;
+          bottom: 10px;
+          right: 10px;
+          z-index: 10000;
+        }
     </style>
 <script type="importmap">
 {
@@ -101,10 +108,14 @@
     "recharts": "https://esm.sh/recharts@^3.6.0",
     "@supabase/supabase-js": "https://esm.sh/@supabase/supabase-js@^2.90.1",
     "jszip": "https://esm.sh/jszip@^3.10.1",
+    "firebase/app": "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js",
+    "firebase/auth": "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js",
+    "firebase/firestore": "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js",
     "vite": "https://esm.sh/vite@^7.3.1",
     "@vitejs/plugin-react": "https://esm.sh/@vitejs/plugin-react@^5.1.2",
     "path": "https://esm.sh/path@^0.12.7",
-    "url": "https://esm.sh/url@^0.11.4"
+    "url": "https://esm.sh/url@^0.11.4",
+    "firebase/": "https://esm.sh/firebase@^12.8.0/"
   }
 }
 </script>
@@ -112,6 +123,8 @@
 </head>
 <body class="bg-white text-slate-900">
     <div id="root"></div>
+    <!-- Hidden container for reCAPTCHA -->
+    <div id="recaptcha-container"></div>
     <script type="module" src="/index.tsx"></script>
 </body>
 </html>

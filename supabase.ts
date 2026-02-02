@@ -30,22 +30,37 @@ export const db = {
     }
   },
   auth: {
+    /**
+     * PROPER MULTI-ROLE LOGIN LOGIC
+     * 1. ADMIN: Master Key (ayazsurti / Ayaz78692)
+     * 2. TEACHER: Validated against 'teachers' table (username / password)
+     * 3. STUDENT: Validated against 'students' table (gr_number / password)
+     */
     async login(username: string, pass: string) {
-      const cleanUser = (username || '').trim().toLowerCase();
+      const cleanUser = (username || '').trim();
       const cleanPass = (pass || '').trim();
       
-      if (cleanUser === 'ayazsurti' && cleanPass === 'Ayaz78692') {
-        return { id: 'admin-master', name: 'Ayaz Surti', role: 'ADMIN', profile_image: null };
+      // ADMIN MASTER AUTHENTICATION
+      if (cleanUser.toLowerCase() === 'ayazsurti' && cleanPass === 'Ayaz78692') {
+        return { 
+          id: 'admin-master', 
+          name: 'Ayaz Surti', 
+          role: 'ADMIN', 
+          email: 'admin@deen.school',
+          profile_image: null 
+        };
       }
       
+      // TEACHER AUTHENTICATION GATEWAY
       const { data: tea, error: teaErr } = await supabase
         .from('teachers')
         .select('*')
-        .eq('username', cleanUser)
+        .eq('username', cleanUser.toLowerCase())
         .eq('password', cleanPass)
         .single();
 
       if (!teaErr && tea) {
+        if (tea.status === 'BLOCKED') throw new Error("FACULTY_ACCESS_REVOKED: This account has been blocked by Admin.");
         return { 
           ...tea, 
           role: 'TEACHER', 
@@ -57,14 +72,16 @@ export const db = {
         };
       }
 
+      // STUDENT AUTHENTICATION GATEWAY (USING GR NUMBER)
       const { data: std, error: stdErr } = await supabase
         .from('students')
         .select('*')
-        .eq('gr_number', username.trim().toUpperCase())
+        .eq('gr_number', cleanUser.toUpperCase())
         .eq('password', cleanPass)
         .single();
 
       if (!stdErr && std) {
+        if (std.status === 'CANCELLED') throw new Error("ADMISSION_CANCELLED: Admission for this GR number is no longer active.");
         return { 
           ...std, 
           role: 'STUDENT', 
@@ -77,14 +94,14 @@ export const db = {
         };
       }
 
-      throw new Error("Invalid Credentials.");
+      throw new Error("AUTH_FAILURE: Invalid Identity Code or Master Key. Please check your credentials.");
     },
 
     async verifyMobile(mobile: string, role: 'TEACHER' | 'STUDENT') {
       const table = role === 'TEACHER' ? 'teachers' : 'students';
       const col = role === 'TEACHER' ? 'mobile' : 'father_mobile';
       const { data, error } = await supabase.from(table).select('id').eq(col, mobile.trim()).single();
-      if (error || !data) throw new Error("Mobile not registered.");
+      if (error || !data) throw new Error("MOBILE_NOT_FOUND: Provided number is not registered in our database.");
       return data;
     },
 
@@ -92,7 +109,7 @@ export const db = {
       const table = role === 'TEACHER' ? 'teachers' : 'students';
       const col = role === 'TEACHER' ? 'mobile' : 'father_mobile';
       const { data, error } = await supabase.from(table).select('*').eq(col, mobile.trim()).single();
-      if (error || !data) throw new Error("Authentication failed.");
+      if (error || !data) throw new Error("OTP_AUTH_FAILED: Verification successful but identity retrieval failed.");
       return data;
     }
   },
@@ -185,7 +202,7 @@ export const db = {
         status: t.status, 
         profile_image: t.profileImage || t.profile_image, 
         signature_image: t.signatureImage || t.signature_image, 
-        joining_date: t.joiningDate || t.joining_date, 
+        joining_date: t.joining_date, 
         dob: t.dob, 
         subject: Array.isArray(t.subjects) ? t.subjects.join(', ') : (t.subject || ''), 
         classes_list: Array.isArray(t.classes) ? t.classes.join(', ') : (t.classes_list || ''), 
@@ -195,9 +212,9 @@ export const db = {
         assigned_section: t.assignedSection || t.assigned_section, 
         aadhar_no: t.aadharNo || t.aadhar_no, 
         pan_no: t.panNo || t.pan_no, 
-        account_no: t.accountNo || t.account_no, 
+        account_no: t.account_no || t.account_no, 
         account_type: t.accountType || t.account_type, 
-        bank_name: t.bankName || t.bank_name, 
+        bank_name: t.bank_name || t.bank_name, 
         ifsc_code: t.ifscCode || t.ifsc_code, 
         username: (t.username || '').toLowerCase().trim(), 
         password: t.password,
