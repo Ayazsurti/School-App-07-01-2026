@@ -8,6 +8,7 @@ export const supabase = createClient(supabaseUrl, supabaseAnonKey);
 
 export const getErrorMessage = (err: any): string => {
   if (typeof err === 'string') return err;
+  if (err?.message === 'Failed to fetch' || err?.message?.includes('network')) return "CLOUD_LINK_ERROR: Network unreachable. Check internet.";
   if (err?.code === '42501') return "Database Permission Denied (42501).";
   if (err?.code === '23505') return "Record already exists (Unique Conflict).";
   if (err?.message) return err.message;
@@ -15,6 +16,13 @@ export const getErrorMessage = (err: any): string => {
 };
 
 export const db = {
+  system: {
+    async ping() {
+      const { data, error } = await supabase.from('settings').select('key').limit(1);
+      if (error) throw error;
+      return true;
+    }
+  },
   auth: {
     async login(username: string, pass: string) {
       const cleanUser = (username || '').trim().toLowerCase();

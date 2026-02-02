@@ -2,7 +2,7 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { HashRouter, Routes, Route, Navigate, Link, useLocation, useNavigate } from 'react-router-dom';
 import { 
-  Menu, X, Bell, Search, ChevronRight, User as UserIcon, Users, AlertTriangle, Camera, Upload, Trash2, Settings, Power, Image as ImageIcon, ShieldCheck, History, PencilRuler, UtensilsCrossed, MessageSquareQuote, Gem, Sparkles, Trophy, Gift, Star, Sun, Moon, Settings2, Eye, EyeOff, CheckCircle2, ChevronUp, ChevronDown, GripVertical, Plus, Edit2, Cloud, School, Loader2, RefreshCw, Video, FileText, BookOpen, SwitchCamera, StopCircle, Activity, Check, LogOut as OutIcon, GripHorizontal, LayoutTemplate, RotateCcw, ClipboardList, GraduationCap, Smartphone, MapPin, Fingerprint, Info, Phone, UserCircle, Heart, Shield, Hash, UserMinus, Palette, Terminal, Cpu, Layers, MonitorPlay, Zap, Megaphone, ArrowUpRight, Database, Download, CloudUpload, HardDriveDownload, Timer, ShieldAlert, Clock, FolderOpen, PowerOff, Save, Move
+  Menu, X, Bell, Search, ChevronRight, User as UserIcon, Users, AlertTriangle, Camera, Upload, Trash2, Settings, Power, Image as ImageIcon, ShieldCheck, History, PencilRuler, UtensilsCrossed, MessageSquareQuote, Gem, Sparkles, Trophy, Gift, Star, Sun, Moon, Settings2, Eye, EyeOff, CheckCircle2, ChevronUp, ChevronDown, GripVertical, Plus, Edit2, Cloud, School, Loader2, RefreshCw, Video, FileText, BookOpen, SwitchCamera, StopCircle, Activity, Check, LogOut as OutIcon, GripHorizontal, LayoutTemplate, RotateCcw, ClipboardList, GraduationCap, Smartphone, MapPin, Fingerprint, Info, Phone, UserCircle, Heart, Shield, Hash, UserMinus, Palette, Terminal, Cpu, Layers, MonitorPlay, Zap, Megaphone, ArrowUpRight, Database, Download, CloudUpload, HardDriveDownload, Timer, ShieldAlert, Clock, FolderOpen, PowerOff, Save, Move, Wifi, WifiOff
 } from 'lucide-react';
 import { User, UserRole, DisplaySettings, Student } from './types';
 import Login from './pages/Login';
@@ -40,7 +40,7 @@ import DisplayConfigure from './pages/DisplayConfigure';
 import StudentReports from './pages/StudentReports';
 import SlideshowManager from './pages/SlideshowManager';
 import { APP_NAME as DEFAULT_APP_NAME, NAVIGATION } from './constants';
-import { db, supabase } from './supabase';
+import { db, supabase, getErrorMessage } from './supabase';
 import { createAuditLog } from './utils/auditLogger';
 import JSZip from 'jszip';
 
@@ -65,11 +65,16 @@ const App: React.FC = () => {
   const [schoolEmail, setSchoolEmail] = useState<string>('');
   const [schoolContact, setSchoolContact] = useState<string>('');
   const [cloudSettings, setCloudSettings] = useState<any>({});
+  const [isCloudHealthy, setIsCloudHealthy] = useState<boolean>(true);
+  const [lastSyncError, setLastSyncError] = useState<string | null>(null);
 
-  const fetchGlobalSettings = async () => {
+  const fetchGlobalSettings = async (retryCount = 0) => {
     try {
       const settings = await db.settings.getAll();
       setCloudSettings(settings);
+      setIsCloudHealthy(true);
+      setLastSyncError(null);
+
       if (settings.school_logo) setSchoolLogo(settings.school_logo);
       if (settings.school_name) setSchoolName(settings.school_name);
       if (settings.school_address) setSchoolAddress(settings.school_address);
@@ -82,12 +87,22 @@ const App: React.FC = () => {
           setDisplaySettings(cloudDisplay);
         } catch (e) { console.warn("Invalid cloud display settings"); }
       }
-    } catch (err: any) { console.warn("Branding sync skipped:", err.message); }
+    } catch (err: any) { 
+      const msg = getErrorMessage(err);
+      console.warn("Branding sync issue:", msg); 
+      setIsCloudHealthy(false);
+      setLastSyncError(msg);
+      
+      // Auto-retry with backoff
+      if (retryCount < 3) {
+        setTimeout(() => fetchGlobalSettings(retryCount + 1), 5000);
+      }
+    }
   };
 
   useEffect(() => {
     fetchGlobalSettings();
-    const channel = supabase.channel('settings-global-sync-v11')
+    const channel = supabase.channel('settings-global-sync-v12')
       .on('postgres_changes', { event: '*', schema: 'public', table: 'settings' }, () => fetchGlobalSettings())
       .subscribe();
     return () => { supabase.removeChannel(channel); };
@@ -138,7 +153,7 @@ const App: React.FC = () => {
       <HashRouter>
         <Routes>
           <Route path="/login" element={!user ? <Login onLogin={handleLogin} schoolLogo={schoolLogo} schoolName={schoolName} /> : <Navigate to="/" />} />
-          <Route path="/*" element={user ? <Layout user={user} cloudSettings={cloudSettings} branding={brandingData} displaySettings={displaySettings} onUpdateDisplay={handleUpdateDisplay} onLogout={handleLogout} schoolLogo={schoolLogo} schoolName={schoolName} darkMode={darkMode} setDarkMode={setDarkMode} /> : <Navigate to="/login" />} />
+          <Route path="/*" element={user ? <Layout user={user} cloudHealthy={isCloudHealthy} cloudError={lastSyncError} cloudSettings={cloudSettings} branding={brandingData} displaySettings={displaySettings} onUpdateDisplay={handleUpdateDisplay} onLogout={handleLogout} schoolLogo={schoolLogo} schoolName={schoolName} darkMode={darkMode} setDarkMode={setDarkMode} /> : <Navigate to="/login" />} />
         </Routes>
       </HashRouter>
     </div>
@@ -146,11 +161,11 @@ const App: React.FC = () => {
 };
 
 interface LayoutProps {
-  user: User; cloudSettings: any; branding: { name: string; logo: string | null; address: string; email: string; contact: string; };
+  user: User; cloudHealthy: boolean; cloudError: string | null; cloudSettings: any; branding: { name: string; logo: string | null; address: string; email: string; contact: string; };
   onUpdateDisplay: (settings: DisplaySettings) => void; displaySettings: DisplaySettings; onLogout: () => void; schoolLogo: string | null; schoolName: string; darkMode: boolean; setDarkMode: (val: boolean) => void;
 }
 
-const Layout: React.FC<LayoutProps> = ({ user, cloudSettings, branding, onUpdateDisplay, displaySettings, onLogout, schoolLogo, schoolName, darkMode, setDarkMode }) => {
+const Layout: React.FC<LayoutProps> = ({ user, cloudHealthy, cloudError, cloudSettings, branding, onUpdateDisplay, displaySettings, onLogout, schoolLogo, schoolName, darkMode, setDarkMode }) => {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
   const [showProfileModal, setShowProfileModal] = useState(false);
@@ -246,7 +261,7 @@ const Layout: React.FC<LayoutProps> = ({ user, cloudSettings, branding, onUpdate
       setBackupProgress('Archive Successfully Exported');
       setTimeout(() => setShowBackupModal(false), 2000);
     } catch (e: any) { 
-      setRecoveryError(e.message || "Engine failure during zip generation.");
+      setRecoveryError(getErrorMessage(e));
     } finally { 
       setIsBackingUp(false); 
     }
@@ -277,7 +292,7 @@ const Layout: React.FC<LayoutProps> = ({ user, cloudSettings, branding, onUpdate
       setBackupProgress('System State Restored');
       setTimeout(() => window.location.reload(), 2000);
     } catch (e: any) { 
-      setRecoveryError(e.message || "Engine failure during restoration.");
+      setRecoveryError(getErrorMessage(e));
     } finally { 
       setIsBackingUp(false); 
     }
@@ -365,6 +380,24 @@ const Layout: React.FC<LayoutProps> = ({ user, cloudSettings, branding, onUpdate
                     </div>
                  ) : (
                     <div className="space-y-8">
+                       {/* Connection Diagnostic Node */}
+                       <div className={`p-6 rounded-3xl border-2 flex items-center gap-6 transition-all ${cloudHealthy ? 'bg-emerald-50 dark:bg-emerald-900/10 border-emerald-100 dark:border-emerald-800/50' : 'bg-rose-50 dark:bg-rose-900/10 border-rose-100 dark:border-rose-800/50'}`}>
+                          <div className={`w-12 h-12 rounded-2xl flex items-center justify-center shadow-lg ${cloudHealthy ? 'bg-emerald-600' : 'bg-rose-600'} text-white`}>
+                             {cloudHealthy ? <Wifi size={24}/> : <WifiOff size={24}/>}
+                          </div>
+                          <div>
+                             <h4 className={`text-xs font-black uppercase ${cloudHealthy ? 'text-emerald-700 dark:text-emerald-400' : 'text-rose-700 dark:text-rose-400'}`}>Cloud Link: {cloudHealthy ? 'ACTIVE' : 'OFFLINE'}</h4>
+                             <p className="text-[9px] font-bold text-slate-400 uppercase mt-1">
+                                {cloudHealthy ? 'Supabase Node Online • Identity Verified' : cloudError || 'Connection timed out. Check network.'}
+                             </p>
+                          </div>
+                          {!cloudHealthy && (
+                             <button onClick={() => window.location.reload()} className="ml-auto p-3 bg-white dark:bg-slate-800 rounded-xl shadow-sm text-indigo-600 hover:scale-110 transition-all">
+                                <RefreshCw size={16}/>
+                             </button>
+                          )}
+                       </div>
+
                        {recoveryError && (
                          <div className="p-5 bg-rose-50 dark:bg-rose-900/20 border-2 border-rose-200 dark:border-rose-800 rounded-3xl flex items-start gap-4 animate-in slide-in-from-top-2">
                             <AlertTriangle size={24} className="text-rose-500 shrink-0 mt-1" />
@@ -376,14 +409,14 @@ const Layout: React.FC<LayoutProps> = ({ user, cloudSettings, branding, onUpdate
                        )}
 
                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                          <button onClick={runFullBackup} className="group p-6 rounded-[2rem] border-2 bg-indigo-50 dark:bg-indigo-900/20 border-transparent hover:border-indigo-500 transition-all text-left flex items-center gap-6">
+                          <button onClick={runFullBackup} disabled={!cloudHealthy} className={`group p-6 rounded-[2rem] border-2 transition-all text-left flex items-center gap-6 ${cloudHealthy ? 'bg-indigo-50 dark:bg-indigo-900/20 border-transparent hover:border-indigo-500' : 'bg-slate-100 opacity-50 grayscale'}`}>
                              <div className="w-14 h-14 bg-indigo-600 rounded-2xl flex items-center justify-center text-white shadow-xl group-hover:scale-110 transition-transform"><HardDriveDownload size={28} /></div>
                              <div>
                                 <h4 className="text-sm font-black text-slate-900 dark:text-white uppercase tracking-tight">Manual Archive</h4>
                                 <p className="text-[8px] font-bold text-slate-400 uppercase mt-1 tracking-widest">Instant Cloud Export</p>
                              </div>
                           </button>
-                          <button onClick={() => restoreFileRef.current?.click()} className="group p-6 bg-emerald-50 dark:bg-emerald-900/20 rounded-[2rem] border-2 border-transparent hover:border-emerald-500 transition-all text-left flex items-center gap-6">
+                          <button onClick={() => restoreFileRef.current?.click()} disabled={!cloudHealthy} className={`group p-6 rounded-[2rem] border-2 transition-all text-left flex items-center gap-6 ${cloudHealthy ? 'bg-emerald-50 dark:bg-emerald-900/20 border-transparent hover:border-emerald-500' : 'bg-slate-100 opacity-50 grayscale'}`}>
                              <div className="w-14 h-14 bg-emerald-600 rounded-2xl flex items-center justify-center text-white shadow-xl group-hover:scale-110 transition-transform"><CloudUpload size={28} /></div>
                              <div>
                                 <h4 className="text-sm font-black text-slate-900 dark:text-white uppercase tracking-tight">Restore State</h4>
@@ -399,7 +432,9 @@ const Layout: React.FC<LayoutProps> = ({ user, cloudSettings, branding, onUpdate
                                 <Clock size={16} className="text-slate-400" />
                                 <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Last Backup Sequence: {lastBackupTime ? new Date(lastBackupTime).toLocaleString() : 'NEVER'}</span>
                              </div>
-                             <span className="px-3 py-1 bg-indigo-50 dark:bg-indigo-900/40 text-indigo-600 dark:text-indigo-400 rounded-full text-[8px] font-black uppercase border border-indigo-100 dark:border-indigo-800">Status: Cloud Synced</span>
+                             <span className={`px-3 py-1 rounded-full text-[8px] font-black uppercase border ${cloudHealthy ? 'bg-indigo-50 dark:bg-indigo-900/40 text-indigo-600 dark:text-indigo-400 border-indigo-100 dark:border-indigo-800' : 'bg-rose-50 text-rose-500 border-rose-100'}`}>
+                                STATUS: {cloudHealthy ? 'CLOUD SYNCED' : 'DISCONNECTED'}
+                             </span>
                           </div>
                           <div className="space-y-2">
                              <label className="text-[8px] font-black text-slate-400 uppercase tracking-widest ml-1 flex items-center gap-2"><FolderOpen size={12}/> Target Archive Directory</label>
@@ -411,7 +446,7 @@ const Layout: React.FC<LayoutProps> = ({ user, cloudSettings, branding, onUpdate
 
                  <div className="p-6 bg-slate-50 dark:bg-slate-950/40 rounded-3xl border border-slate-200 dark:border-slate-800 flex items-start gap-4">
                     <ShieldCheck size={20} className="text-indigo-500 shrink-0 mt-1" />
-                    <p className="text-[9px] font-bold text-slate-500 dark:text-slate-400 leading-relaxed uppercase tracking-wide">System Status: Neural matrix is synchronized with Supabase cloud storage. All local exports must be saved to authorized institutional storage paths.</p>
+                    <p className="text-[9px] font-bold text-slate-500 dark:text-slate-400 leading-relaxed uppercase tracking-wide">System Security Note: All recovery operations are logged in the institutional audit trail. Ensure valid .zip archives are used for restoration to prevent database fragmentation.</p>
                  </div>
               </div>
            </div>
@@ -510,6 +545,14 @@ const Layout: React.FC<LayoutProps> = ({ user, cloudSettings, branding, onUpdate
       <div className="flex-1 flex flex-col min-w-0 relative z-10">
         <header className="h-16 bg-white/80 dark:bg-slate-900/80 backdrop-blur-md border-b border-slate-200 dark:border-slate-800 px-4 lg:px-8 flex items-center justify-between sticky top-0 z-30 no-print glass-card">
           <button className="lg:hidden p-2 text-slate-600 dark:text-slate-400" onClick={() => setSidebarOpen(true)}><Menu size={24} /></button>
+          
+          {!cloudHealthy && (
+            <div className="hidden sm:flex items-center gap-2 px-4 py-1.5 bg-rose-50 dark:bg-rose-950/30 border border-rose-100 dark:border-rose-900 text-rose-600 dark:text-rose-400 rounded-full animate-pulse">
+               <WifiOff size={14}/>
+               <span className="text-[8px] font-black uppercase tracking-widest">Local Mode (Cloud Link Broken)</span>
+            </div>
+          )}
+
           <div className="flex items-center gap-6 ml-auto">
              <div className="flex items-center gap-3 pl-2 cursor-pointer group" onClick={() => setShowProfileModal(true)}>
                 <div className="text-right hidden sm:block"><p className="text-sm font-black text-slate-800 dark:text-white leading-none group-hover:text-indigo-600 transition-colors uppercase">{user.name}</p><p className="text-[8px] text-slate-400 dark:text-slate-500 font-black mt-1 uppercase tracking-[0.2em] flex items-center justify-end gap-1.5"><Fingerprint size={10}/> {user.role} TERMINAL</p></div>
