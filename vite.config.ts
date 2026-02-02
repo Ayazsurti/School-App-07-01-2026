@@ -13,10 +13,23 @@ export default defineConfig({
   build: {
     outDir: 'dist',
     emptyOutDir: true,
+    chunkSizeWarningLimit: 2000, // Increase limit to suppress warning
     rollupOptions: {
       input: {
         main: resolve(__dirname, 'index.html'),
       },
+      output: {
+        // Splitting large vendor libraries into their own chunks
+        manualChunks(id) {
+          if (id.includes('node_modules')) {
+            if (id.includes('jszip')) return 'vendor-jszip';
+            if (id.includes('supabase')) return 'vendor-supabase';
+            if (id.includes('lucide-react')) return 'vendor-icons';
+            if (id.includes('recharts')) return 'vendor-charts';
+            return 'vendor';
+          }
+        }
+      }
     },
   },
   server: {

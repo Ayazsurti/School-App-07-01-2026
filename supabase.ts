@@ -1,10 +1,14 @@
 
 import { createClient } from '@supabase/supabase-js';
 
-// Fixed: Property 'env' does not exist on type 'ImportMeta'. Replaced with process.env.
-const supabaseUrl = process.env.VITE_SUPABASE_URL || 'https://qfordtxirmjeogqthbtv.supabase.co';
-// Fixed: Property 'env' does not exist on type 'ImportMeta'. Replaced with process.env.
-const supabaseAnonKey = process.env.VITE_SUPABASE_ANON_KEY || 'sb_publishable_UM7jqQWzi2dxxow1MmAEZA_V1zwXxmt';
+/**
+ * Defensive environment variable retrieval.
+ * Uses optional chaining to prevent crashes if import.meta.env is undefined.
+ */
+const safeEnv = (import.meta as any)?.env || {};
+
+const supabaseUrl = safeEnv.VITE_SUPABASE_URL || 'https://qfordtxirmjeogqthbtv.supabase.co';
+const supabaseAnonKey = safeEnv.VITE_SUPABASE_ANON_KEY || 'sb_publishable_UM7jqQWzi2dxxow1MmAEZA_V1zwXxmt';
 
 export const supabase = createClient(supabaseUrl, supabaseAnonKey);
 
