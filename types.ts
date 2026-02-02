@@ -111,6 +111,9 @@ export interface Teacher extends User {
   branchCode?: string;
   branchPhone?: string;
   signatureImage?: string;
+  // Added duty timing properties for shift calibration
+  actualInTime?: string;
+  actualOutTime?: string;
 }
 
 export interface IdCardField {

@@ -173,7 +173,37 @@ export const db = {
       return data;
     },
     async upsert(t: any) {
-      const payload = { name: t.fullName, staff_id: t.staffId, mobile: t.mobile, alternate_mobile: t.alternate_mobile, email: t.email, qualification: t.qualification, residence_address: t.residenceAddress, gender: t.gender, status: t.status, profile_image: t.profile_image, signature_image: t.signature_image, joining_date: t.joining_date, dob: t.dob, subject: Array.isArray(t.subjects) ? t.subjects.join(', ') : t.subjects, classes_list: Array.isArray(t.classes) ? t.classes.join(', ') : t.classes, permissions: Array.isArray(t.permissions) ? t.permissions.join(', ') : t.permissions, assigned_role: t.assigned_role, assigned_class: t.assigned_class, assigned_section: t.assigned_section, aadhar_no: t.aadhar_no, pan_no: t.pan_no, account_no: t.account_no, account_type: t.account_type, bank_name: t.bank_name, ifsc_code: t.ifsc_code, username: (t.username || '').toLowerCase().trim(), password: t.password };
+      const payload = { 
+        name: t.fullName, 
+        staff_id: t.staffId, 
+        mobile: t.mobile, 
+        alternate_mobile: t.alternateMobile || t.alternate_mobile, 
+        email: t.email, 
+        qualification: t.qualification, 
+        residence_address: t.residenceAddress || t.residence_address, 
+        gender: t.gender, 
+        status: t.status, 
+        profile_image: t.profileImage || t.profile_image, 
+        signature_image: t.signatureImage || t.signature_image, 
+        joining_date: t.joiningDate || t.joining_date, 
+        dob: t.dob, 
+        subject: Array.isArray(t.subjects) ? t.subjects.join(', ') : (t.subject || ''), 
+        classes_list: Array.isArray(t.classes) ? t.classes.join(', ') : (t.classes_list || ''), 
+        permissions: Array.isArray(t.permissions) ? t.permissions.join(', ') : (t.permissions || ''), 
+        assigned_role: t.assignedRole || t.assigned_role, 
+        assigned_class: t.assignedClass || t.assigned_class, 
+        assigned_section: t.assignedSection || t.assigned_section, 
+        aadhar_no: t.aadharNo || t.aadhar_no, 
+        pan_no: t.panNo || t.pan_no, 
+        account_no: t.accountNo || t.account_no, 
+        account_type: t.accountType || t.account_type, 
+        bank_name: t.bankName || t.bank_name, 
+        ifsc_code: t.ifscCode || t.ifsc_code, 
+        username: (t.username || '').toLowerCase().trim(), 
+        password: t.password,
+        actual_in_time: t.actualInTime || t.actual_in_time,
+        actual_out_time: t.actualOutTime || t.actual_out_time
+      };
       if (t.id) (payload as any).id = t.id;
       const { data, error } = await supabase.from('teachers').upsert([payload]).select();
       if (error) throw error;

@@ -435,7 +435,10 @@ const Layout: React.FC<LayoutProps> = ({ user, cloudHealthy, cloudError, cloudSe
                     )}
                   </div>
                </div>
-               <button onClick={() => setDarkMode(!darkMode)} className="p-2.5 bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400 rounded-xl hover:text-indigo-600 transition-all shadow-sm">{darkMode ? <Sun size={18} /> : <Moon size={18} />}</button>
+               <div className="flex items-center gap-1">
+                 <button onClick={() => setDarkMode(!darkMode)} className="p-2.5 bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400 rounded-xl hover:text-indigo-600 transition-all shadow-sm">{darkMode ? <Sun size={18} /> : <Moon size={18} />}</button>
+                 <button onClick={() => setSidebarOpen(false)} className="lg:hidden p-2.5 bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400 rounded-xl hover:text-rose-600 transition-all shadow-sm"><X size={18} /></button>
+               </div>
             </div>
           </div>
 
